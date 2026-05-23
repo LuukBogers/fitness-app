@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { t, supabase } from './lib';
-import { Btn, Field } from './shared';
+import { Btn, Field, Icon } from './shared';
 
 /* ═══════════════════════════ LOADING / CONFIG / AUTH SCREENS ═══════════════════════════ */
 export function LoadingScreen() {
