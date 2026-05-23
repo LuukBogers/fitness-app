@@ -1,10 +1,13 @@
 import { useState } from "react";
-import { t } from './lib';
+import { t, useT, useLang } from './lib';
+import { LANGUAGES } from './i18n';
 import { Icon, Label, Btn, Toggle, Chip, Field } from './shared';
 
 /* ═══════════════════════════ ONBOARDING ═══════════════════════════ */
 export function Onboarding({ onComplete }) {
-  const [step, setStep] = useState(0);
+  const T = useT();
+  const { lang, setLang } = useLang();
+  const [step, setStep] = useState(0); // 0 = language, 1 = personal, 2 = goal, 3 = cut strategy, 4 = numbers, 5 = macro structure, 6 = check-ins
   const [d, setD] = useState({
     gender: '', age: '', height: '', weight: '',
     activity: '', strength: '', cardio: '', goal: '', goalDetail: '', macroStructure: '',
@@ -26,17 +29,17 @@ export function Onboarding({ onComplete }) {
   const fatG = Math.round(w * 0.7);
   const carbG = Math.max(0, Math.round((startCal - proteinG * 4 - fatG * 9) / 4));
 
-  const showStep3 = d.goal === 'Cutting';
-  const totalSteps = showStep3 ? 6 : 5;
-  const displayStep = step >= 3 && !showStep3 ? step : step;
+  const showCutStep = d.goal === 'Cutting';
+  const TOTAL = 7; // language, personal, goal, [cut], numbers, macro, checkins
 
   const next = () => {
-    if (step === 1 && !showStep3) { setStep(3); return; }
-    if (step === 5) { onComplete(d); return; }
+    // Skip cut strategy if not Cutting
+    if (step === 2 && !showCutStep) { setStep(4); return; }
+    if (step === 6) { onComplete(d); return; }
     setStep(s => s + 1);
   };
   const back = () => {
-    if (step === 3 && !showStep3) { setStep(1); return; }
+    if (step === 4 && !showCutStep) { setStep(2); return; }
     if (step > 0) setStep(s => s - 1);
   };
 
@@ -44,37 +47,57 @@ export function Onboarding({ onComplete }) {
     switch (step) {
       case 0: return (
         <div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: t.text, marginBottom: 6, letterSpacing: '-0.02em' }}>Personal details</div>
-          <div style={{ fontSize: 14, color: t.soft, marginBottom: 24, lineHeight: 1.5 }}>The basics — so we can calculate your starting point.</div>
-          
-          <Label>Gender</Label>
+          <div style={{ fontSize: 24, fontWeight: 800, color: t.text, marginBottom: 6, letterSpacing: '-0.02em' }}>{T('lang.title')}</div>
+          <div style={{ fontSize: 14, color: t.soft, marginBottom: 24, lineHeight: 1.5 }}>{T('lang.sub')}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            {LANGUAGES.map(L => (
+              <div key={L.code} onClick={() => setLang(L.code)} style={{
+                padding: 16, borderRadius: 14, cursor: 'pointer',
+                background: lang === L.code ? t.greenBg : t.card2,
+                border: `1px solid ${lang === L.code ? t.green : t.border}`,
+                display: 'flex', alignItems: 'center', gap: 10,
+              }}>
+                <span style={{ fontSize: 24 }}>{L.flag}</span>
+                <span style={{ fontWeight: 600, fontSize: 14, color: lang === L.code ? t.green : t.text }}>{L.name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+
+      case 1: return (
+        <div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: t.text, marginBottom: 6, letterSpacing: '-0.02em' }}>{T('onb.personal.title')}</div>
+          <div style={{ fontSize: 14, color: t.soft, marginBottom: 24, lineHeight: 1.5 }}>{T('onb.personal.sub')}</div>
+
+          <Label>{T('onb.gender')}</Label>
           <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
-            {['male','female'].map(g => (
-              <div key={g} onClick={() => up('gender', g)} style={{
+            {[['male', T('onb.gender.male')], ['female', T('onb.gender.female')]].map(([gv, gl]) => (
+              <div key={gv} onClick={() => up('gender', gv)} style={{
                 flex: 1, padding: '14px', borderRadius: 14, textAlign: 'center', cursor: 'pointer',
-                background: d.gender === g ? t.greenBg : t.card2,
-                color: d.gender === g ? t.green : t.text, fontWeight: 600, fontSize: 15,
-                border: `1px solid ${d.gender === g ? t.green : t.border}`, textTransform: 'capitalize',
-              }}>{g}</div>
+                background: d.gender === gv ? t.greenBg : t.card2,
+                color: d.gender === gv ? t.green : t.text, fontWeight: 600, fontSize: 15,
+                border: `1px solid ${d.gender === gv ? t.green : t.border}`,
+              }}>{gl}</div>
             ))}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <Field label="Age" value={d.age} onChange={v => up('age', v)} type="number" placeholder="28" unit="yr" />
-            <Field label="Height" value={d.height} onChange={v => up('height', v)} type="number" placeholder="181" unit="cm" />
+            <Field label={T('onb.age')} value={d.age} onChange={v => up('age', v)} type="number" placeholder="28" unit="yr" />
+            <Field label={T('onb.height')} value={d.height} onChange={v => up('height', v)} type="number" placeholder="181" unit="cm" />
           </div>
-          <Field label="Weight" value={d.weight} onChange={v => up('weight', v)} type="number" placeholder="82.3" unit="kg" />
+          <Field label={T('onb.weight')} value={d.weight} onChange={v => up('weight', v)} type="number" placeholder="82.3" unit="kg" />
 
-          <Label style={{ marginTop: 10 }}>Activity level</Label>
+          <Label style={{ marginTop: 10 }}>{T('onb.activity')}</Label>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
-            {['Low','Average','High','Very high'].map(opt => (
-              <Chip key={opt} active={d.activity === opt} onClick={() => up('activity', opt)}>
-                <div style={{ padding: '4px 0' }}>{opt}</div>
+            {[['Low', T('onb.activity.low')], ['Average', T('onb.activity.average')], ['High', T('onb.activity.high')], ['Very high', T('onb.activity.veryhigh')]].map(([v, l]) => (
+              <Chip key={v} active={d.activity === v} onClick={() => up('activity', v)}>
+                <div style={{ padding: '4px 0' }}>{l}</div>
               </Chip>
             ))}
           </div>
 
-          <Label>Strength training / week</Label>
+          <Label>{T('onb.strength')}</Label>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 16 }}>
             {['0–1','1–2','3–4','5–6'].map(opt => (
               <Chip key={opt} active={d.strength === opt} onClick={() => up('strength', opt)} accent="orange">
@@ -83,36 +106,35 @@ export function Onboarding({ onComplete }) {
             ))}
           </div>
 
-          <Label>Cardio / week</Label>
+          <Label>{T('onb.cardio')}</Label>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
-            {['None','Light','Average','High'].map(opt => (
-              <Chip key={opt} active={d.cardio === opt} onClick={() => up('cardio', opt)} accent="orange">
-                <div style={{ padding: '4px 0', textAlign: 'center' }}>{opt}</div>
+            {[['None', T('onb.cardio.none')], ['Light', T('onb.cardio.light')], ['Average', T('onb.cardio.average')], ['High', T('onb.cardio.high')]].map(([v, l]) => (
+              <Chip key={v} active={d.cardio === v} onClick={() => up('cardio', v)} accent="orange">
+                <div style={{ padding: '4px 0', textAlign: 'center' }}>{l}</div>
               </Chip>
             ))}
           </div>
         </div>
       );
 
-      case 1: return (
+      case 2: return (
         <div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: t.text, marginBottom: 6, letterSpacing: '-0.02em' }}>What's your goal?</div>
-          <div style={{ fontSize: 14, color: t.soft, marginBottom: 24, lineHeight: 1.5 }}>Choose what describes what you're working toward.</div>
-          
+          <div style={{ fontSize: 24, fontWeight: 800, color: t.text, marginBottom: 6, letterSpacing: '-0.02em' }}>{T('onb.goal.title')}</div>
+          <div style={{ fontSize: 14, color: t.soft, marginBottom: 24, lineHeight: 1.5 }}>{T('onb.goal.sub')}</div>
+
           {[
-            { v: 'Cutting', emoji: '🔥', sub: 'Aggressive deficit. Maximize fat loss while preserving muscle.' },
-            { v: 'Fat loss', emoji: '📉', sub: 'Moderate deficit. Sustainable, long-term approach.' },
-            { v: 'Maintenance', emoji: '⚖️', sub: 'Eat at maintenance. Build habits or recover.' },
+            { v: 'Cutting',     emoji: '🔥', l: T('onb.goal.cutting'),  sub: T('onb.goal.cutting.sub') },
+            { v: 'Fat loss',    emoji: '📉', l: T('onb.goal.fatloss'),  sub: T('onb.goal.fatloss.sub') },
+            { v: 'Maintenance', emoji: '⚖️', l: T('onb.goal.maint'),    sub: T('onb.goal.maint.sub') },
           ].map(opt => (
             <div key={opt.v} onClick={() => up('goal', opt.v)} style={{
               padding: 18, borderRadius: 16, cursor: 'pointer', marginBottom: 10,
               background: d.goal === opt.v ? t.greenBg : t.card2,
               border: `1px solid ${d.goal === opt.v ? t.green : t.border}`,
-              transition: 'all 0.15s',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 5 }}>
                 <span style={{ fontSize: 18 }}>{opt.emoji}</span>
-                <span style={{ fontWeight: 700, fontSize: 16, color: d.goal === opt.v ? t.green : t.text }}>{opt.v}</span>
+                <span style={{ fontWeight: 700, fontSize: 16, color: d.goal === opt.v ? t.green : t.text }}>{opt.l}</span>
               </div>
               <div style={{ fontSize: 13, color: t.soft, marginLeft: 28 }}>{opt.sub}</div>
             </div>
@@ -120,39 +142,39 @@ export function Onboarding({ onComplete }) {
         </div>
       );
 
-      case 2: return showStep3 ? (
+      case 3: return showCutStep ? (
         <div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: t.text, marginBottom: 6, letterSpacing: '-0.02em' }}>Cut strategy</div>
-          <div style={{ fontSize: 14, color: t.soft, marginBottom: 24, lineHeight: 1.5 }}>How do you want to approach this cut?</div>
-          
+          <div style={{ fontSize: 24, fontWeight: 800, color: t.text, marginBottom: 6, letterSpacing: '-0.02em' }}>{T('onb.cut.title')}</div>
+          <div style={{ fontSize: 14, color: t.soft, marginBottom: 24, lineHeight: 1.5 }}>{T('onb.cut.sub')}</div>
+
           {[
-            { v: 'Cut → Reverse → Build', sub: 'Full periodization. Cut, then reverse, then build muscle.' },
-            { v: 'Cut only', sub: 'Cut to your target and reassess.' },
-            { v: 'Mini cut', sub: 'Aggressive 4-6 week cut. Higher protein.' },
-            { v: 'Recomp / maintenance', sub: 'Build muscle while staying lean.' },
+            { v: 'Cut → Reverse → Build', l: T('onb.cut.full'),   sub: T('onb.cut.full.sub') },
+            { v: 'Cut only',              l: T('onb.cut.only'),   sub: T('onb.cut.only.sub') },
+            { v: 'Mini cut',              l: T('onb.cut.mini'),   sub: T('onb.cut.mini.sub') },
+            { v: 'Recomp / maintenance',  l: T('onb.cut.recomp'), sub: T('onb.cut.recomp.sub') },
           ].map(opt => (
             <div key={opt.v} onClick={() => up('goalDetail', opt.v)} style={{
               padding: 16, borderRadius: 16, cursor: 'pointer', marginBottom: 10,
               background: d.goalDetail === opt.v ? t.greenBg : t.card2,
               border: `1px solid ${d.goalDetail === opt.v ? t.green : t.border}`,
             }}>
-              <div style={{ fontWeight: 700, color: d.goalDetail === opt.v ? t.green : t.text, marginBottom: 4 }}>{opt.v}</div>
+              <div style={{ fontWeight: 700, color: d.goalDetail === opt.v ? t.green : t.text, marginBottom: 4 }}>{opt.l}</div>
               <div style={{ fontSize: 13, color: t.soft }}>{opt.sub}</div>
             </div>
           ))}
         </div>
       ) : null;
 
-      case 3: return (
+      case 4: return (
         <div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: t.text, marginBottom: 6, letterSpacing: '-0.02em' }}>Your starting numbers</div>
-          <div style={{ fontSize: 14, color: t.soft, marginBottom: 24, lineHeight: 1.5 }}>Calculated with the Mifflin-St Jeor formula.</div>
-          
+          <div style={{ fontSize: 24, fontWeight: 800, color: t.text, marginBottom: 6, letterSpacing: '-0.02em' }}>{T('onb.numbers.title')}</div>
+          <div style={{ fontSize: 14, color: t.soft, marginBottom: 24, lineHeight: 1.5 }}>{T('onb.numbers.sub')}</div>
+
           <div style={{ background: t.card2, borderRadius: 18, padding: 18, border: `1px solid ${t.border}`, marginBottom: 14 }}>
             {[
-              { l: 'BMR (base metabolic rate)', v: `${bmr} kcal` },
-              { l: 'Maintenance calories', v: `${maint} kcal` },
-              { l: 'Strategy', v: d.goalDetail || d.goal || '—' },
+              { l: T('onb.bmr'),       v: `${bmr} kcal` },
+              { l: T('onb.maintkcal'), v: `${maint} kcal` },
+              { l: T('onb.strategy'),  v: d.goalDetail || d.goal || '—' },
             ].map((r, i) => (
               <div key={r.l} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: i < 2 ? `1px solid ${t.border}` : 'none' }}>
                 <div style={{ fontSize: 13, color: t.soft }}>{r.l}</div>
@@ -162,13 +184,13 @@ export function Onboarding({ onComplete }) {
           </div>
 
           <div style={{ background: t.greenBg, borderRadius: 18, padding: 18, border: `1px solid ${t.greenBorder}`, marginBottom: 14 }}>
-            <Label color={t.green}>Starting calories</Label>
-            <div style={{ fontSize: 32, fontWeight: 800, color: t.green, letterSpacing: '-0.02em' }}>{startCal}<span style={{ fontSize: 16, color: t.soft, fontWeight: 500, marginLeft: 6 }}>kcal/day</span></div>
+            <Label color={t.green}>{T('onb.startcal')}</Label>
+            <div style={{ fontSize: 32, fontWeight: 800, color: t.green, letterSpacing: '-0.02em' }}>{startCal}<span style={{ fontSize: 16, color: t.soft, fontWeight: 500, marginLeft: 6 }}> {T('common.kcalday')}</span></div>
           </div>
 
-          <Label>Starting macros</Label>
+          <Label>{T('onb.startmacros')}</Label>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
-            {[['Protein', proteinG, t.protein], ['Carbs', carbG, t.carbs], ['Fat', fatG, t.fat]].map(([n, v, c]) => (
+            {[[T('macros.protein'), proteinG, t.protein], [T('macros.carbs'), carbG, t.carbs], [T('macros.fat'), fatG, t.fat]].map(([n, v, c]) => (
               <div key={n} style={{ background: t.card2, borderRadius: 14, padding: 14, textAlign: 'center', border: `1px solid ${t.border}` }}>
                 <div style={{ fontSize: 22, fontWeight: 800, color: c, letterSpacing: '-0.02em' }}>{v}g</div>
                 <div style={{ fontSize: 11, color: t.muted, fontWeight: 600, marginTop: 2 }}>{n}</div>
@@ -178,14 +200,14 @@ export function Onboarding({ onComplete }) {
         </div>
       );
 
-      case 4: return (
+      case 5: return (
         <div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: t.text, marginBottom: 6, letterSpacing: '-0.02em' }}>Macro structure</div>
-          <div style={{ fontSize: 14, color: t.soft, marginBottom: 24, lineHeight: 1.5 }}>How do you want to structure your week?</div>
-          
+          <div style={{ fontSize: 24, fontWeight: 800, color: t.text, marginBottom: 6, letterSpacing: '-0.02em' }}>{T('onb.macrostr.title')}</div>
+          <div style={{ fontSize: 14, color: t.soft, marginBottom: 24, lineHeight: 1.5 }}>{T('onb.macrostr.sub')}</div>
+
           {[
-            { v: 'same', t: 'Same every day', sub: 'Same calories and macros on training and rest days.' },
-            { v: 'split', t: 'Train vs rest split', sub: 'More carbs on training days, lower calories on rest days. Protein and fats stay stable. Better for performance and fat loss.', rec: true },
+            { v: 'same',  l: T('onb.macrostr.same'),  sub: T('onb.macrostr.same.sub') },
+            { v: 'split', l: T('onb.macrostr.split'), sub: T('onb.macrostr.split.sub'), rec: true },
           ].map(o => (
             <div key={o.v} onClick={() => up('macroStructure', o.v)} style={{
               padding: 18, borderRadius: 16, cursor: 'pointer', marginBottom: 12,
@@ -193,38 +215,36 @@ export function Onboarding({ onComplete }) {
               border: `1px solid ${d.macroStructure === o.v ? t.green : t.border}`, position: 'relative',
             }}>
               {o.rec && (
-                <div style={{ position: 'absolute', top: -8, right: 12, background: t.green, color: '#0A0A0B', fontSize: 10, fontWeight: 800, padding: '4px 10px', borderRadius: 8, letterSpacing: '0.05em' }}>RECOMMENDED</div>
+                <div style={{ position: 'absolute', top: -8, right: 12, background: t.green, color: '#0A0A0B', fontSize: 10, fontWeight: 800, padding: '4px 10px', borderRadius: 8, letterSpacing: '0.05em' }}>{T('common.recommended')}</div>
               )}
-              <div style={{ fontWeight: 700, fontSize: 16, color: d.macroStructure === o.v ? t.green : t.text, marginBottom: 6 }}>{o.t}</div>
+              <div style={{ fontWeight: 700, fontSize: 16, color: d.macroStructure === o.v ? t.green : t.text, marginBottom: 6 }}>{o.l}</div>
               <div style={{ fontSize: 13, color: t.soft, lineHeight: 1.5 }}>{o.sub}</div>
             </div>
           ))}
         </div>
       );
 
-      case 5: return (
+      case 6: return (
         <div>
-          <div style={{ fontSize: 24, fontWeight: 800, color: t.text, marginBottom: 6, letterSpacing: '-0.02em' }}>Check-ins & privacy</div>
-          <div style={{ fontSize: 14, color: t.soft, marginBottom: 22, lineHeight: 1.5 }}>Daily check-ins keep you on track. Your data stays yours.</div>
-          
+          <div style={{ fontSize: 24, fontWeight: 800, color: t.text, marginBottom: 6, letterSpacing: '-0.02em' }}>{T('onb.checkins.title')}</div>
+          <div style={{ fontSize: 14, color: t.soft, marginBottom: 22, lineHeight: 1.5 }}>{T('onb.checkins.sub')}</div>
+
           <div style={{ background: t.greenBg, borderRadius: 16, padding: 16, border: `1px solid ${t.greenBorder}`, marginBottom: 16 }}>
             <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
               <Icon name="shield" size={18} color={t.green} />
               <div>
-                <div style={{ fontSize: 13, color: t.green, fontWeight: 700, marginBottom: 4 }}>Progress photos stay on your device</div>
-                <div style={{ fontSize: 12.5, color: t.soft, lineHeight: 1.5 }}>
-                  Progress photos help you track physical progress for yourself. You take and store them only on your own phone. The app never stores photos. Completely optional.
-                </div>
+                <div style={{ fontSize: 13, color: t.green, fontWeight: 700, marginBottom: 4 }}>{T('onb.privacy.title')}</div>
+                <div style={{ fontSize: 12.5, color: t.soft, lineHeight: 1.5 }}>{T('onb.privacy.body')}</div>
               </div>
             </div>
           </div>
 
-          <Label>Notifications</Label>
+          <Label>{T('onb.notifications')}</Label>
           {[
-            { k: 'weigh', l: 'Morning weigh reminder', icon: '⚖️' },
-            { k: 'checkin', l: '21:00 daily check-in reminder', icon: '✅' },
-            { k: 'photoSat', l: 'Saturday progress photo', icon: '📷' },
-            { k: 'photoSun', l: 'Sunday progress photo', icon: '📷' },
+            { k: 'weigh',    l: T('onb.notif.weigh'),    icon: '⚖️' },
+            { k: 'checkin',  l: T('onb.notif.checkin'),  icon: '✅' },
+            { k: 'photoSat', l: T('onb.notif.photoSat'), icon: '📷' },
+            { k: 'photoSun', l: T('onb.notif.photoSun'), icon: '📷' },
           ].map(n => (
             <div key={n.k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0', borderBottom: `1px solid ${t.border}` }}>
               <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -241,7 +261,7 @@ export function Onboarding({ onComplete }) {
     }
   };
 
-  const pct = ((step + 1) / 6) * 100;
+  const pct = ((step + 1) / TOTAL) * 100;
 
   return (
     <div style={{ background: t.bg, minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -249,10 +269,10 @@ export function Onboarding({ onComplete }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           {step > 0 ? (
             <div onClick={back} style={{ cursor: 'pointer', color: t.soft, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Icon name="chevL" size={18} /> <span style={{ fontSize: 14 }}>Back</span>
+              <Icon name="chevL" size={18} /> <span style={{ fontSize: 14 }}>{T('common.back')}</span>
             </div>
           ) : <div style={{ width: 60 }} />}
-          <div style={{ fontSize: 12, color: t.muted, fontWeight: 600 }}>Step {step + 1} of 6</div>
+          <div style={{ fontSize: 12, color: t.muted, fontWeight: 600 }}>{T('common.step')} {step + 1} {T('common.of')} {TOTAL}</div>
           <div style={{ width: 60 }} />
         </div>
         <div style={{ background: t.card2, borderRadius: 4, height: 4 }}>
@@ -265,7 +285,7 @@ export function Onboarding({ onComplete }) {
       </div>
 
       <div style={{ padding: '16px 20px', borderTop: `1px solid ${t.border}`, background: t.bg }}>
-        <Btn full onClick={next}>{step === 5 ? 'Start the app →' : 'Continue →'}</Btn>
+        <Btn full onClick={next}>{step === 6 ? T('onb.start') + ' →' : T('common.continue') + ' →'}</Btn>
       </div>
     </div>
   );

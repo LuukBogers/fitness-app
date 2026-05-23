@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase, isConfigured, AppContext, t, todayKey } from './lib';
+import { supabase, isConfigured, AppContext, LangContext, t, todayKey, detectLang } from './lib';
 import { LoadingScreen, ConfigError, AuthFlow } from './auth';
 import { Onboarding } from './onboarding';
 import { Home } from './home';
@@ -16,6 +16,20 @@ export default function App() {
   const [profile, setProfile] = useState(null);
   const [tab, setTab] = useState('home');
   const [showCheckIn, setShowCheckIn] = useState(false);
+  // Language: start with localStorage → browser detect → en
+  const [lang, setLangState] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const stored = window.localStorage.getItem('app.lang');
+      if (stored) return stored;
+    }
+    return detectLang();
+  });
+
+  // Sets language + persists to localStorage immediately (profile sync via useEffect below)
+  const setLang = (newLang) => {
+    setLangState(newLang);
+    if (typeof window !== 'undefined') window.localStorage.setItem('app.lang', newLang);
+  };
 
   // Load font + animations
   useEffect(() => {
@@ -79,11 +93,27 @@ export default function App() {
         setPhase('onboarding');
       } else {
         setProfile(data);
+        // Restore language from profile if set
+        if (data.data?.language) {
+          setLangState(data.data.language);
+          if (typeof window !== 'undefined') window.localStorage.setItem('app.lang', data.data.language);
+        }
         setPhase('main');
       }
     })();
     return () => { cancelled = true; };
   }, [session]);
+
+  // Sync language changes to profile.data
+  useEffect(() => {
+    if (!session || !profile) return;
+    if (profile.data?.language === lang) return;
+    (async () => {
+      const merged = { ...(profile.data || {}), language: lang };
+      await supabase.from('profiles').update({ data: merged, updated_at: new Date().toISOString() }).eq('id', session.user.id);
+      setProfile(p => ({ ...p, data: merged }));
+    })();
+  }, [lang, session, profile?.id]);
 
   const completeOnboarding = async (onboardingData) => {
     const age = parseInt(onboardingData.age) || 28;
@@ -102,6 +132,7 @@ export default function App() {
 
     const fullData = {
       ...onboardingData,
+      language: lang,
       calories, protein, carbs, fat,
       streak: 0,
       weights: w ? [{ date: todayKey(), weight: w }] : [],
@@ -156,24 +187,26 @@ export default function App() {
       backgroundImage: `radial-gradient(circle at 20% 20%, rgba(34,197,94,0.06), transparent 50%), radial-gradient(circle at 80% 80%, rgba(249,115,22,0.06), transparent 50%)`,
     }}>
       <div style={phoneStyle}>
-        <AppContext.Provider value={{ session, profile, signOut, saveProfileData }}>
-          {phase === 'loading' && <LoadingScreen />}
-          {phase === 'config' && <ConfigError />}
-          {phase === 'auth' && <AuthFlow />}
-          {phase === 'onboarding' && <Onboarding onComplete={completeOnboarding} />}
-          {phase === 'main' && (
-            <>
-              <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-                {tab === 'home' && <Home onOpenCheckIn={() => setShowCheckIn(true)} />}
-                {tab === 'nutrition' && <Nutrition />}
-                {tab === 'workouts' && <Workouts />}
-                {tab === 'settings' && <Settings />}
-              </div>
-              <BottomNav tab={tab} setTab={setTab} />
-              <CheckIn visible={showCheckIn} onClose={() => setShowCheckIn(false)} />
-            </>
-          )}
-        </AppContext.Provider>
+        <LangContext.Provider value={{ lang, setLang }}>
+          <AppContext.Provider value={{ session, profile, signOut, saveProfileData }}>
+            {phase === 'loading' && <LoadingScreen />}
+            {phase === 'config' && <ConfigError />}
+            {phase === 'auth' && <AuthFlow />}
+            {phase === 'onboarding' && <Onboarding onComplete={completeOnboarding} />}
+            {phase === 'main' && (
+              <>
+                <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
+                  {tab === 'home' && <Home onOpenCheckIn={() => setShowCheckIn(true)} />}
+                  {tab === 'nutrition' && <Nutrition />}
+                  {tab === 'workouts' && <Workouts />}
+                  {tab === 'settings' && <Settings />}
+                </div>
+                <BottomNav tab={tab} setTab={setTab} />
+                <CheckIn visible={showCheckIn} onClose={() => setShowCheckIn(false)} />
+              </>
+            )}
+          </AppContext.Provider>
+        </LangContext.Provider>
       </div>
     </div>
   );

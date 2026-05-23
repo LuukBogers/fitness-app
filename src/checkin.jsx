@@ -1,26 +1,28 @@
 import { useState, useEffect } from "react";
-import { t, useApp, todayKey, fmtKey } from './lib';
+import { t, useApp, useT, todayKey, fmtKey } from './lib';
 import { Btn, Modal, ScaleInput, YesNo } from './shared';
 
 /* ═══════════════════════════ CHECK-IN QUESTIONS ═══════════════════════════ */
+// Labels worden runtime vertaald via T() — alleen ids/types/units zijn statisch.
 const CHECKIN_Q = [
-  { id: 'weight', label: 'Body weight', type: 'number', unit: 'kg', ph: '82.3' },
-  { id: 'sleep', label: 'Hours slept', type: 'number', unit: 'h', ph: '7.5' },
-  { id: 'sleepQ', label: 'Sleep quality', type: 'scale' },
-  { id: 'water', label: 'Water intake', type: 'number', unit: 'L', ph: '2.5' },
-  { id: 'steps', label: 'Steps today', type: 'number', unit: '', ph: '8500' },
-  { id: 'stress', label: 'Stress level', type: 'scale' },
-  { id: 'energy', label: 'Energy level', type: 'scale' },
-  { id: 'hunger', label: 'Hunger level', type: 'scale' },
-  { id: 'recovery', label: 'Recovery / soreness', type: 'scale' },
-  { id: 'trained', label: 'Did you train today?', type: 'yesno' },
-  { id: 'trainQ', label: 'Training performance', type: 'scale', cond: 'trained' },
-  { id: 'cardio', label: 'Did you do cardio?', type: 'yesno' },
-  { id: 'caffeine', label: 'Caffeine after 14:00?', type: 'yesno' },
+  { id: 'weight',   labelKey: 'checkin.q.weight',   type: 'number', unit: 'kg', ph: '82.3' },
+  { id: 'sleep',    labelKey: 'checkin.q.sleep',    type: 'number', unit: 'h',  ph: '7.5' },
+  { id: 'sleepQ',   labelKey: 'checkin.q.sleepq',   type: 'scale' },
+  { id: 'water',    labelKey: 'checkin.q.water',    type: 'number', unit: 'L',  ph: '2.5' },
+  { id: 'steps',    labelKey: 'checkin.q.steps',    type: 'number', unit: '',   ph: '8500' },
+  { id: 'stress',   labelKey: 'checkin.q.stress',   type: 'scale' },
+  { id: 'energy',   labelKey: 'checkin.q.energy',   type: 'scale' },
+  { id: 'hunger',   labelKey: 'checkin.q.hunger',   type: 'scale' },
+  { id: 'recovery', labelKey: 'checkin.q.recovery', type: 'scale' },
+  { id: 'trained',  labelKey: 'checkin.q.trained',  type: 'yesno' },
+  { id: 'trainQ',   labelKey: 'checkin.q.trainq',   type: 'scale', cond: 'trained' },
+  { id: 'cardio',   labelKey: 'checkin.q.cardio',   type: 'yesno' },
+  { id: 'caffeine', labelKey: 'checkin.q.caffeine', type: 'yesno' },
 ];
 
 /* ═══════════════════════════ DAILY CHECK-IN ═══════════════════════════ */
 export function CheckIn({ visible, onClose }) {
+  const T = useT();
   const { profile, saveProfileData } = useApp();
   const tKey = todayKey();
   const existing = profile?.data?.checkIns?.[tKey] || {};
@@ -36,7 +38,6 @@ export function CheckIn({ visible, onClose }) {
     const currentCheckIns = profile?.data?.checkIns || {};
     const newCheckIns = { ...currentCheckIns, [tKey]: { ...answers, savedAt: new Date().toISOString() } };
     const patch = { checkIns: newCheckIns };
-    // Also log weight to weights array if provided
     if (answers.weight && !isNaN(parseFloat(answers.weight))) {
       const existingW = profile?.data?.weights || [];
       const todayW = existingW.find(w => w.date === tKey);
@@ -45,7 +46,6 @@ export function CheckIn({ visible, onClose }) {
         : [...existingW, { date: tKey, weight: parseFloat(answers.weight) }];
       patch.weights = newW;
     }
-    // Streak: if check-in done yesterday → streak+1, else 1
     const yKey = (() => { const d = new Date(); d.setDate(d.getDate()-1); return fmtKey(d); })();
     const prevStreak = profile?.data?.streak || 0;
     const yChecked = !!currentCheckIns[yKey];
@@ -54,20 +54,23 @@ export function CheckIn({ visible, onClose }) {
     onClose();
   };
 
+  // Trained-conditional check: "Yes" in any language counts as positive
+  const isTrained = trained === 'Yes' || trained === T('common.yes');
+
   return (
-    <Modal visible={visible} onClose={onClose} title="Daily check-in">
+    <Modal visible={visible} onClose={onClose} title={T('checkin.title')}>
       <div style={{ fontSize: 13, color: t.soft, marginBottom: 20 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', background: t.greenBg, borderRadius: 8, color: t.green, fontWeight: 600 }}>
           <div style={{ width: 6, height: 6, borderRadius: 3, background: t.green }} />
-          Saves to your account
+          {T('checkin.savesto')}
         </span>
       </div>
 
       {CHECKIN_Q.map(q => {
-        if (q.cond === 'trained' && trained !== 'Yes') return null;
+        if (q.cond === 'trained' && !isTrained) return null;
         return (
           <div key={q.id} style={{ marginBottom: 18 }}>
-            <div style={{ fontSize: 14, color: t.text, fontWeight: 600, marginBottom: 10 }}>{q.label}</div>
+            <div style={{ fontSize: 14, color: t.text, fontWeight: 600, marginBottom: 10 }}>{T(q.labelKey)}</div>
             {q.type === 'number' && (
               <div style={{ position: 'relative' }}>
                 <input
@@ -90,7 +93,7 @@ export function CheckIn({ visible, onClose }) {
         );
       })}
 
-      <Btn full onClick={save} style={{ marginTop: 8 }}>Save check-in</Btn>
+      <Btn full onClick={save} style={{ marginTop: 8 }}>{T('checkin.save')}</Btn>
     </Modal>
   );
 }

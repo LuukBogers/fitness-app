@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { createContext, useContext } from "react";
+import { TRANSLATIONS, detectLang } from "./i18n";
 
 /* ═══════════════════════════ SUPABASE CONFIG ═══════════════════════════ */
 const SUPABASE_URL = "https://apjcijsxspxxxrdgewll.supabase.co";
@@ -18,6 +19,43 @@ export const isConfigured = () =>
 /* ═══════════════════════════ APP CONTEXT ═══════════════════════════ */
 export const AppContext = createContext({});
 export const useApp = () => useContext(AppContext);
+
+/* ═══════════════════════════ LANGUAGE CONTEXT ═══════════════════════════ */
+export const LangContext = createContext({ lang: 'en', setLang: () => {} });
+export const useLang = () => useContext(LangContext);
+
+/* useT() → returns translator function t(key, vars?)
+ * - falls back to English if key missing in current language
+ * - falls back to key itself if missing in English too
+ * - replaces {placeholder} tokens with vars[placeholder]
+ */
+export const useT = () => {
+  const { lang } = useLang();
+  return (key, vars) => {
+    const dict = TRANSLATIONS[lang] || TRANSLATIONS.en;
+    let str = dict[key] || TRANSLATIONS.en[key] || key;
+    if (vars) {
+      Object.keys(vars).forEach(k => {
+        str = str.replace(new RegExp('\\{' + k + '\\}', 'g'), vars[k]);
+      });
+    }
+    return str;
+  };
+};
+
+// Stand-alone translator (no React hook) for places where useT can't be called
+export const translate = (lang, key, vars) => {
+  const dict = TRANSLATIONS[lang] || TRANSLATIONS.en;
+  let str = dict[key] || TRANSLATIONS.en[key] || key;
+  if (vars) {
+    Object.keys(vars).forEach(k => {
+      str = str.replace(new RegExp('\\{' + k + '\\}', 'g'), vars[k]);
+    });
+  }
+  return str;
+};
+
+export { detectLang };
 
 /* ═══════════════════════════ TOKENS ═══════════════════════════ */
 export const t = {

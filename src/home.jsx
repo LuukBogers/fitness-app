@@ -1,8 +1,9 @@
-import { t, WEEK, useApp, todayIdx, weekDates, todayKey, dayLabel, fmtKey } from './lib';
+import { t, WEEK, useApp, useT, todayIdx, weekDates, todayKey, dayLabel, fmtKey } from './lib';
 import { Icon, Card, Label, ProgressBar, Ring } from './shared';
 
 /* ═══════════════════════════ HOME ═══════════════════════════ */
 export function Home({ onOpenCheckIn }) {
+  const T = useT();
   const { profile, session } = useApp();
   const d = profile?.data || {};
   const userName = profile?.name || session?.user?.user_metadata?.full_name || session?.user?.email?.split('@')[0] || 'You';
@@ -65,7 +66,7 @@ export function Home({ onOpenCheckIn }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
         <div>
           <div style={{ fontSize: 13, color: t.muted, fontWeight: 600, letterSpacing: '0.05em', marginBottom: 2 }}>{dayLabel()}</div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: t.text, letterSpacing: '-0.02em' }}>Hi, {userName}</div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: t.text, letterSpacing: '-0.02em' }}>{T('home.greeting')}, {userName}</div>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <div style={{ position: 'relative', width: 40, height: 40, borderRadius: 12, background: t.card2, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${t.border}`, cursor: 'pointer' }}>
@@ -79,11 +80,11 @@ export function Home({ onOpenCheckIn }) {
       <Card onClick={onOpenCheckIn} style={{ background: `linear-gradient(135deg, ${t.card}, ${t.card2})`, position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: -30, right: -30, width: 140, height: 140, background: `radial-gradient(circle, ${t.greenBg}, transparent 70%)`, pointerEvents: 'none' }} />
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, position: 'relative' }}>
-          <Label color={t.green} style={{ marginBottom: 0 }}>Daily check-in</Label>
+          <Label color={t.green} style={{ marginBottom: 0 }}>{T('home.checkin')}</Label>
           {streak > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: t.orangeBg, padding: '4px 10px', borderRadius: 10, border: `1px solid ${t.orangeBorder}` }}>
               <Icon name="fire" size={11} color={t.orange} />
-              <span style={{ fontSize: 11, color: t.orange, fontWeight: 700 }}>{streak} day streak</span>
+              <span style={{ fontSize: 11, color: t.orange, fontWeight: 700 }}>{streak} {T('home.streak')}</span>
             </div>
           )}
         </div>
@@ -109,7 +110,7 @@ export function Home({ onOpenCheckIn }) {
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
-          <div style={{ fontSize: 13, color: t.soft }}>{checkIns[tKey] ? "Today's check-in done · view" : "Fill in today's check-in"}</div>
+          <div style={{ fontSize: 13, color: t.soft }}>{checkIns[tKey] ? T('home.checkindone') : T('home.fillcheckin')}</div>
           <Icon name="chevR" size={16} color={t.green} />
         </div>
       </Card>
@@ -118,33 +119,33 @@ export function Home({ onOpenCheckIn }) {
       <Card>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
           <div>
-            <Label color={t.green}>Nutrition today</Label>
+            <Label color={t.green}>{T('home.nutrtoday')}</Label>
             {calories > 0 ? (
               <div style={{ fontSize: 16, color: t.text }}>
-                You can still eat <span style={{ fontWeight: 700, color: t.green }}>{remaining}</span> kcal
+                {T('home.canstileat')} <span style={{ fontWeight: 700, color: t.green }}>{remaining}</span> kcal
               </div>
             ) : (
-              <div style={{ fontSize: 14, color: t.muted }}>Set your macros in Settings first</div>
+              <div style={{ fontSize: 14, color: t.muted }}>{T('home.setmacros')}</div>
             )}
           </div>
         </div>
 
         <ProgressBar value={eatenKcal} max={calories || 1} color={t.green} height={10} />
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 12 }}>
-          <span style={{ color: t.soft }}><span style={{ color: t.text, fontWeight: 700 }}>{eatenKcal}</span> eaten</span>
-          <span style={{ color: t.soft }}>target <span style={{ color: t.text, fontWeight: 700 }}>{calories || '—'}</span></span>
+          <span style={{ color: t.soft }}><span style={{ color: t.text, fontWeight: 700 }}>{eatenKcal}</span> {T('home.eaten')}</span>
+          <span style={{ color: t.soft }}>{T('home.target')} <span style={{ color: t.text, fontWeight: 700 }}>{calories || '—'}</span></span>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 20, paddingTop: 18, borderTop: `1px solid ${t.border}` }}>
-          <Ring value={Math.round(eatenP)} max={protein || 1} color={t.protein} label="Protein" />
-          <Ring value={Math.round(eatenC)} max={carbs || 1} color={t.carbs} label="Carbs" />
-          <Ring value={Math.round(eatenF)} max={fat || 1} color={t.fat} label="Fat" />
+          <Ring value={Math.round(eatenP)} max={protein || 1} color={t.protein} label={T('macros.protein')} />
+          <Ring value={Math.round(eatenC)} max={carbs || 1} color={t.carbs} label={T('macros.carbs')} />
+          <Ring value={Math.round(eatenF)} max={fat || 1} color={t.fat} label={T('macros.fat')} />
         </div>
       </Card>
 
       {/* Block 3: Workout Status */}
       <Card>
-        <Label color={t.orange}>Today's workout</Label>
+        <Label color={t.orange}>{T('home.todaysworkout')}</Label>
         {todayWorkout ? (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -153,7 +154,7 @@ export function Home({ onOpenCheckIn }) {
               </div>
               <div>
                 <div style={{ fontSize: 17, fontWeight: 700, color: t.text }}>{todayWorkout}</div>
-                <div style={{ fontSize: 12.5, color: t.soft }}>{todayDone ? '✓ Completed' : 'Tap to start'}</div>
+                <div style={{ fontSize: 12.5, color: t.soft }}>{todayDone ? '✓ ' + T('home.completed') : T('home.taptostart')}</div>
               </div>
             </div>
           </div>
@@ -163,8 +164,8 @@ export function Home({ onOpenCheckIn }) {
               <Icon name="rest" size={22} color={t.muted} />
             </div>
             <div>
-              <div style={{ fontSize: 17, fontWeight: 700, color: t.text }}>Rest day</div>
-              <div style={{ fontSize: 12.5, color: t.soft }}>{Object.keys(workoutPlan).length === 0 ? 'Plan workouts in the Workouts tab' : 'Recovery & mobility'}</div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: t.text }}>{T('home.restday')}</div>
+              <div style={{ fontSize: 12.5, color: t.soft }}>{Object.keys(workoutPlan).length === 0 ? T('home.planworkouts') : T('home.recovery')}</div>
             </div>
           </div>
         )}
@@ -174,7 +175,7 @@ export function Home({ onOpenCheckIn }) {
       <Card>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16 }}>
           <div>
-            <Label>Weight</Label>
+            <Label>{T('home.weight')}</Label>
             {hasWeights ? (
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
                 <span style={{ fontSize: 26, fontWeight: 800, color: t.text, letterSpacing: '-0.02em' }}>{lastW}</span>
@@ -184,10 +185,10 @@ export function Home({ onOpenCheckIn }) {
                 )}
               </div>
             ) : (
-              <div style={{ fontSize: 14, color: t.muted, marginTop: 4 }}>Log a weigh-in via Check-in</div>
+              <div style={{ fontSize: 14, color: t.muted, marginTop: 4 }}>{T('home.logweighfirst')}</div>
             )}
           </div>
-          {hasWeights && <div style={{ fontSize: 11, color: t.muted, fontWeight: 600 }}>Last {wLog.length} entries</div>}
+          {hasWeights && <div style={{ fontSize: 11, color: t.muted, fontWeight: 600 }}>{T('home.lastentries', { n: wLog.length })}</div>}
         </div>
 
         {hasWeights ? (
@@ -206,7 +207,7 @@ export function Home({ onOpenCheckIn }) {
           </svg>
         ) : (
           <div style={{ height: 90, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 12, background: t.card2, border: `1px dashed ${t.border}` }}>
-            <div style={{ fontSize: 12, color: t.muted }}>📈 Graph appears after 2+ weigh-ins</div>
+            <div style={{ fontSize: 12, color: t.muted }}>{T('home.graphhint')}</div>
           </div>
         )}
       </Card>

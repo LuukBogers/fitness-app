@@ -1,4 +1,4 @@
-import { t } from './lib';
+import { t, useT } from './lib';
 
 /* ═══════════════════════════ ICONS (inline SVG) ═══════════════════════════ */
 export const Icon = ({ name, size = 20, color = 'currentColor', stroke = 1.8 }) => {
@@ -160,17 +160,19 @@ export const ScaleInput = ({ value, onChange, accent = 'green' }) => {
 };
 
 export const YesNo = ({ value, onChange, accent = 'green' }) => {
+  const T = useT();
   const acc = accent === 'orange' ? t.orange : t.green;
+  const opts = [{ v: 'Yes', l: T('common.yes') }, { v: 'No', l: T('common.no') }];
   return (
     <div style={{ display: 'flex', gap: 8 }}>
-      {['Yes','No'].map(opt => (
-        <div key={opt} onClick={() => onChange(opt)} style={{
+      {opts.map(opt => (
+        <div key={opt.v} onClick={() => onChange(opt.v)} style={{
           flex: 1, padding: '12px', borderRadius: 12, cursor: 'pointer', textAlign: 'center',
-          background: value === opt ? acc : t.card2,
-          color: value === opt ? '#0A0A0B' : t.soft,
+          background: value === opt.v ? acc : t.card2,
+          color: value === opt.v ? '#0A0A0B' : t.soft,
           fontSize: 14, fontWeight: 700, transition: 'all 0.15s',
-          border: `1px solid ${value === opt ? acc : t.border}`,
-        }}>{opt}</div>
+          border: `1px solid ${value === opt.v ? acc : t.border}`,
+        }}>{opt.l}</div>
       ))}
     </div>
   );

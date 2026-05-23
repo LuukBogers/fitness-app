@@ -1,13 +1,14 @@
-import { t } from './lib';
+import { t, useT } from './lib';
 import { Icon } from './shared';
 
 /* ═══════════════════════════ BOTTOM NAV ═══════════════════════════ */
 export function BottomNav({ tab, setTab }) {
+  const T = useT();
   const tabs = [
-    { k: 'home', l: 'Home', icon: 'home' },
-    { k: 'nutrition', l: 'Nutrition', icon: 'nutrition', accent: 'green' },
-    { k: 'workouts', l: 'Workouts', icon: 'workout', accent: 'orange' },
-    { k: 'settings', l: 'Settings', icon: 'settings' },
+    { k: 'home', l: T('nav.home'), icon: 'home' },
+    { k: 'nutrition', l: T('nav.nutrition'), icon: 'nutrition', accent: 'green' },
+    { k: 'workouts', l: T('nav.workouts'), icon: 'workout', accent: 'orange' },
+    { k: 'settings', l: T('nav.settings'), icon: 'settings' },
   ];
   return (
     <div style={{

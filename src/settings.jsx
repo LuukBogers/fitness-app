@@ -1,9 +1,12 @@
 import { useState } from "react";
-import { t, useApp } from './lib';
+import { t, useApp, useT, useLang } from './lib';
+import { LANGUAGES } from './i18n';
 import { Icon, Card, Label, Btn, Toggle, Modal, Field } from './shared';
 
 /* ═══════════════════════════ SETTINGS ═══════════════════════════ */
 export function Settings() {
+  const T = useT();
+  const { lang, setLang } = useLang();
   const { session, profile, signOut } = useApp();
   const d = profile?.data || {};
   const [sub, setSub] = useState('main');
@@ -20,11 +23,12 @@ export function Settings() {
   const userGoal = d.goal || '';
   const userGoalDetail = d.goalDetail || '';
   const userCalories = d.calories || 0;
+  const currentLang = LANGUAGES.find(L => L.code === lang) || LANGUAGES[0];
 
   if (sub === 'main') return (
     <div style={{ padding: '20px 16px 100px' }}>
-      <Label>Settings</Label>
-      <div style={{ fontSize: 24, fontWeight: 800, color: t.text, marginBottom: 20, letterSpacing: '-0.02em' }}>Account</div>
+      <Label>{T('set.title')}</Label>
+      <div style={{ fontSize: 24, fontWeight: 800, color: t.text, marginBottom: 20, letterSpacing: '-0.02em' }}>{T('set.account')}</div>
 
       <Card style={{ padding: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -37,14 +41,15 @@ export function Settings() {
       </Card>
 
       {[
-        { k: 'personal', icon: 'user', l: 'Personal data', sub: 'Age, height, weight, activity' },
-        { k: 'goal', icon: 'target', l: 'Goal', sub: userGoal ? `${userGoal}${userGoalDetail ? ' · ' + userGoalDetail : ''}` : 'Not set' },
-        { k: 'training', icon: 'workout', l: 'Training / rest structure', sub: 'Fixed schedule', accent: 'orange' },
-        { k: 'macros', icon: 'flame', l: 'Adjust macros', sub: userCalories ? `${userCalories} kcal/day` : 'Not set yet', accent: 'green' },
-        { k: 'notifications', icon: 'bell', l: 'Notifications', sub: `${Object.values(notif).filter(Boolean).length} of ${Object.keys(notif).length} enabled` },
-        { k: 'privacy', icon: 'shield', l: 'Privacy', sub: 'Photos never stored' },
+        { k: 'personal', icon: 'user', l: T('set.personal'), sub: T('set.personal.sub') },
+        { k: 'goal', icon: 'target', l: T('set.goal'), sub: userGoal ? `${userGoal}${userGoalDetail ? ' · ' + userGoalDetail : ''}` : T('common.notset') },
+        { k: 'training', icon: 'workout', l: T('set.training'), sub: T('set.training.sub'), accent: 'orange' },
+        { k: 'macros', icon: 'flame', l: T('set.macros'), sub: userCalories ? `${userCalories} ${T('common.kcalday')}` : T('common.notset'), accent: 'green' },
+        { k: 'notifications', icon: 'bell', l: T('set.notif'), sub: T('set.notif.sub', { enabled: Object.values(notif).filter(Boolean).length, total: Object.keys(notif).length }) },
+        { k: 'language', icon: 'info', l: T('set.language'), sub: `${currentLang.flag} ${currentLang.name}` },
+        { k: 'privacy', icon: 'shield', l: T('set.privacy'), sub: T('set.privacy.sub') },
       ].map(item => (
-        <Card key={item.k} onClick={() => (item.k === 'macros' || item.k === 'notifications') && setSub(item.k)} style={{ padding: 14 }}>
+        <Card key={item.k} onClick={() => (item.k === 'macros' || item.k === 'notifications' || item.k === 'language') && setSub(item.k)} style={{ padding: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{
               width: 38, height: 38, borderRadius: 11, flexShrink: 0,
@@ -69,41 +74,61 @@ export function Settings() {
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#F87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: '#F87171' }}>Sign out</div>
-            <div style={{ fontSize: 11.5, color: t.muted }}>You'll need to sign in again</div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: '#F87171' }}>{T('set.signout')}</div>
+            <div style={{ fontSize: 11.5, color: t.muted }}>{T('set.signout.sub')}</div>
           </div>
           <Icon name="chevR" size={15} color="#F87171" />
         </div>
       </Card>
 
-      <div style={{ marginTop: 20, fontSize: 11, color: t.muted, textAlign: 'center' }}>v0.1 · Built for coaching</div>
+      <div style={{ marginTop: 20, fontSize: 11, color: t.muted, textAlign: 'center' }}>v0.2 · Built for coaching</div>
 
-      <Modal visible={showConfirmSignOut} onClose={() => setShowConfirmSignOut(false)} title="Sign out?">
+      <Modal visible={showConfirmSignOut} onClose={() => setShowConfirmSignOut(false)} title={T('set.signout.confirm')}>
         <div style={{ fontSize: 14, color: t.soft, marginBottom: 18, lineHeight: 1.5 }}>
-          Your data stays safe in the cloud. You can sign in again any time with the same email or Google account.
+          {T('set.signout.body')}
         </div>
-        <Btn full variant="danger" style={{ marginBottom: 8 }} onClick={() => { setShowConfirmSignOut(false); signOut(); }}>Yes, sign out</Btn>
-        <Btn full variant="outline" onClick={() => setShowConfirmSignOut(false)}>Cancel</Btn>
+        <Btn full variant="danger" style={{ marginBottom: 8 }} onClick={() => { setShowConfirmSignOut(false); signOut(); }}>{T('set.signout.yes')}</Btn>
+        <Btn full variant="outline" onClick={() => setShowConfirmSignOut(false)}>{T('common.cancel')}</Btn>
       </Modal>
     </div>
   );
 
+  /* ─────────── LANGUAGE PICKER ─────────── */
+  if (sub === 'language') return (
+    <div style={{ padding: '20px 16px 100px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, cursor: 'pointer' }} onClick={() => setSub('main')}>
+        <Icon name="chevL" size={20} color={t.soft} />
+        <Label style={{ marginBottom: 0 }}>{T('set.backtosettings')}</Label>
+      </div>
+      <div style={{ fontSize: 24, fontWeight: 800, color: t.text, marginBottom: 6, letterSpacing: '-0.02em' }}>{T('set.language')}</div>
+      <div style={{ fontSize: 13, color: t.soft, marginBottom: 22 }}>{T('lang.sub')}</div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        {LANGUAGES.map(L => (
+          <div key={L.code} onClick={() => setLang(L.code)} style={{
+            padding: 16, borderRadius: 14, cursor: 'pointer',
+            background: lang === L.code ? t.greenBg : t.card2,
+            border: `1px solid ${lang === L.code ? t.green : t.border}`,
+            display: 'flex', alignItems: 'center', gap: 10,
+          }}>
+            <span style={{ fontSize: 24 }}>{L.flag}</span>
+            <span style={{ fontWeight: 600, fontSize: 14, color: lang === L.code ? t.green : t.text }}>{L.name}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  /* ─────────── MACROS ─────────── */
   if (sub === 'macros') return (
     <div style={{ padding: '20px 16px 100px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, cursor: 'pointer' }} onClick={() => setSub('main')}>
         <Icon name="chevL" size={20} color={t.soft} />
-        <Label style={{ marginBottom: 0 }}>Back to settings</Label>
+        <Label style={{ marginBottom: 0 }}>{T('set.backtosettings')}</Label>
       </div>
-      <div style={{ fontSize: 24, fontWeight: 800, color: t.text, marginBottom: 6, letterSpacing: '-0.02em' }}>Adjust macros</div>
+      <div style={{ fontSize: 24, fontWeight: 800, color: t.text, marginBottom: 6, letterSpacing: '-0.02em' }}>{T('set.macros')}</div>
 
-      <div style={{ background: t.greenBg, borderRadius: 14, padding: 12, marginBottom: 18, marginTop: 14, display: 'flex', gap: 10, alignItems: 'flex-start', border: `1px solid ${t.greenBorder}` }}>
-        <Icon name="info" size={16} color={t.green} />
-        <div style={{ fontSize: 12, color: t.soft, lineHeight: 1.5 }}>
-          You can always return to your automatic plan calculation. <span style={{ color: t.green, fontWeight: 600 }}>Settings → Macros → Return to automatic</span>.
-        </div>
-      </div>
-
-      <Card onClick={() => setMacroMode('new')} style={{ padding: 16 }}>
+      <Card onClick={() => setMacroMode('new')} style={{ padding: 16, marginTop: 14 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: t.text, marginBottom: 3 }}>1. New plan</div>
@@ -126,15 +151,15 @@ export function Settings() {
           <>
             <div style={{ paddingTop: 14, borderTop: `1px solid ${t.border}` }}>
               <Field label="Calories" value={manual.cal} onChange={v => setManual(p => ({ ...p, cal: parseInt(v) || 0 }))} type="number" unit="kcal" />
-              <Field label="Protein" value={manual.p} onChange={v => setManual(p => ({ ...p, p: parseInt(v) || 0 }))} type="number" unit="g" />
-              <Field label="Carbs" value={manual.c} onChange={v => setManual(p => ({ ...p, c: parseInt(v) || 0 }))} type="number" unit="g" />
-              <Field label="Fat" value={manual.f} onChange={v => setManual(p => ({ ...p, f: parseInt(v) || 0 }))} type="number" unit="g" />
+              <Field label={T('macros.protein')} value={manual.p} onChange={v => setManual(p => ({ ...p, p: parseInt(v) || 0 }))} type="number" unit="g" />
+              <Field label={T('macros.carbs')} value={manual.c} onChange={v => setManual(p => ({ ...p, c: parseInt(v) || 0 }))} type="number" unit="g" />
+              <Field label={T('macros.fat')} value={manual.f} onChange={v => setManual(p => ({ ...p, f: parseInt(v) || 0 }))} type="number" unit="g" />
 
               {macroMismatch && (
                 <div style={{ background: 'rgba(250,204,21,0.1)', border: `1px solid rgba(250,204,21,0.3)`, borderRadius: 12, padding: 12, marginTop: 8, display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                   <Icon name="info" size={14} color="#FACC15" />
                   <div style={{ fontSize: 12, color: '#FDE047', lineHeight: 1.5 }}>
-                    Your macros total <strong>{manualKcal} kcal</strong> but target is <strong>{manual.cal} kcal</strong>. That's fine — you have full freedom.
+                    Macros total <strong>{manualKcal} kcal</strong> vs target <strong>{manual.cal} kcal</strong>.
                   </div>
                 </div>
               )}
@@ -155,30 +180,31 @@ export function Settings() {
 
       <Modal visible={showConfirmAuto} onClose={() => setShowConfirmAuto(false)} title="Return to automatic?">
         <div style={{ fontSize: 14, color: t.soft, marginBottom: 18, lineHeight: 1.5 }}>
-          This will restore your calories and macros based on your current goal, activity settings, and 7-day average body weight. Your manual values will be replaced.
+          This will recalculate from your current settings. Manual values replaced.
         </div>
-        <Btn full style={{ marginBottom: 8 }} onClick={() => { setMacroMode('auto'); setShowConfirmAuto(false); }}>Yes, switch to auto</Btn>
-        <Btn full variant="outline" onClick={() => setShowConfirmAuto(false)}>Cancel</Btn>
+        <Btn full style={{ marginBottom: 8 }} onClick={() => { setMacroMode('auto'); setShowConfirmAuto(false); }}>{T('common.yes')}</Btn>
+        <Btn full variant="outline" onClick={() => setShowConfirmAuto(false)}>{T('common.cancel')}</Btn>
       </Modal>
     </div>
   );
 
+  /* ─────────── NOTIFICATIONS ─────────── */
   if (sub === 'notifications') return (
     <div style={{ padding: '20px 16px 100px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, cursor: 'pointer' }} onClick={() => setSub('main')}>
         <Icon name="chevL" size={20} color={t.soft} />
-        <Label style={{ marginBottom: 0 }}>Back to settings</Label>
+        <Label style={{ marginBottom: 0 }}>{T('set.backtosettings')}</Label>
       </div>
-      <div style={{ fontSize: 24, fontWeight: 800, color: t.text, marginBottom: 24, letterSpacing: '-0.02em' }}>Notifications</div>
+      <div style={{ fontSize: 24, fontWeight: 800, color: t.text, marginBottom: 24, letterSpacing: '-0.02em' }}>{T('set.notif')}</div>
 
       <Card>
         {[
-          { k: 'weigh', l: 'Morning weigh reminder', sub: '08:00', icon: '⚖️' },
-          { k: 'checkin', l: 'Daily check-in reminder', sub: '21:00', icon: '✅' },
-          { k: 'photoSat', l: 'Saturday progress photo', sub: '20:00 · "Tomorrow is your progress moment"', icon: '📷' },
-          { k: 'photoSun', l: 'Sunday progress photo', sub: '09:00 · "Remember your progress photos"', icon: '📷' },
-          { k: 'weekChange', l: 'Next week changes', sub: 'When training plan switches', icon: '📅' },
-          { k: 'system', l: 'Other system messages', sub: 'Updates, tips', icon: '💬' },
+          { k: 'weigh',      l: T('onb.notif.weigh'),    sub: '08:00', icon: '⚖️' },
+          { k: 'checkin',    l: T('onb.notif.checkin'),  sub: '21:00', icon: '✅' },
+          { k: 'photoSat',   l: T('onb.notif.photoSat'), sub: '20:00', icon: '📷' },
+          { k: 'photoSun',   l: T('onb.notif.photoSun'), sub: '09:00', icon: '📷' },
+          { k: 'weekChange', l: 'Week change',           sub: 'Training plan switches', icon: '📅' },
+          { k: 'system',     l: 'System messages',       sub: 'Updates, tips', icon: '💬' },
         ].map((n, i, arr) => (
           <div key={n.k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0', borderBottom: i < arr.length - 1 ? `1px solid ${t.border}` : 'none' }}>
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', flex: 1 }}>
