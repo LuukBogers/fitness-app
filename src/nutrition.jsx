@@ -288,7 +288,12 @@ export function Nutrition() {
   };
 
   // — GROCERY SKIP-LIST helpers (per-week skip for items "already in house") —
-  const weekKey = (() => { const monday = dates[0]; return fmtKey(monday); })();
+  const weekKey = (() => {
+    const now = new Date();
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - ti);
+    return fmtKey(monday);
+  })();
   const grocerySkips = profile?.data?.grocerySkips || {};
   const skippedKeys = new Set(grocerySkips[weekKey] || []);
   const groceryItemKey = (it) => `${it.name}|${it.store || ''}`;
@@ -456,10 +461,10 @@ export function Nutrition() {
                         {items.map((it, idx) => {
                           const isEaten = it.eaten !== false;
                           return (
-                            <div key={idx} style={{
+                            <div key={idx} onClick={() => setPlanningItemActions({ slot: m.slot, idx, item: it })} style={{
                               display: 'flex', alignItems: 'center', gap: 12, padding: 12,
                               borderBottom: idx < items.length - 1 ? `1px solid ${t.border}` : 'none',
-                              opacity: isEaten ? 1 : 0.5,
+                              opacity: isEaten ? 1 : 0.5, cursor: 'pointer',
                             }}>
                               {it.image ? (
                                 <img src={it.image} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover', background: '#fff', flexShrink: 0 }} />
@@ -474,7 +479,7 @@ export function Nutrition() {
                                   {it.kcal} kcal · {it.count || 1}× ({Math.round(it.grams || 0)}g)
                                 </div>
                               </div>
-                              <div onClick={() => toggleItemEaten(m.slot, idx)} style={{
+                              <div onClick={(e) => { e.stopPropagation(); toggleItemEaten(m.slot, idx); }} style={{
                                 width: 22, height: 22, borderRadius: 11, flexShrink: 0, cursor: 'pointer',
                                 border: `2px solid ${isEaten ? t.green : t.muted}`,
                                 background: isEaten ? t.green : 'transparent',
@@ -482,10 +487,6 @@ export function Nutrition() {
                               }}>
                                 {isEaten && <Icon name="check" size={12} color="#0A0A0B" stroke={3} />}
                               </div>
-                              <div onClick={() => setPlanningItemActions({ slot: m.slot, idx, item: it })} style={{
-                                width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                cursor: 'pointer', color: t.soft, fontSize: 16, flexShrink: 0, letterSpacing: '0.1em',
-                              }}>⋯</div>
                             </div>
                           );
                         })}
@@ -553,7 +554,10 @@ export function Nutrition() {
                         {cat === 'shelf' ? T('nutr.shelfstable') : cat === 'refrigerated' ? T('nutr.refrigerated') : T('nutr.fresh')}
                       </Label>
                       {items.map((it, i) => (
-                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: i < items.length - 1 ? `1px solid ${t.border}` : 'none' }}>
+                        <div key={i} onClick={() => setGroceriesItemActions({ key: groceryItemKey(it), item: it })} style={{
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0',
+                          borderBottom: i < items.length - 1 ? `1px solid ${t.border}` : 'none', cursor: 'pointer',
+                        }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
                             <div style={{ width: 18, height: 18, borderRadius: 6, border: `1.5px solid ${t.border}`, flexShrink: 0 }} />
                             <div style={{ minWidth: 0 }}>
@@ -561,13 +565,7 @@ export function Nutrition() {
                               <div style={{ fontSize: 11, color: t.muted }}>{it.store}</div>
                             </div>
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: t.soft }}>{it.amt}</div>
-                            <div onClick={() => setGroceriesItemActions({ key: groceryItemKey(it), item: it })} style={{
-                              width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              cursor: 'pointer', color: t.soft, fontSize: 16, letterSpacing: '0.1em', marginLeft: 4,
-                            }}>⋯</div>
-                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: t.soft, flexShrink: 0 }}>{it.amt}</div>
                         </div>
                       ))}
                     </Card>
@@ -582,7 +580,10 @@ export function Nutrition() {
             ) : (
               <Card style={{ padding: 14 }}>
                 {Object.values(groceriesByShelf).flat().filter(it => !skippedKeys.has(groceryItemKey(it))).map((it, i, arr) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: i < arr.length - 1 ? `1px solid ${t.border}` : 'none' }}>
+                  <div key={i} onClick={() => setGroceriesItemActions({ key: groceryItemKey(it), item: it })} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0',
+                    borderBottom: i < arr.length - 1 ? `1px solid ${t.border}` : 'none', cursor: 'pointer',
+                  }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
                       <div style={{ width: 18, height: 18, borderRadius: 6, border: `1.5px solid ${t.border}`, flexShrink: 0 }} />
                       <div style={{ minWidth: 0 }}>
@@ -590,13 +591,7 @@ export function Nutrition() {
                         <div style={{ fontSize: 11, color: t.muted }}>{it.store}</div>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: t.soft }}>{it.amt}</div>
-                      <div onClick={() => setGroceriesItemActions({ key: groceryItemKey(it), item: it })} style={{
-                        width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        cursor: 'pointer', color: t.soft, fontSize: 16, letterSpacing: '0.1em', marginLeft: 4,
-                      }}>⋯</div>
-                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: t.soft, flexShrink: 0 }}>{it.amt}</div>
                   </div>
                 ))}
               </Card>
@@ -629,7 +624,7 @@ export function Nutrition() {
                 <div style={{ fontSize: 12, color: t.muted, lineHeight: 1.5 }}>{T('nutr.noconceptsbody')}</div>
               </div>
             ) : concepts.map((c) => (
-              <Card key={c.id} style={{ padding: 14 }}>
+              <Card key={c.id} style={{ padding: 14, cursor: 'pointer' }} onClick={() => setConceptActions(c)}>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                   {c.image
                     ? <img src={c.image} alt="" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
@@ -642,10 +637,7 @@ export function Nutrition() {
                     </div>
                     <div style={{ fontSize: 11.5, color: t.muted }}>{c.kcal} kcal{c.type === 'week' ? '/' + T('common.dayshort') + ' ' + T('common.avg') : ''}</div>
                   </div>
-                  <div onClick={() => setConceptActions(c)} style={{
-                    width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', color: t.soft, fontSize: 18, letterSpacing: '0.1em', flexShrink: 0,
-                  }}>⋯</div>
+                  <Icon name="chevR" size={16} color={t.muted} />
                 </div>
               </Card>
             ))}
