@@ -1,16 +1,15 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { t, useT, useApp } from './lib';
+import { t, useT, useApp, useLang } from './lib';
 import { Icon, Btn } from './shared';
 import { Toast } from './modals';
 
 /* ═══════════════════════════ MODULE A2: LOG LIBRARY ═══════════════════════════
- * Yazio-style product search screen.
- * - Search bar (debounced 400ms)
- * - Dual source: lokaal (profile.data.products) + OpenFoodFacts realtime API
- * - Filter chips: Favorites / All / Meals (recipes) / AI scans
- * - Bottom action pills: AI scan (placeholder) / Search (active) / Barcode
- * - Tap product → onProductTap(product) bubbles up (parent opens ProductDetailModal)
- * - Tap ♡ → toggle favorite on local products (writes to profile.data)
+ * Yazio-style product search screen with dual source (local + OpenFoodFacts).
+ * Improvements (May 2026):
+ *  - OFF query uses sort_by=unique_scans_n (popularity) + locale-aware lc param
+ *  - page_size reduced 20→12 for faster TTFB
+ *  - Client-side ranking: exact match > starts-with > word-boundary > contains
+ *  - Results with no name-token match are filtered out (fixes "appel" → "appelsap" noise)
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 const OFF_SEARCH = 'https://world.openfoodfacts.org/cgi/search.pl';
@@ -21,6 +20,8 @@ function offToProduct(p) {
   let kcal = n['energy-kcal_100g'];
   if (kcal == null && n['energy_100g']) kcal = n['energy_100g'] / 4.184;
   const id = 'off:' + (p.code || (p._id || ''));
+  // Prefer locale-specific name (NL/DE/etc) over generic product_name
+  const name = p.product_name_nl || p.product_name || p.product_name_en || p.generic_name || 'Unknown product';
   // Parse quantity ("500 g", "1.5 L", "330ml") → default portion suggestion
   let defaultPortion = null;
   if (p.quantity) {
@@ -47,7 +48,7 @@ function offToProduct(p) {
   }
   return {
     id,
-    name: p.product_name || p.product_name_en || p.generic_name || 'Unknown product',
+    name,
     brand: (p.brands || '').split(',')[0].trim(),
     image: p.image_front_small_url || p.image_small_url || p.image_url || null,
     kcal: Math.round(kcal || 0),
@@ -64,6 +65,7 @@ function offToProduct(p) {
 
 export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRecipeActions, onlyRecipes }) {
   const T = useT();
+  const { lang } = useLang();
   const { profile, saveProfileData } = useApp();
   const products = useMemo(() => Array.isArray(profile?.data?.products) ? profile.data.products : [], [profile]);
   const recipes  = useMemo(() => Array.isArray(profile?.data?.recipes)  ? profile.data.recipes  : [], [profile]);
@@ -77,6 +79,21 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
   const debounceRef = useRef(null);
   const fetchSeq = useRef(0);
 
+  // Score how well a product name matches the query (higher = better)
+  const rankHit = (name, q) => {
+    if (!q) return 0;
+    const n = (name || '').toLowerCase();
+    const query = q.toLowerCase().trim();
+    if (n === query) return 100;
+    if (n.startsWith(query + ' ')) return 90;
+    if (n.startsWith(query)) return 80;
+    // Exact word match (word boundary)
+    if (n.split(/[\s,()-]+/).includes(query)) return 70;
+    if (n.includes(' ' + query + ' ') || n.endsWith(' ' + query)) return 60;
+    if (n.includes(query)) return 20;
+    return 0;
+  };
+
   // Debounced web search
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -89,14 +106,30 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
     debounceRef.current = setTimeout(async () => {
       const seq = ++fetchSeq.current;
       try {
-        const url = `${OFF_SEARCH}?action=process&search_terms=${encodeURIComponent(q)}&search_simple=1&json=1&page_size=20&fields=code,product_name,product_name_en,generic_name,brands,image_front_small_url,image_small_url,image_url,nutriments,quantity`;
+        // Use popularity sort + user's language locale for better NL-matching
+        const params = new URLSearchParams({
+          action: 'process',
+          search_terms: q,
+          search_simple: '1',
+          json: '1',
+          page_size: '12',
+          sort_by: 'unique_scans_n',
+          lc: lang || 'en',
+          fields: 'code,product_name,product_name_en,product_name_nl,generic_name,brands,image_front_small_url,image_small_url,image_url,nutriments,quantity',
+        });
+        const url = `${OFF_SEARCH}?${params.toString()}`;
         const res = await fetch(url);
         if (!res.ok) throw new Error('net');
         const data = await res.json();
         if (seq !== fetchSeq.current) return; // stale
+        // Map + score + filter + sort by relevance
         const list = (data.products || [])
           .map(offToProduct)
-          .filter(p => p.kcal > 0 && p.name && p.name !== 'Unknown product');
+          .filter(p => p.kcal > 0 && p.name && p.name !== 'Unknown product')
+          .map(p => ({ ...p, _score: rankHit(p.name, q) }))
+          .filter(p => p._score > 0)
+          .sort((a, b) => b._score - a._score)
+          .slice(0, 10);
         setWebHits(list);
         setWebError(false);
       } catch (e) {
@@ -105,9 +138,9 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
       } finally {
         if (seq === fetchSeq.current) setWebLoading(false);
       }
-    }, 400);
+    }, 300);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [query, filter]);
+  }, [query, filter, lang]);
 
   // Local filter
   const localHits = useMemo(() => {

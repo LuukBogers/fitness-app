@@ -51,12 +51,13 @@ export function Nutrition() {
   // Ensure all 6 slots exist
   const slotMeals = SLOTS.map(slot => selMeals.find(m => m.slot === slot) || { slot, items: [], itemsFull: [], kcal: 0, p:0, c:0, f:0, locked: false, eaten: false });
 
-  // Day-level totals = ONLY items where eaten === true (handover: "alleen aangevinkte tellen voor dagtotaal")
+  // Day-level totals = all items unless explicitly unchecked (eaten === false).
+  // Newly logged items default to eaten=true; users uncheck only to remove from day total.
   const eatenTotals = useMemo(() => {
     let kcal = 0, p = 0, c = 0, f = 0;
     slotMeals.forEach(m => {
       (m.itemsFull || []).forEach(it => {
-        if (it.eaten) { kcal += it.kcal || 0; p += it.p || 0; c += it.c || 0; f += it.f || 0; }
+        if (it.eaten !== false) { kcal += it.kcal || 0; p += it.p || 0; c += it.c || 0; f += it.f || 0; }
       });
     });
     return { kcal: Math.round(kcal), p: Math.round(p), c: Math.round(c), f: Math.round(f) };
@@ -68,8 +69,12 @@ export function Nutrition() {
     const ensured = SLOTS.map(s => dayMeals.find(m => m.slot === s) || { slot: s, items: [], itemsFull: [], kcal: 0, p:0, c:0, f:0, locked: false, eaten: false });
     const updated = ensured.map(m => {
       if (m.slot !== slot) return m;
-      const newItems = (m.itemsFull || []).map((it, i) => i === itemIdx ? { ...it, eaten: !it.eaten } : it);
-      const eat = newItems.filter(it => it.eaten);
+      const newItems = (m.itemsFull || []).map((it, i) => {
+        if (i !== itemIdx) return it;
+        // Flip: explicit false → true, anything else → false
+        return { ...it, eaten: it.eaten === false };
+      });
+      const eat = newItems.filter(it => it.eaten !== false);
       return {
         ...m,
         itemsFull: newItems,
@@ -307,7 +312,7 @@ export function Nutrition() {
             <div style={{ marginTop: 18 }}>
               {slotMeals.map((m, i) => {
                 const items = m.itemsFull || [];
-                const sectionKcal = items.reduce((s, it) => s + (it.kcal || 0), 0);
+                const sectionKcal = items.reduce((s, it) => s + (it.eaten !== false ? (it.kcal || 0) : 0), 0);
                 const pctOfDay = calories ? Math.round((sectionKcal / calories) * 100) : 0;
                 return (
                   <div key={i} style={{ marginBottom: 18 }}>
@@ -339,34 +344,38 @@ export function Nutrition() {
                       </div>
                     ) : (
                       <div style={{ marginTop: 8, background: t.card, borderRadius: 14, border: `1px solid ${t.border}`, boxShadow: t.cardShadow, overflow: 'hidden' }}>
-                        {items.map((it, idx) => (
-                          <div key={idx} style={{
-                            display: 'flex', alignItems: 'center', gap: 12, padding: 12,
-                            borderBottom: idx < items.length - 1 ? `1px solid ${t.border}` : 'none',
-                          }}>
-                            {it.image ? (
-                              <img src={it.image} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover', background: '#fff', flexShrink: 0 }} />
-                            ) : (
-                              <div style={{ width: 36, height: 36, borderRadius: 8, background: t.card3, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                <Icon name="apple" size={18} color={t.green} />
-                              </div>
-                            )}
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontSize: 13.5, fontWeight: 700, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</div>
-                              <div style={{ fontSize: 11.5, color: t.muted, marginTop: 2 }}>
-                                {it.kcal} kcal · {it.count || 1}× ({Math.round(it.grams || 0)}g)
-                              </div>
-                            </div>
-                            <div onClick={() => toggleItemEaten(m.slot, idx)} style={{
-                              width: 22, height: 22, borderRadius: 11, flexShrink: 0, cursor: 'pointer',
-                              border: `2px solid ${it.eaten ? t.green : t.muted}`,
-                              background: it.eaten ? t.green : 'transparent',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        {items.map((it, idx) => {
+                          const isEaten = it.eaten !== false;
+                          return (
+                            <div key={idx} style={{
+                              display: 'flex', alignItems: 'center', gap: 12, padding: 12,
+                              borderBottom: idx < items.length - 1 ? `1px solid ${t.border}` : 'none',
+                              opacity: isEaten ? 1 : 0.5,
                             }}>
-                              {it.eaten && <Icon name="check" size={12} color="#0A0A0B" stroke={3} />}
+                              {it.image ? (
+                                <img src={it.image} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover', background: '#fff', flexShrink: 0 }} />
+                              ) : (
+                                <div style={{ width: 36, height: 36, borderRadius: 8, background: t.card3, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                  <Icon name="apple" size={18} color={t.green} />
+                                </div>
+                              )}
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 13.5, fontWeight: 700, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: isEaten ? 'none' : 'line-through' }}>{it.name}</div>
+                                <div style={{ fontSize: 11.5, color: t.muted, marginTop: 2 }}>
+                                  {it.kcal} kcal · {it.count || 1}× ({Math.round(it.grams || 0)}g)
+                                </div>
+                              </div>
+                              <div onClick={() => toggleItemEaten(m.slot, idx)} style={{
+                                width: 22, height: 22, borderRadius: 11, flexShrink: 0, cursor: 'pointer',
+                                border: `2px solid ${isEaten ? t.green : t.muted}`,
+                                background: isEaten ? t.green : 'transparent',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              }}>
+                                {isEaten && <Icon name="check" size={12} color="#0A0A0B" stroke={3} />}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
