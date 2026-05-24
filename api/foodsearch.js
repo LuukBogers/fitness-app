@@ -11,6 +11,60 @@
 
 const USER_AGENT = 'FitnessApp/1.0 (luukbogers@outlook.com)';
 const USDA_KEY = 'DEMO_KEY';
+// FatSecret OAuth 2.0 — set via Vercel env vars. If missing, source is skipped.
+const FATSECRET_CLIENT_ID = process.env.FATSECRET_CLIENT_ID || '';
+const FATSECRET_CLIENT_SECRET = process.env.FATSECRET_CLIENT_SECRET || '';
+
+// In-memory token cache (survives function invocations within same instance)
+let fsTokenCache = { token: null, expiresAt: 0 };
+
+async function getFatSecretToken() {
+  if (!FATSECRET_CLIENT_ID || !FATSECRET_CLIENT_SECRET) return null;
+  if (fsTokenCache.token && Date.now() < fsTokenCache.expiresAt - 60000) return fsTokenCache.token;
+  const auth = Buffer.from(`${FATSECRET_CLIENT_ID}:${FATSECRET_CLIENT_SECRET}`).toString('base64');
+  const r = await fetch('https://oauth.fatsecret.com/connect/token', {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${auth}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: 'grant_type=client_credentials&scope=basic',
+  });
+  if (!r.ok) throw new Error(`FS auth ${r.status}`);
+  const d = await r.json();
+  fsTokenCache = { token: d.access_token, expiresAt: Date.now() + (d.expires_in || 86400) * 1000 };
+  return d.access_token;
+}
+
+// Parse FatSecret food_description string into structured nutrients
+// Example: "Per 100ml - Calories: 47kcal | Fat: 1.5g | Carbs: 4.7g | Protein: 3.5g"
+function parseFsDescription(desc) {
+  if (!desc) return { kcal: 0, p: 0, c: 0, f: 0 };
+  const m = (re) => { const x = desc.match(re); return x ? parseFloat(x[1]) : 0; };
+  return {
+    kcal: m(/Calories:\s*(\d+(?:\.\d+)?)\s*kcal/i),
+    f:    m(/Fat:\s*(\d+(?:\.\d+)?)\s*g/i),
+    c:    m(/Carbs?:\s*(\d+(?:\.\d+)?)\s*g/i),
+    p:    m(/Protein:\s*(\d+(?:\.\d+)?)\s*g/i),
+  };
+}
+
+function fsToOff(food) {
+  const n = parseFsDescription(food.food_description);
+  return {
+    _src: 'fatsecret',
+    code: 'fs:' + food.food_id,
+    product_name: food.food_name || '',
+    brands: food.brand_name || '',
+    nutriments: {
+      'energy-kcal_100g': Math.round(n.kcal),
+      proteins_100g: Math.round(n.p * 10) / 10,
+      carbohydrates_100g: Math.round(n.c * 10) / 10,
+      fat_100g: Math.round(n.f * 10) / 10,
+    },
+    food_url: food.food_url,
+  };
+}
 
 // NL → EN translation for USDA (Dutch terms → English for search)
 const NL_EN = {
@@ -149,14 +203,34 @@ export default async function handler(req, res) {
       const d = await r.json();
       return (d.foods || []).map(usdaToOff);
     })(),
+
+    // 5) FatSecret Platform (NL branded coverage)
+    (async () => {
+      const token = await getFatSecretToken();
+      if (!token) throw new Error('FS: no credentials');
+      const u = new URL('https://platform.fatsecret.com/rest/server.api');
+      u.searchParams.set('method', 'foods.search');
+      u.searchParams.set('search_expression', q);
+      u.searchParams.set('max_results', '15');
+      u.searchParams.set('region', lang === 'nl' ? 'NL' : 'US');
+      u.searchParams.set('language', lang);
+      u.searchParams.set('format', 'json');
+      const r = await fetch(u.toString(), { headers: { Authorization: `Bearer ${token}` } });
+      if (!r.ok) throw new Error(`FS ${r.status}`);
+      const d = await r.json();
+      const foods = (d.foods && d.foods.food) || [];
+      const arr = Array.isArray(foods) ? foods : [foods];
+      return arr.map(fsToOff);
+    })(),
   ]);
 
-  const [salRes, cgiRes, v2Res, usdaRes] = sources;
+  const [salRes, cgiRes, v2Res, usdaRes, fsRes] = sources;
   const status = {
-    sal: salRes.status === 'fulfilled' ? { count: salRes.value.length } : { error: String(salRes.reason && salRes.reason.message || salRes.reason) },
-    cgi: cgiRes.status === 'fulfilled' ? { count: cgiRes.value.length } : { error: String(cgiRes.reason && cgiRes.reason.message || cgiRes.reason) },
-    v2:  v2Res.status === 'fulfilled'  ? { count: v2Res.value.length  } : { error: String(v2Res.reason && v2Res.reason.message  || v2Res.reason ) },
+    sal:  salRes.status  === 'fulfilled' ? { count: salRes.value.length  } : { error: String(salRes.reason  && salRes.reason.message  || salRes.reason ) },
+    cgi:  cgiRes.status  === 'fulfilled' ? { count: cgiRes.value.length  } : { error: String(cgiRes.reason  && cgiRes.reason.message  || cgiRes.reason ) },
+    v2:   v2Res.status   === 'fulfilled' ? { count: v2Res.value.length   } : { error: String(v2Res.reason   && v2Res.reason.message   || v2Res.reason  ) },
     usda: usdaRes.status === 'fulfilled' ? { count: usdaRes.value.length } : { error: String(usdaRes.reason && usdaRes.reason.message || usdaRes.reason) },
+    fs:   fsRes.status   === 'fulfilled' ? { count: fsRes.value.length   } : { error: String(fsRes.reason   && fsRes.reason.message   || fsRes.reason  ) },
   };
 
   // Merge all + dedupe by barcode code
@@ -165,6 +239,7 @@ export default async function handler(req, res) {
     ...(cgiRes.status === 'fulfilled' ? cgiRes.value : []),
     ...(v2Res.status === 'fulfilled' ? v2Res.value : []),
     ...(usdaRes.status === 'fulfilled' ? usdaRes.value : []),
+    ...(fsRes.status === 'fulfilled' ? fsRes.value : []),
   ];
   const seen = new Set();
   const merged = [];

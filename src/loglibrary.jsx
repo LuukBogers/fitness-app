@@ -215,9 +215,9 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
         if (seq !== fetchSeq.current) return; // stale
 
         // Trust the API's own relevance ranking - DON'T double-filter on substring match.
-        // Just drop entries with no usable data (no name, no kcal).
+        // Keep products even without kcal data - user can fill in manually (Option B).
         const merged = [...offList, ...usdaList]
-          .filter(p => p.kcal > 0 && p.name && p.name !== 'Unknown product');
+          .filter(p => p.name && p.name !== 'Unknown product');
 
         const seen = new Set();
         const deduped = [];
@@ -542,8 +542,10 @@ function ProductRow({ product, onTap, onFav, onActions, isWeb, isNevo }) {
             }}>NEVO</span>
           )}
         </div>
-        <div style={{ fontSize: 11.5, color: t.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {product.kcal} kcal · {T('common.per100g')}{product.brand ? ` · ${product.brand}` : ''}
+        <div style={{ fontSize: 11.5, color: product.kcal > 0 ? t.muted : t.orange, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {product.kcal > 0
+            ? `${product.kcal} kcal · ${T('common.per100g')}${product.brand ? ` · ${product.brand}` : ''}`
+            : `${T('log.nokcal')}${product.brand ? ` · ${product.brand}` : ''}`}
         </div>
       </div>
       {!isWeb && !isNevo && onFav && (
