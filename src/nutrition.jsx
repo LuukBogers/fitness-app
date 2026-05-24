@@ -595,8 +595,8 @@ export function Nutrition() {
 
       {/* Create flows */}
       <CreateProductModal visible={showCreateProduct} onClose={() => { setShowCreateProduct(false); setProductPrefill(null); }} onSave={saveProduct} prefill={productPrefill} />
-      <CreateRecipeModal visible={showCreateRecipe} onClose={() => setShowCreateRecipe(false)} onSave={saveRecipe} products={products} />
-      <CreateConceptModal visible={conceptType !== null} onClose={() => setConceptType(null)} onSave={saveConcept} type={conceptType} recipes={recipes} products={products} dayConcepts={concepts.filter(c => c.type === 'day')} />
+      <CreateRecipeModal visible={showCreateRecipe} onClose={() => setShowCreateRecipe(false)} onSave={saveRecipe} products={products} onCreateProduct={(p) => saveProfileData({ products: [...products, p] })} />
+      <CreateConceptModal visible={conceptType !== null} onClose={() => setConceptType(null)} onSave={saveConcept} type={conceptType} recipes={recipes} products={products} dayConcepts={concepts.filter(c => c.type === 'day')} onCreateProduct={(p) => saveProfileData({ products: [...products, p] })} />
 
       {/* Barcode scanner */}
       <BarcodeScanner visible={showScanner} onClose={() => setShowScanner(false)} onResult={handleScanResult} />

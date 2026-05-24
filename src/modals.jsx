@@ -230,15 +230,16 @@ export function EditPhotoModal({ visible, onClose, currentImage, onSave }) {
 }
 
 /* ═══════════════════════════ CREATE RECIPE MODAL ═══════════════════════════ */
-export function CreateRecipeModal({ visible, onClose, onSave, products }) {
+export function CreateRecipeModal({ visible, onClose, onSave, products, onCreateProduct }) {
   const T = useT();
   const [form, setForm] = useState({ name: '', cat: 'Breakfast', image: null, items: [] }); // items: snapshot {productId, name, kcal, p, c, f, image, source, grams}
   const [showPicker, setShowPicker] = useState(false);
   const [search, setSearch] = useState('');
+  const [showInlineProduct, setShowInlineProduct] = useState(false);
   const upd = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
   useEffect(() => {
-    if (visible) setForm({ name: '', cat: 'Breakfast', image: null, items: [] });
+    if (visible) { setForm({ name: '', cat: 'Breakfast', image: null, items: [] }); setShowInlineProduct(false); }
   }, [visible]);
 
   // Combined searchable pool: own products + NEVO basis-foods + OFF_NL bulk
@@ -400,15 +401,30 @@ export function CreateRecipeModal({ visible, onClose, onSave, products }) {
       </Modal>
 
       {/* Product picker sub-modal — searches own products + NEVO + OFF_NL bulk */}
-      <Modal visible={showPicker} onClose={() => setShowPicker(false)} title={T('modal.pickingredient')}>
+      <Modal visible={showPicker && !showInlineProduct} onClose={() => setShowPicker(false)} title={T('modal.pickingredient')}>
         <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder={T('modal.ph.searchproducts')} style={{
           width: '100%', padding: '12px 14px', borderRadius: 12,
           border: `1px solid ${t.border}`, fontSize: 14, fontFamily: 'inherit',
           color: t.text, background: t.card2, boxSizing: 'border-box', outline: 'none', marginBottom: 12,
         }} autoFocus />
+
+        {/* Create-new-product CTA — always visible so user has an escape hatch */}
+        <div onClick={() => setShowInlineProduct(true)} style={{
+          display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 12,
+          background: t.greenBg, border: `1px dashed ${t.greenBorder}`, marginBottom: 12, cursor: 'pointer',
+        }}>
+          <div style={{ width: 36, height: 36, borderRadius: 9, background: t.greenBg, border: `1px solid ${t.greenBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Icon name="plus" size={18} color={t.green} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, color: t.green, fontWeight: 700 }}>{T('modal.createnewproduct')}</div>
+            <div style={{ fontSize: 11, color: t.muted }}>{search ? T('modal.createnewproductprefill', { name: search }) : T('modal.createnewproductbody')}</div>
+          </div>
+        </div>
+
         {filtered.length === 0 ? (
-          <div style={{ padding: 28, textAlign: 'center', fontSize: 13, color: t.muted }}>
-            {search ? T('modal.nomatches') : T('modal.noingredients')}
+          <div style={{ padding: 22, textAlign: 'center', fontSize: 12.5, color: t.muted }}>
+            {search ? T('modal.nomatchestryadd') : T('modal.noingredients')}
           </div>
         ) : filtered.map(p => (
           <div key={p.id + ':' + p._src} onClick={() => addItem(p)} style={{
@@ -439,12 +455,26 @@ export function CreateRecipeModal({ visible, onClose, onSave, products }) {
           </div>
         ))}
       </Modal>
+
+      {/* Nested: create new product inline — saves to library + adds to recipe */}
+      <CreateProductModal
+        visible={showInlineProduct}
+        onClose={() => setShowInlineProduct(false)}
+        prefill={search ? { name: search } : null}
+        onSave={(newProduct) => {
+          if (onCreateProduct) onCreateProduct(newProduct);
+          addItem({ ...newProduct, _src: 'own' });
+          setShowInlineProduct(false);
+          setShowPicker(false);
+          setSearch('');
+        }}
+      />
     </>
   );
 }
 
 /* ═══════════════════════════ CREATE CONCEPT MODAL ═══════════════════════════ */
-export function CreateConceptModal({ visible, onClose, onSave, type, recipes = [], products = [], dayConcepts = [] }) {
+export function CreateConceptModal({ visible, onClose, onSave, type, recipes = [], products = [], dayConcepts = [], onCreateProduct }) {
   const T = useT();
   // type: 'day' = build day with multi-item slots; 'week' = pick a day-concept per weekday
   const [name, setName] = useState('');
@@ -458,11 +488,13 @@ export function CreateConceptModal({ visible, onClose, onSave, type, recipes = [
   const [pickerSearch, setPickerSearch] = useState('');
   // Edit-item modal: { slot, idx }
   const [editingItem, setEditingItem] = useState(null);
+  // Inline new-product modal
+  const [showInlineProduct, setShowInlineProduct] = useState(false);
 
   useEffect(() => {
     if (visible) {
       setName(''); setImage(null); setSlots({}); setWeekPicks({}); setPicker(null);
-      setPickerTab('products'); setPickerSearch(''); setEditingItem(null);
+      setPickerTab('products'); setPickerSearch(''); setEditingItem(null); setShowInlineProduct(false);
     }
   }, [visible, type]);
 
@@ -696,7 +728,7 @@ export function CreateConceptModal({ visible, onClose, onSave, type, recipes = [
       </Modal>
 
       {/* Picker for day-type: SEARCH BAR + tabs Recipes | Products */}
-      <Modal visible={!!picker && type === 'day'} onClose={() => { setPicker(null); setPickerSearch(''); }} title={picker?.slot ? T('modal.addtoslotof', { slot: T(slotKey(picker.slot)) }) : ''}>
+      <Modal visible={!!picker && type === 'day' && !showInlineProduct} onClose={() => { setPicker(null); setPickerSearch(''); }} title={picker?.slot ? T('modal.addtoslotof', { slot: T(slotKey(picker.slot)) }) : ''}>
         <input type="text" value={pickerSearch} onChange={e => setPickerSearch(e.target.value)}
           placeholder={pickerTab === 'recipes' ? T('modal.ph.searchrecipes') : T('modal.ph.searchproducts')}
           style={{
@@ -718,9 +750,25 @@ export function CreateConceptModal({ visible, onClose, onSave, type, recipes = [
           }}>{T('modal.tab.recipes')} ({recipes.length})</div>
         </div>
 
+        {/* Create-new-product CTA — only on Products tab */}
+        {pickerTab === 'products' && (
+          <div onClick={() => setShowInlineProduct(true)} style={{
+            display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 12,
+            background: t.greenBg, border: `1px dashed ${t.greenBorder}`, marginBottom: 12, cursor: 'pointer',
+          }}>
+            <div style={{ width: 36, height: 36, borderRadius: 9, background: t.greenBg, border: `1px solid ${t.greenBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Icon name="plus" size={18} color={t.green} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, color: t.green, fontWeight: 700 }}>{T('modal.createnewproduct')}</div>
+              <div style={{ fontSize: 11, color: t.muted }}>{pickerSearch ? T('modal.createnewproductprefill', { name: pickerSearch }) : T('modal.createnewproductbody')}</div>
+            </div>
+          </div>
+        )}
+
         {pickerTab === 'recipes' && (
           pickerHits.length === 0 ? (
-            <div style={{ padding: 28, textAlign: 'center', color: t.muted, fontSize: 12 }}>
+            <div style={{ padding: 22, textAlign: 'center', color: t.muted, fontSize: 12.5 }}>
               {pickerSearch ? T('modal.nomatches') : T('modal.norecipesyet')}
             </div>
           ) : pickerHits.map(r => (
@@ -742,8 +790,8 @@ export function CreateConceptModal({ visible, onClose, onSave, type, recipes = [
 
         {pickerTab === 'products' && (
           pickerHits.length === 0 ? (
-            <div style={{ padding: 28, textAlign: 'center', color: t.muted, fontSize: 12 }}>
-              {pickerSearch ? T('modal.nomatches') : T('modal.noproductsyet')}
+            <div style={{ padding: 22, textAlign: 'center', color: t.muted, fontSize: 12.5 }}>
+              {pickerSearch ? T('modal.nomatchestryadd') : T('modal.noingredients')}
             </div>
           ) : pickerHits.map(p => (
             <div key={p.id + ':' + p._src} onClick={() => addItemToSlot(picker.slot, snapshotProduct(p))} style={{
@@ -770,6 +818,19 @@ export function CreateConceptModal({ visible, onClose, onSave, type, recipes = [
           ))
         )}
       </Modal>
+
+      {/* Nested: create new product inline — saves to library + adds to current slot */}
+      <CreateProductModal
+        visible={showInlineProduct}
+        onClose={() => setShowInlineProduct(false)}
+        prefill={pickerSearch ? { name: pickerSearch } : null}
+        onSave={(newProduct) => {
+          if (onCreateProduct) onCreateProduct(newProduct);
+          if (picker?.slot) addItemToSlot(picker.slot, snapshotProduct({ ...newProduct, _src: 'own' }));
+          setShowInlineProduct(false);
+          setPickerSearch('');
+        }}
+      />
 
       {/* EDIT ITEM modal — adjust grams (product) or portions (recipe), or remove */}
       <Modal visible={!!editing} onClose={() => setEditingItem(null)} title={editing?.name || ''}>
