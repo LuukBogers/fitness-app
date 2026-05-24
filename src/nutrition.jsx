@@ -24,6 +24,7 @@ export function Nutrition() {
   const [selectedDay, setSelectedDay] = useState(ti);
   const [showMealOptions, setShowMealOptions] = useState(null); // index in slotMeals
   const [showLockedDeviate, setShowLockedDeviate] = useState(false);
+  const [showLegend, setShowLegend] = useState(false);
   const [grocMode, setGrocMode] = useState('smart');
   const [showScanner, setShowScanner] = useState(false);
   const [scannedCode, setScannedCode] = useState(null);
@@ -84,9 +85,14 @@ export function Nutrition() {
       await saveProfileData({ meals: { ...meals, [tKey]: updated } });
       setToast(T('scan.toast.logged', { kcal: p.totalKcal, name: p.name }));
     } else if (p.action === 'save') {
+      // Note: lookupBarcode returns `protein/carbs/fat`; map to internal `p/c/f` keys
       setProductPrefill({
         name: p.name, brand: p.brand || '', store: 'AH', shelf: 'shelf',
-        kcal: p.kcal, p: p.p, c: p.c, f: p.f, image: p.image,
+        kcal: p.kcal,
+        p: p.protein != null ? p.protein : (p.p || 0),
+        c: p.carbs   != null ? p.carbs   : (p.c || 0),
+        f: p.fat     != null ? p.fat     : (p.f || 0),
+        image: p.image,
       });
       setShowCreateProduct(true);
     } else if (p.action === 'addManual') {
@@ -189,15 +195,11 @@ export function Nutrition() {
                   );
                 })}
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 14, paddingTop: 12, borderTop: `1px solid ${t.border}`, fontSize: 11, color: t.muted }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 14, paddingTop: 12, borderTop: `1px solid ${t.border}`, fontSize: 11, color: t.muted }}>
                 <div>{T('nutr.target')} {calories || '—'} kcal</div>
-                <div style={{ display: 'flex', gap: 10, fontSize: 10 }}>
-                  {['green','yellow','orange','red'].map(s => (
-                    <div key={s} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                      <div style={{ width: 6, height: 6, borderRadius: 3, background: STATUS[s].dot }} />
-                      <span style={{ color: STATUS[s].label, textTransform: 'capitalize', fontWeight: 600 }}>{s}</span>
-                    </div>
-                  ))}
+                <div onClick={(e) => { e.stopPropagation(); setShowLegend(true); }} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 8, background: t.card2, border: `1px solid ${t.border}`, cursor: 'pointer', color: t.soft }}>
+                  <span style={{ width: 14, height: 14, borderRadius: 7, border: `1.2px solid ${t.soft}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700 }}>i</span>
+                  <span style={{ fontSize: 10.5, fontWeight: 600 }}>{T('status.info')}</span>
                 </div>
               </div>
             </Card>
@@ -408,6 +410,20 @@ export function Nutrition() {
         <Btn full variant="ghost" style={{ marginBottom: 8 }}>{T('nutr.scanproduct')}</Btn>
         <Btn full variant="ghost" style={{ marginBottom: 8 }}>{showMealOptions !== null && slotMeals[showMealOptions].locked ? T('nutr.unlockmeal') : T('nutr.lockmeal')}</Btn>
         <Btn full variant="outline">{showMealOptions !== null && slotMeals[showMealOptions].eaten ? T('nutr.marknoteaten') : T('nutr.markeaten')}</Btn>
+      </Modal>
+
+      {/* Color legend */}
+      <Modal visible={showLegend} onClose={() => setShowLegend(false)} title={T('status.title')}>
+        {['green','yellow','orange','red'].map(s => (
+          <div key={s} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0', borderBottom: s !== 'red' ? `1px solid ${t.border}` : 'none' }}>
+            <div style={{ width: 14, height: 14, borderRadius: 7, background: STATUS[s].dot, flexShrink: 0, boxShadow: `0 0 12px ${STATUS[s].dot}55` }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: STATUS[s].label }}>{T('status.' + s)}</div>
+              <div style={{ fontSize: 12, color: t.soft, marginTop: 2 }}>{T('status.' + s + '.desc')}</div>
+            </div>
+          </div>
+        ))}
+        <Btn full variant="outline" onClick={() => setShowLegend(false)} style={{ marginTop: 14 }}>{T('common.close')}</Btn>
       </Modal>
 
       {/* Locked deviation */}
