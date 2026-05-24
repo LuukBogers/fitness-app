@@ -612,7 +612,7 @@ function ProductRow({ product, onTap, onFav, onActions, isWeb, isNevo, isOffNl }
               fontSize: 9,
               color: product.source === 'usda' ? '#f97316' : t.glow,
               fontWeight: 700,
-              background: product.source === 'usda' ? 'rgba(249,115,22,0.12)' : 'rgba(139,233,255,0.12)',
+              background: product.source === 'usda' ? 'rgba(200,177,138,0.12)' : 'rgba(184,197,214,0.12)',
               padding: '2px 6px', borderRadius: 5,
               letterSpacing: '0.05em', flexShrink: 0,
               border: product.source === 'usda' ? '1px solid rgba(249,115,22,0.35)' : '1px solid rgba(139,233,255,0.3)',
@@ -627,8 +627,8 @@ function ProductRow({ product, onTap, onFav, onActions, isWeb, isNevo, isOffNl }
           )}
           {isOffNl && (
             <span style={{
-              fontSize: 9, color: '#F97316', fontWeight: 700,
-              background: 'rgba(249,115,22,0.12)', padding: '2px 6px', borderRadius: 5,
+              fontSize: 9, color: '#C8B18A', fontWeight: 700,
+              background: 'rgba(200,177,138,0.12)', padding: '2px 6px', borderRadius: 5,
               letterSpacing: '0.05em', flexShrink: 0, border: '1px solid rgba(249,115,22,0.35)',
             }}>NL</span>
           )}

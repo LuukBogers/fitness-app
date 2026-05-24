@@ -59,39 +59,43 @@ export { detectLang };
 
 /* ═══════════════════════════ TOKENS ═══════════════════════════ */
 export const t = {
-  // Surfaces (Liquid Chrome — cinematic dark)
-  bg: '#0A0A0B', bg2: '#121417',
-  card: '#171A1F', card2: '#1E2128', card3: '#252A33',
-  // Borders & dividers (frosted)
-  border: 'rgba(255,255,255,0.08)', borderStrong: 'rgba(255,255,255,0.14)',
+  // Surfaces (Premium graphite/chrome)
+  bg: '#0B0C0E', bg2: '#121417',
+  card: '#17191D', card2: '#1A1C21', card3: '#22252A',
+  // Borders & dividers (frosted glass)
+  border: 'rgba(255,255,255,0.10)', borderStrong: 'rgba(255,255,255,0.18)',
   // Text
-  text: '#F5F7FA', soft: '#9AA4B2', muted: '#6B7280', dim: '#4B5563',
-  // Functional accents (kept — brand identity)
-  orange: '#F97316', orangeBg: 'rgba(249,115,22,0.12)', orangeBorder: 'rgba(249,115,22,0.3)',
-  green:  '#22C55E', greenBg:  'rgba(34,197,94,0.12)',  greenBorder:  'rgba(34,197,94,0.3)',
-  // Macro chart colours
-  protein: '#60A5FA', carbs: '#FACC15', fat: '#F87171',
-  // Liquid Chrome system
-  glow: '#8BE9FF',
-  success: '#7DFFA1', warning: '#FFB84D', error: '#FF6464',
-  // Metallic gradients (use as background on primary buttons / hero accents)
-  metalGreen:  'linear-gradient(135deg, #2EE070 0%, #1F9F4B 60%, #16803A 100%)',
-  metalOrange: 'linear-gradient(135deg, #FF8A3D 0%, #DE6010 60%, #B14A0A 100%)',
-  metalSilver: 'linear-gradient(135deg, #EAEFF6 0%, #B8C2D1 50%, #828B99 100%)',
-  // Reusable surface effects
+  text: '#F2F2F3', soft: '#A7A9AD', muted: '#6F7277', dim: '#4A4D52',
+  // Brand accents (former green → silver/chrome, former orange → champagne)
+  // Kept under same keys so existing UI flips palette in-place.
+  orange: '#C8B18A', orangeBg: 'rgba(200,177,138,0.10)', orangeBorder: 'rgba(200,177,138,0.32)',
+  green:  '#D8D8DA', greenBg:  'rgba(255,255,255,0.06)',  greenBorder:  'rgba(255,255,255,0.18)',
+  // Premium accents (new, addressable directly)
+  silver: '#D8D8DA', chrome: '#F5F5F6', champagne: '#C8B18A', graphite: '#3A3D42',
+  // Macro chart colours — desaturated cool/warm tints, premium look
+  protein: '#B8C5D6', carbs: '#D6C49B', fat: '#D6A799',
+  // Status overlays (subtler than before)
+  glow: '#E8EAEE',
+  success: '#B8D6BE', warning: '#D6C49B', error: '#D6A799',
+  // Metallic gradients (for primary CTAs / hero accents)
+  metalGreen:  'linear-gradient(135deg, #F5F5F6 0%, #D8D8DA 40%, #9CA0A6 100%)', // silver/chrome
+  metalOrange: 'linear-gradient(135deg, #E2CFA8 0%, #C8B18A 50%, #9C8761 100%)', // champagne
+  metalSilver: 'linear-gradient(135deg, #F5F5F6 0%, #C8C9CC 50%, #828B99 100%)',
+  // Surface effects
   glass:        'rgba(255,255,255,0.04)',
-  glassHover:   'rgba(255,255,255,0.07)',
-  innerHi:      'inset 0 1px 0 0 rgba(255,255,255,0.06)',
-  softShadow:   '0 8px 28px rgba(0,0,0,0.45)',
-  cardShadow:   '0 4px 18px rgba(0,0,0,0.4), inset 0 1px 0 0 rgba(255,255,255,0.04)',
+  glassHover:   'rgba(255,255,255,0.08)',
+  glassPanel:   'linear-gradient(145deg, rgba(255,255,255,0.075), rgba(255,255,255,0.025))',
+  innerHi:      'inset 0 1px 0 0 rgba(255,255,255,0.08)',
+  softShadow:   '0 12px 40px rgba(0,0,0,0.45)',
+  cardShadow:   '0 24px 70px rgba(0,0,0,0.45), inset 0 1px 0 0 rgba(255,255,255,0.06)',
 };
 
 export const STATUS = {
-  gray:   { bg: 'rgba(82,82,91,0.25)',   dot: '#52525B', label: '#A1A1AA' },
-  green:  { bg: 'rgba(34,197,94,0.16)',  dot: '#22C55E', label: '#4ADE80' },
-  yellow: { bg: 'rgba(250,204,21,0.16)', dot: '#FACC15', label: '#FDE047' },
-  orange: { bg: 'rgba(249,115,22,0.16)', dot: '#F97316', label: '#FB923C' },
-  red:    { bg: 'rgba(239,68,68,0.16)',  dot: '#EF4444', label: '#F87171' },
+  gray:   { bg: 'rgba(111,114,119,0.22)', dot: '#6F7277', label: '#A7A9AD' },
+  green:  { bg: 'rgba(216,216,218,0.14)', dot: '#D8D8DA', label: '#D8D8DA' },
+  yellow: { bg: 'rgba(200,177,138,0.16)', dot: '#C8B18A', label: '#D6C49B' },
+  orange: { bg: 'rgba(200,177,138,0.20)', dot: '#C8B18A', label: '#D6A799' },
+  red:    { bg: 'rgba(214,167,153,0.20)', dot: '#D6A799', label: '#D6A799' },
 };
 
 /* ═══════════════════════════ UI CONSTANTS ═══════════════════════════ */

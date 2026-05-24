@@ -47,10 +47,11 @@ export const Icon = ({ name, size = 20, color = 'currentColor', stroke = 1.8 }) 
 /* ═══════════════════════════ SHARED COMPONENTS ═══════════════════════════ */
 export const Card = ({ children, style, onClick, glow }) => (
   <div onClick={onClick} style={{
-    background: t.card, borderRadius: 22, padding: 18, marginBottom: 12,
+    background: t.glassPanel,
+    borderRadius: 26, padding: 18, marginBottom: 12,
     border: `1px solid ${t.border}`, cursor: onClick ? 'pointer' : 'default',
     boxShadow: glow || t.cardShadow,
-    backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+    backdropFilter: 'blur(18px) saturate(140%)', WebkitBackdropFilter: 'blur(18px) saturate(140%)',
     transition: 'transform 0.2s ease, box-shadow 0.2s ease', ...style,
   }}>{children}</div>
 );
@@ -65,8 +66,8 @@ export const Btn = ({ children, onClick, variant = 'primary', accent = 'green', 
   const accBg    = isOrange ? t.orangeBg : t.greenBg;
   const accBd    = isOrange ? t.orangeBorder : t.greenBorder;
   const metal    = isOrange ? t.metalOrange : t.metalGreen;
-  // Liquid Chrome glow halo around primary buttons — colored ring under the metallic surface
-  const primaryShadow = `0 8px 24px ${isOrange ? 'rgba(249,115,22,0.32)' : 'rgba(34,197,94,0.30)'}, ${t.innerHi}`;
+  // Subtle metallic shadow — no neon glow
+  const primaryShadow = `0 10px 32px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.18)`;
   const vars = {
     primary: {
       background: metal, color: '#0A0A0B',
@@ -101,12 +102,12 @@ export const Btn = ({ children, onClick, variant = 'primary', accent = 'green', 
 };
 
 export const Toggle = ({ on, onChange, accent = 'green' }) => {
-  const acc = accent === 'orange' ? t.orange : t.green;
+  const acc = accent === 'orange' ? t.orange : t.silver;
   return (
     <div onClick={() => onChange(!on)} style={{
       width: 46, height: 28, borderRadius: 14,
       background: on ? acc : 'rgba(255,255,255,0.08)',
-      boxShadow: on ? `0 0 14px ${acc}55, ${t.innerHi}` : `inset 0 1px 2px rgba(0,0,0,0.4)`,
+      boxShadow: on ? `inset 0 1px 0 rgba(255,255,255,0.18), 0 2px 8px rgba(0,0,0,0.3)` : `inset 0 1px 2px rgba(0,0,0,0.4)`,
       position: 'relative', cursor: 'pointer', transition: 'background 0.22s ease, box-shadow 0.22s ease',
       flexShrink: 0,
     }}>
@@ -147,16 +148,16 @@ export const Modal = ({ visible, onClose, title, children, accent = 'green' }) =
   return (
     <div style={{
       position: 'absolute', inset: 0,
-      background: 'rgba(8,10,14,0.55)',
-      backdropFilter: 'blur(16px) saturate(140%)', WebkitBackdropFilter: 'blur(16px) saturate(140%)',
+      background: 'rgba(8,9,11,0.6)',
+      backdropFilter: 'blur(20px) saturate(140%)', WebkitBackdropFilter: 'blur(20px) saturate(140%)',
       zIndex: 100, display: 'flex', alignItems: 'flex-end', animation: 'fadeIn 0.22s ease',
     }} onClick={onClose}>
       <div onClick={e => e.stopPropagation()} style={{
-        background: `linear-gradient(180deg, ${t.card2} 0%, ${t.card} 100%)`,
+        background: t.glassPanel,
         borderRadius: '28px 28px 0 0', width: '100%',
         maxHeight: '92%', overflow: 'auto', padding: '22px 22px 32px',
-        border: `1px solid ${t.borderStrong}`, borderBottom: 'none',
-        boxShadow: `0 -20px 60px rgba(0,0,0,0.55), ${t.innerHi}`,
+        border: `1px solid ${t.border}`, borderBottom: 'none',
+        boxShadow: `0 -28px 80px rgba(0,0,0,0.6), ${t.innerHi}`,
         animation: 'slideUp 0.32s cubic-bezier(0.16, 1, 0.3, 1)',
       }}>
         <div style={{ width: 44, height: 4, background: t.borderStrong, borderRadius: 2, margin: '0 auto 18px' }} />

@@ -282,25 +282,23 @@ function App() {
     width: '100%', maxWidth: 430, height: '100vh', maxHeight: 920,
     margin: '0 auto', color: t.text,
     background: `
-      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(122,166,255,0.07), transparent 60%),
-      radial-gradient(ellipse 70% 50% at 50% 110%, rgba(139,233,255,0.05), transparent 60%),
-      radial-gradient(ellipse 50% 30% at 0% 50%, rgba(34,197,94,0.025), transparent 70%),
-      radial-gradient(ellipse 50% 30% at 100% 50%, rgba(249,115,22,0.025), transparent 70%),
-      ${t.bg}
+      radial-gradient(circle at 75% 20%, rgba(255,255,255,0.10), transparent 32%),
+      radial-gradient(circle at 20% 80%, rgba(200,177,138,0.08), transparent 35%),
+      linear-gradient(135deg, #08090B 0%, #15171B 55%, #0A0B0D 100%)
     `,
     fontFamily: '"Inter", -apple-system, "SF Pro Display", system-ui, sans-serif',
     fontFeatureSettings: '"cv11", "ss01", "ss03"',
     WebkitFontSmoothing: 'antialiased', MozOsxFontSmoothing: 'grayscale',
     letterSpacing: '-0.005em',
     position: 'relative', overflow: 'hidden',
-    boxShadow: '0 0 80px rgba(0,0,0,0.5)',
+    boxShadow: '0 0 80px rgba(0,0,0,0.55)',
     display: 'flex', flexDirection: 'column',
   };
 
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'radial-gradient(ellipse 60% 50% at 20% 10%, rgba(122,166,255,0.05), transparent 60%), radial-gradient(ellipse 50% 40% at 80% 90%, rgba(139,233,255,0.04), transparent 60%), radial-gradient(ellipse 40% 30% at 10% 80%, rgba(34,197,94,0.03), transparent 60%), radial-gradient(ellipse 40% 30% at 90% 20%, rgba(249,115,22,0.03), transparent 60%), #000',
+      background: 'radial-gradient(circle at 75% 20%, rgba(255,255,255,0.06), transparent 40%), radial-gradient(circle at 20% 80%, rgba(200,177,138,0.05), transparent 45%), linear-gradient(135deg, #08090B 0%, #0F1114 50%, #08090B 100%)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
       <div style={phoneStyle}>

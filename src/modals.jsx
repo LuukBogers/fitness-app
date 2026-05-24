@@ -458,7 +458,7 @@ export function CreateRecipeModal({ visible, onClose, onSave, products, onCreate
                   <span style={{ fontSize: 9, color: t.green, fontWeight: 700, background: t.greenBg, padding: '2px 5px', borderRadius: 4, flexShrink: 0, border: `1px solid ${t.greenBorder}` }}>NEVO</span>
                 )}
                 {p._src === 'offnl' && (
-                  <span style={{ fontSize: 9, color: '#F97316', fontWeight: 700, background: 'rgba(249,115,22,0.12)', padding: '2px 5px', borderRadius: 4, flexShrink: 0, border: '1px solid rgba(249,115,22,0.35)' }}>NL</span>
+                  <span style={{ fontSize: 9, color: '#C8B18A', fontWeight: 700, background: 'rgba(200,177,138,0.12)', padding: '2px 5px', borderRadius: 4, flexShrink: 0, border: '1px solid rgba(200,177,138,0.35)' }}>NL</span>
                 )}
               </div>
               <div style={{ fontSize: 11, color: t.muted }}>
@@ -830,7 +830,7 @@ export function CreateConceptModal({ visible, onClose, onSave, type, recipes = [
                     <span style={{ fontSize: 9, color: t.green, fontWeight: 700, background: t.greenBg, padding: '2px 5px', borderRadius: 4, flexShrink: 0, border: `1px solid ${t.greenBorder}` }}>NEVO</span>
                   )}
                   {p._src === 'offnl' && (
-                    <span style={{ fontSize: 9, color: '#F97316', fontWeight: 700, background: 'rgba(249,115,22,0.12)', padding: '2px 5px', borderRadius: 4, flexShrink: 0, border: '1px solid rgba(249,115,22,0.35)' }}>NL</span>
+                    <span style={{ fontSize: 9, color: '#C8B18A', fontWeight: 700, background: 'rgba(200,177,138,0.12)', padding: '2px 5px', borderRadius: 4, flexShrink: 0, border: '1px solid rgba(200,177,138,0.35)' }}>NL</span>
                   )}
                 </div>
                 <div style={{ fontSize: 11, color: t.muted }}>{p.brand ? `${p.brand} · ` : ''}{p.kcal} kcal/100g</div>
