@@ -70,20 +70,37 @@ export function Home({ onOpenCheckIn }) {
           <div style={{ fontSize: 26, fontWeight: 800, color: t.text, letterSpacing: '-0.02em' }}>{T('home.greeting')}, {userName}</div>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <div style={{ position: 'relative', width: 40, height: 40, borderRadius: 12, background: t.card2, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${t.border}`, cursor: 'pointer' }}>
+          <div style={{
+            position: 'relative', width: 42, height: 42, borderRadius: 13,
+            background: t.glass, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: `1px solid ${t.border}`, cursor: 'pointer',
+            boxShadow: t.innerHi,
+          }}>
             <Icon name="bell" size={18} color={t.soft} />
           </div>
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: `linear-gradient(135deg, ${t.green}, ${t.orange})`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0A0A0B', fontWeight: 800, fontSize: 15 }}>{(userName[0] || 'U').toUpperCase()}</div>
+          <div style={{
+            width: 42, height: 42, borderRadius: 13,
+            background: `linear-gradient(135deg, ${t.green}, ${t.orange})`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#0A0A0B', fontWeight: 800, fontSize: 15,
+            boxShadow: `0 0 18px rgba(34,197,94,0.35), 0 4px 12px rgba(0,0,0,0.4), ${t.innerHi}`,
+          }}>{(userName[0] || 'U').toUpperCase()}</div>
         </div>
       </div>
 
       {/* Block 1: Daily Check-in */}
-      <Card onClick={onOpenCheckIn} style={{ background: `linear-gradient(135deg, ${t.card}, ${t.card2})`, position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', top: -30, right: -30, width: 140, height: 140, background: `radial-gradient(circle, ${t.greenBg}, transparent 70%)`, pointerEvents: 'none' }} />
+      <Card onClick={onOpenCheckIn} style={{
+        background: `linear-gradient(135deg, ${t.card} 0%, ${t.card2} 100%)`,
+        position: 'relative', overflow: 'hidden',
+        boxShadow: `0 8px 28px rgba(0,0,0,0.45), 0 0 0 1px ${t.borderStrong} inset, ${t.innerHi}`,
+      }}>
+        <div style={{ position: 'absolute', top: -50, right: -50, width: 200, height: 200, background: `radial-gradient(circle, rgba(34,197,94,0.22), transparent 70%)`, pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: -40, left: -40, width: 120, height: 120, background: `radial-gradient(circle, rgba(139,233,255,0.08), transparent 70%)`, pointerEvents: 'none' }} />
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, position: 'relative' }}>
           <Label color={t.green} style={{ marginBottom: 0 }}>{T('home.checkin')}</Label>
           {streak > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: t.orangeBg, padding: '4px 10px', borderRadius: 10, border: `1px solid ${t.orangeBorder}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: t.orangeBg, padding: '4px 10px', borderRadius: 10, border: `1px solid ${t.orangeBorder}`, boxShadow: `0 0 14px rgba(249,115,22,0.25)` }}>
               <Icon name="fire" size={11} color={t.orange} />
               <span style={{ fontSize: 11, color: t.orange, fontWeight: 700 }}>{streak} {T('home.streak')}</span>
             </div>
@@ -99,11 +116,14 @@ export function Home({ onOpenCheckIn }) {
                 <div style={{ fontSize: 9, color: isToday ? t.green : t.muted, fontWeight: 700, letterSpacing: '0.05em' }}>{weekDayShort(lang, i)}</div>
                 <div style={{
                   width: 34, height: 34, borderRadius: 17,
-                  background: isToday ? t.green : done ? t.greenBg : t.card2,
+                  background: isToday ? t.metalGreen : done ? t.greenBg : 'rgba(255,255,255,0.04)',
                   border: `1.5px solid ${isToday ? t.green : done ? t.greenBorder : t.border}`,
+                  boxShadow: isToday
+                    ? `0 0 18px rgba(34,197,94,0.55), ${t.innerHi}`
+                    : done ? `0 0 8px rgba(34,197,94,0.15)` : 'inset 0 1px 1px rgba(0,0,0,0.2)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   color: isToday ? '#0A0A0B' : done ? t.green : t.muted,
-                  fontSize: 11.5, fontWeight: 700,
+                  fontSize: 11.5, fontWeight: 800,
                 }}>{done ? <Icon name="check" size={14} stroke={3} /> : dates[i]}</div>
               </div>
             );
@@ -117,13 +137,14 @@ export function Home({ onOpenCheckIn }) {
       </Card>
 
       {/* Block 2: Nutrition Status */}
-      <Card>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+      <Card style={{ position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: -60, left: -40, width: 180, height: 180, background: `radial-gradient(circle, rgba(34,197,94,0.10), transparent 70%)`, pointerEvents: 'none' }} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, position: 'relative' }}>
           <div>
             <Label color={t.green}>{T('home.nutrtoday')}</Label>
             {calories > 0 ? (
               <div style={{ fontSize: 16, color: t.text }}>
-                {T('home.canstileat')} <span style={{ fontWeight: 700, color: t.green }}>{remaining}</span> kcal
+                {T('home.canstileat')} <span style={{ fontWeight: 800, color: t.green }}>{remaining}</span> kcal
               </div>
             ) : (
               <div style={{ fontSize: 14, color: t.muted }}>{T('home.setmacros')}</div>
@@ -132,12 +153,12 @@ export function Home({ onOpenCheckIn }) {
         </div>
 
         <ProgressBar value={eatenKcal} max={calories || 1} color={t.green} height={10} />
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 12 }}>
-          <span style={{ color: t.soft }}><span style={{ color: t.text, fontWeight: 700 }}>{eatenKcal}</span> {T('home.eaten')}</span>
-          <span style={{ color: t.soft }}>{T('home.target')} <span style={{ color: t.text, fontWeight: 700 }}>{calories || '—'}</span></span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 12, position: 'relative' }}>
+          <span style={{ color: t.soft }}><span style={{ color: t.text, fontWeight: 800 }}>{eatenKcal}</span> {T('home.eaten')}</span>
+          <span style={{ color: t.soft }}>{T('home.target')} <span style={{ color: t.text, fontWeight: 800 }}>{calories || '—'}</span></span>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 20, paddingTop: 18, borderTop: `1px solid ${t.border}` }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 20, paddingTop: 18, borderTop: `1px solid ${t.border}`, position: 'relative' }}>
           <Ring value={Math.round(eatenP)} max={protein || 1} color={t.protein} label={T('macros.protein')} />
           <Ring value={Math.round(eatenC)} max={carbs || 1} color={t.carbs} label={T('macros.carbs')} />
           <Ring value={Math.round(eatenF)} max={fat || 1} color={t.fat} label={T('macros.fat')} />
@@ -145,23 +166,31 @@ export function Home({ onOpenCheckIn }) {
       </Card>
 
       {/* Block 3: Workout Status */}
-      <Card>
+      <Card style={{ position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: -50, right: -40, width: 160, height: 160, background: `radial-gradient(circle, rgba(249,115,22,0.12), transparent 70%)`, pointerEvents: 'none' }} />
+        <div style={{ position: 'relative' }}>
         <Label color={t.orange}>{T('home.todaysworkout')}</Label>
         {todayWorkout ? (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div style={{ width: 48, height: 48, borderRadius: 14, background: todayDone ? t.greenBg : t.orangeBg, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${todayDone ? t.greenBorder : t.orangeBorder}` }}>
-                <Icon name={todayDone ? "check" : "workout"} size={22} color={todayDone ? t.green : t.orange} />
+              <div style={{
+                width: 48, height: 48, borderRadius: 14,
+                background: todayDone ? t.metalGreen : t.metalOrange,
+                boxShadow: todayDone ? `0 0 18px rgba(34,197,94,0.4)` : `0 0 18px rgba(249,115,22,0.4)`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: `1px solid ${todayDone ? t.greenBorder : t.orangeBorder}`,
+              }}>
+                <Icon name={todayDone ? "check" : "workout"} size={22} color="#0A0A0B" stroke={2.6} />
               </div>
               <div>
-                <div style={{ fontSize: 17, fontWeight: 700, color: t.text }}>{todayWorkout}</div>
+                <div style={{ fontSize: 17, fontWeight: 800, color: t.text }}>{todayWorkout}</div>
                 <div style={{ fontSize: 12.5, color: t.soft }}>{todayDone ? '✓ ' + T('home.completed') : T('home.taptostart')}</div>
               </div>
             </div>
           </div>
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 14, background: t.card2, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${t.border}` }}>
+            <div style={{ width: 48, height: 48, borderRadius: 14, background: t.glass, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${t.border}` }}>
               <Icon name="rest" size={22} color={t.muted} />
             </div>
             <div>
@@ -170,6 +199,7 @@ export function Home({ onOpenCheckIn }) {
             </div>
           </div>
         )}
+        </div>
       </Card>
 
       {/* Block 4: Weight Graph */}
