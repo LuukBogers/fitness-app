@@ -2,6 +2,7 @@ import { useState } from "react";
 import { t, STATUS, WEEK, SLOTS, useApp, useT, useLang, todayIdx, weekDates, todayKey, monthName, monthShort, weekDayShort, slotKey, fmtKey, dayStatus } from './lib';
 import { Icon, Card, Label, Btn, Chip, Modal } from './shared';
 import { CreateProductModal, CreateRecipeModal, CreateConceptModal, Toast } from './modals';
+import { ProductDetailModal } from './logflow';
 import { BarcodeScanner, ScannedProductModal } from './barcode';
 
 /* ═══════════════════════════ NUTRITION ═══════════════════════════ */
@@ -25,6 +26,7 @@ export function Nutrition() {
   const [showMealOptions, setShowMealOptions] = useState(null); // index in slotMeals
   const [showLockedDeviate, setShowLockedDeviate] = useState(false);
   const [showLegend, setShowLegend] = useState(false);
+  const [openProduct, setOpenProduct] = useState(null);
   const [grocMode, setGrocMode] = useState('smart');
   const [showScanner, setShowScanner] = useState(false);
   const [scannedCode, setScannedCode] = useState(null);
@@ -288,7 +290,7 @@ export function Nutrition() {
                 <div style={{ fontSize: 12, color: t.muted, lineHeight: 1.5 }}>{T('nutr.noproductsbody')}</div>
               </div>
             ) : products.map(p => (
-              <Card key={p.id} style={{ padding: 14 }}>
+              <Card key={p.id} onClick={() => setOpenProduct(p)} style={{ padding: 14 }}>
                 <div style={{ display: 'flex', gap: 12 }}>
                   {p.image
                     ? <img src={p.image} alt="" style={{ width: 48, height: 48, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
@@ -406,8 +408,17 @@ export function Nutrition() {
 
       {/* Meal options */}
       <Modal visible={showMealOptions !== null} onClose={() => setShowMealOptions(null)} title={showMealOptions !== null ? T(slotKey(slotMeals[showMealOptions].slot)) : ''}>
-        <Btn full variant="ghost" style={{ marginBottom: 8 }}>{T('nutr.choosereciple')}</Btn>
-        <Btn full variant="ghost" style={{ marginBottom: 8 }}>{T('nutr.scanproduct')}</Btn>
+        <Btn full variant="ghost" style={{ marginBottom: 8 }} onClick={() => {
+          const slotName = showMealOptions !== null ? slotMeals[showMealOptions].slot : 'Lunch';
+          setShowMealOptions(null);
+          setSub('products');
+          setToast(T('nutr.tab.products') + ' — ' + T(slotKey(slotName)));
+          setTimeout(() => setToast(''), 2000);
+        }}>{T('nutr.choosereciple')}</Btn>
+        <Btn full variant="ghost" style={{ marginBottom: 8 }} onClick={() => {
+          setShowMealOptions(null);
+          setShowScanner(true);
+        }}>{T('nutr.scanproduct')}</Btn>
         <Btn full variant="ghost" style={{ marginBottom: 8 }}>{showMealOptions !== null && slotMeals[showMealOptions].locked ? T('nutr.unlockmeal') : T('nutr.lockmeal')}</Btn>
         <Btn full variant="outline">{showMealOptions !== null && slotMeals[showMealOptions].eaten ? T('nutr.marknoteaten') : T('nutr.markeaten')}</Btn>
       </Modal>
@@ -442,6 +453,18 @@ export function Nutrition() {
       {/* Barcode scanner */}
       <BarcodeScanner visible={showScanner} onClose={() => setShowScanner(false)} onResult={handleScanResult} />
       <ScannedProductModal barcode={scannedCode} onClose={() => setScannedCode(null)} onSave={handleProductSave} />
+
+      {/* Product detail (Module A: log flow) */}
+      <ProductDetailModal
+        visible={!!openProduct}
+        product={openProduct}
+        onClose={() => setOpenProduct(null)}
+        defaultSlot={showMealOptions !== null ? slotMeals[showMealOptions]?.slot : 'Lunch'}
+        onLogged={({ kcal, slot }) => {
+          setToast(T('product.logged.toast', { kcal, slot }));
+          setTimeout(() => setToast(''), 2400);
+        }}
+      />
 
       {/* Toast */}
       <Toast message={toast} visible={!!toast} />

@@ -29,6 +29,10 @@ export const Icon = ({ name, size = 20, color = 'currentColor', stroke = 1.8 }) 
     target: <><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></>,
     cal: <><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>,
     scan: <><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><line x1="7" y1="12" x2="7" y2="12"/><line x1="3" y1="12" x2="21" y2="12"/></>,
+    wheat: <><path d="M12 22V8"/><path d="M12 8c0-3 2-5 4-5-1 2-1 4-4 5z"/><path d="M12 8c0-3-2-5-4-5 1 2 1 4 4 5z"/><path d="M12 14c0-2.5 2-4 4-4-1 1.5-1 3-4 4z"/><path d="M12 14c0-2.5-2-4-4-4 1 1.5 1 3 4 4z"/></>,
+    egg: <path d="M12 2c-4 0-7 5-7 10s3 10 7 10 7-5 7-10-3-10-7-10z"/>,
+    drop: <path d="M12 2.5c-3 4-7 8-7 12a7 7 0 0 0 14 0c0-4-4-8-7-12z"/>,
+    apple: <><path d="M12 5c-3-2-7 0-7 5 0 6 3 11 7 11s7-5 7-11c0-5-4-7-7-5z"/><path d="M12 5c0-2 1-3 2-3"/></>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round">

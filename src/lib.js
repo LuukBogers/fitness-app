@@ -85,6 +85,27 @@ export const SHELF_OPTS = [
 export const CAT_OPTS = ['Breakfast','Lunch','Dinner','Snack'];
 export const STORE_OPTS = ['AH','Jumbo','Lidl','Aldi','Plus','Body&Fit','Other'];
 
+// 15 universal portion building blocks. `name` is i18n key suffix → portion.<name>
+// `g` is grams (solid) and `ml` is milliliters (liquid). For products without a custom
+// portion, these are offered as a fallback in the bottom-sheet portion picker.
+export const GLOBAL_PORTIONS = [
+  { id: 'broodsmeer.boter',      g: 5   },
+  { id: 'broodsmeer.pindakaas',  g: 15  },
+  { id: 'eetlepel',              g: 15  },
+  { id: 'plak.kaas',             g: 20  },
+  { id: 'snee.brood',            g: 35  },
+  { id: 'ons.vs',                g: 28  },
+  { id: 'opscheplepel.klein',    g: 30  },
+  { id: 'opscheplepel.groot',    g: 60  },
+  { id: 'kopje.klein',           ml: 125 },
+  { id: 'glas.klein',            ml: 150 },
+  { id: 'glas.middel',           ml: 200 },
+  { id: 'glas.normaal',          ml: 250 },
+  { id: 'blikje.330',            ml: 330 },
+  { id: 'pint',                  ml: 480 },
+  { id: 'fles.500',              ml: 500 },
+];
+
 /* ═══════════════════════════ HELPERS ═══════════════════════════ */
 export const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 export const todayKey = () => new Date().toISOString().slice(0, 10);
