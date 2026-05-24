@@ -230,7 +230,7 @@ export function EditPhotoModal({ visible, onClose, currentImage, onSave }) {
 }
 
 /* ═══════════════════════════ CREATE RECIPE MODAL ═══════════════════════════ */
-export function CreateRecipeModal({ visible, onClose, onSave, products, onCreateProduct }) {
+export function CreateRecipeModal({ visible, onClose, onSave, products, onCreateProduct, editing }) {
   const T = useT();
   const [form, setForm] = useState({ name: '', cat: 'Breakfast', image: null, items: [] }); // items: snapshot {productId, name, kcal, p, c, f, image, source, grams}
   const [showPicker, setShowPicker] = useState(false);
@@ -239,8 +239,20 @@ export function CreateRecipeModal({ visible, onClose, onSave, products, onCreate
   const upd = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
   useEffect(() => {
-    if (visible) { setForm({ name: '', cat: 'Breakfast', image: null, items: [] }); setShowInlineProduct(false); }
-  }, [visible]);
+    if (visible) {
+      if (editing) {
+        setForm({
+          name: editing.name || '',
+          cat: editing.cat || 'Breakfast',
+          image: editing.image || null,
+          items: editing.items || [],
+        });
+      } else {
+        setForm({ name: '', cat: 'Breakfast', image: null, items: [] });
+      }
+      setShowInlineProduct(false);
+    }
+  }, [visible, editing]);
 
   // Combined searchable pool: own products + NEVO basis-foods + OFF_NL bulk
   // Each entry normalized to {id, name, brand, kcal, p, c, f, image, _src}
@@ -296,7 +308,7 @@ export function CreateRecipeModal({ visible, onClose, onSave, products, onCreate
   const save = () => {
     if (!canSave) return;
     onSave({
-      id: newId(),
+      id: editing?.id || newId(),
       name: form.name.trim(),
       cat: form.cat,
       image: form.image,
@@ -316,7 +328,7 @@ export function CreateRecipeModal({ visible, onClose, onSave, products, onCreate
       p: Math.round(totals.p),
       c: Math.round(totals.c),
       f: Math.round(totals.f),
-      createdAt: new Date().toISOString(),
+      createdAt: editing?.createdAt || new Date().toISOString(),
     });
   };
 
@@ -332,7 +344,7 @@ export function CreateRecipeModal({ visible, onClose, onSave, products, onCreate
 
   return (
     <>
-      <Modal visible={visible && !showPicker} onClose={onClose} title={T('modal.createrecipe')}>
+      <Modal visible={visible && !showPicker} onClose={onClose} title={editing ? T('modal.editrecipe') : T('modal.createrecipe')}>
         <PhotoPicker value={form.image} onChange={v => upd('image', v)} />
         <Field label={T('modal.field.name')} value={form.name} onChange={v => upd('name', v)} placeholder={T('modal.ph.recipename')} />
         <Select label={T('modal.field.category')} value={form.cat} onChange={v => upd('cat', v)} options={CAT_OPTS} />
@@ -474,7 +486,7 @@ export function CreateRecipeModal({ visible, onClose, onSave, products, onCreate
 }
 
 /* ═══════════════════════════ CREATE CONCEPT MODAL ═══════════════════════════ */
-export function CreateConceptModal({ visible, onClose, onSave, type, recipes = [], products = [], dayConcepts = [], onCreateProduct }) {
+export function CreateConceptModal({ visible, onClose, onSave, type, recipes = [], products = [], dayConcepts = [], onCreateProduct, editing }) {
   const T = useT();
   // type: 'day' = build day with multi-item slots; 'week' = pick a day-concept per weekday
   const [name, setName] = useState('');
@@ -493,10 +505,18 @@ export function CreateConceptModal({ visible, onClose, onSave, type, recipes = [
 
   useEffect(() => {
     if (visible) {
-      setName(''); setImage(null); setSlots({}); setWeekPicks({}); setPicker(null);
-      setPickerTab('products'); setPickerSearch(''); setEditingItem(null); setShowInlineProduct(false);
+      if (editing) {
+        setName(editing.name || '');
+        setImage(editing.image || null);
+        if (editing.type === 'day') { setSlots(editing.slots || {}); setWeekPicks({}); }
+        else { setWeekPicks(editing.days || {}); setSlots({}); }
+      } else {
+        setName(''); setImage(null); setSlots({}); setWeekPicks({});
+      }
+      setPicker(null); setPickerTab('products'); setPickerSearch('');
+      setEditingItem(null); setShowInlineProduct(false);
     }
-  }, [visible, type]);
+  }, [visible, type, editing]);
 
   // Snapshot builders with edit defaults
   const snapshotRecipe = (r) => ({
@@ -600,7 +620,7 @@ export function CreateConceptModal({ visible, onClose, onSave, type, recipes = [
     if (!canSave) return;
     if (type === 'day') {
       onSave({
-        id: newId(),
+        id: editing?.id || newId(),
         name: name.trim(),
         type: 'day',
         image,
@@ -609,27 +629,27 @@ export function CreateConceptModal({ visible, onClose, onSave, type, recipes = [
         p: Math.round(dayTotal.p * 10) / 10,
         c: Math.round(dayTotal.c * 10) / 10,
         f: Math.round(dayTotal.f * 10) / 10,
-        createdAt: new Date().toISOString(),
+        createdAt: editing?.createdAt || new Date().toISOString(),
       });
     } else {
       onSave({
-        id: newId(),
+        id: editing?.id || newId(),
         name: name.trim(),
         type: 'week',
         image,
         days: weekPicks,
         kcal: filledDays > 0 ? Math.round(weekTotalKcal / filledDays) : 0,
-        createdAt: new Date().toISOString(),
+        createdAt: editing?.createdAt || new Date().toISOString(),
       });
     }
   };
 
   const noDayConcepts = type === 'week' && dayConcepts.length === 0;
-  const editing = editingItem ? (slots[editingItem.slot] || [])[editingItem.idx] : null;
+  const editingItemRef = editingItem ? (slots[editingItem.slot] || [])[editingItem.idx] : null;
 
   return (
     <>
-      <Modal visible={visible && !picker && !editingItem} onClose={onClose} title={type === 'day' ? T('modal.createdayconcept') : T('modal.createweekconcept')}>
+      <Modal visible={visible && !picker && !editingItem} onClose={onClose} title={editing ? (type === 'day' ? T('modal.editdayconcept') : T('modal.editweekconcept')) : (type === 'day' ? T('modal.createdayconcept') : T('modal.createweekconcept'))}>
         <PhotoPicker value={image} onChange={setImage} />
         <Field label={T('modal.field.name')} value={name} onChange={setName} placeholder={type === 'day' ? T('modal.ph.dayconceptname') : T('modal.ph.weekconceptname')} />
 
@@ -833,20 +853,20 @@ export function CreateConceptModal({ visible, onClose, onSave, type, recipes = [
       />
 
       {/* EDIT ITEM modal — adjust grams (product) or portions (recipe), or remove */}
-      <Modal visible={!!editing} onClose={() => setEditingItem(null)} title={editing?.name || ''}>
-        {editing && (() => {
-          const isRecipe = editing.itemType === 'recipe';
-          const m = itemMacros(editing);
-          const fieldVal = isRecipe ? editing.portions : editing.grams;
+      <Modal visible={!!editingItemRef} onClose={() => setEditingItem(null)} title={editingItemRef?.name || ''}>
+        {editingItemRef && (() => {
+          const isRecipe = editingItemRef.itemType === 'recipe';
+          const m = itemMacros(editingItemRef);
+          const fieldVal = isRecipe ? editingItemRef.portions : editingItemRef.grams;
           const fieldLabel = isRecipe ? T('modal.edit.portions') : T('modal.edit.grams');
           const fieldPatch = (v) => updateItemInSlot(editingItem.slot, editingItem.idx, isRecipe ? { portions: v } : { grams: v });
           const baseLine = isRecipe
-            ? `${editing.kcal} kcal ${T('modal.edit.perportion')}`
-            : `${editing.kcal} kcal / 100g`;
+            ? `${editingItemRef.kcal} kcal ${T('modal.edit.perportion')}`
+            : `${editingItemRef.kcal} kcal / 100g`;
           return (
             <>
               <div style={{ padding: 12, background: t.card3, borderRadius: 12, marginBottom: 14, border: `1px solid ${t.border}` }}>
-                <div style={{ fontSize: 11, color: t.muted, marginBottom: 4 }}>{baseLine}{editing.brand ? ' · ' + editing.brand : ''}</div>
+                <div style={{ fontSize: 11, color: t.muted, marginBottom: 4 }}>{baseLine}{editingItemRef.brand ? ' · ' + editingItemRef.brand : ''}</div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div style={{ fontSize: 11, color: t.muted }}>{T('common.total')}</div>
                   <div style={{ fontSize: 18, fontWeight: 800, color: t.green }}>{Math.round(m.kcal)} kcal</div>

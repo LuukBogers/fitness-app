@@ -44,6 +44,14 @@ export function Nutrition() {
   const [productPrefill, setProductPrefill] = useState(null);
   const [showCreateRecipe, setShowCreateRecipe] = useState(false);
   const [conceptType, setConceptType] = useState(null); // 'day' | 'week' | null
+  // Edit-mode for recipes/concepts
+  const [editingRecipe, setEditingRecipe] = useState(null); // recipe being edited
+  const [editingConcept, setEditingConcept] = useState(null); // concept being edited
+  // ⋯ actions menu for recipe/concept cards
+  const [recipeActions, setRecipeActions] = useState(null); // recipe whose menu is open
+  const [conceptActions, setConceptActions] = useState(null); // concept whose menu is open
+  // Confirm-delete dialog (shared)
+  const [confirmDelete, setConfirmDelete] = useState(null); // { kind: 'recipe'|'concept', item }
 
   // Selected day key
   const selDate = (() => { const dt = new Date(); dt.setDate(dt.getDate() - ti + selectedDay); return fmtKey(dt); })();
@@ -186,19 +194,45 @@ export function Nutrition() {
   };
 
   const saveRecipe = async (newRecipe) => {
-    const newList = [...recipes, newRecipe];
+    const existing = recipes.findIndex(r => r.id === newRecipe.id);
+    const newList = existing >= 0
+      ? recipes.map(r => r.id === newRecipe.id ? newRecipe : r)
+      : [...recipes, newRecipe];
     await saveProfileData({ recipes: newList });
-    setShowCreateRecipe(false);
+    setShowCreateRecipe(false); setEditingRecipe(null);
     setToast(T('scan.toast.recipesaved', { name: newRecipe.name }));
     setTimeout(() => setToast(''), 2200);
   };
 
   const saveConcept = async (newConcept) => {
-    const newList = [...concepts, newConcept];
+    const existing = concepts.findIndex(c => c.id === newConcept.id);
+    const newList = existing >= 0
+      ? concepts.map(c => c.id === newConcept.id ? newConcept : c)
+      : [...concepts, newConcept];
     await saveProfileData({ concepts: newList });
-    setConceptType(null);
+    setConceptType(null); setEditingConcept(null);
     setToast(T('scan.toast.conceptsaved', { name: newConcept.name }));
     setTimeout(() => setToast(''), 2200);
+  };
+
+  const deleteConcept = async (id) => {
+    await saveProfileData({ concepts: concepts.filter(c => c.id !== id) });
+    setToast(T('concept.deleted'));
+    setTimeout(() => setToast(''), 1600);
+  };
+
+  const duplicateConcept = async (c) => {
+    const copy = { ...c, id: c.id + '_' + Date.now(), name: c.name + ' (kopie)', createdAt: new Date().toISOString() };
+    await saveProfileData({ concepts: [...concepts, copy] });
+    setToast(T('concept.duplicated', { name: copy.name }));
+    setTimeout(() => setToast(''), 1600);
+  };
+
+  const duplicateRecipe = async (r) => {
+    const copy = { ...r, id: r.id + '_' + Date.now(), name: r.name + ' (kopie)', createdAt: new Date().toISOString() };
+    await saveProfileData({ recipes: [...recipes, copy] });
+    setToast(T('recipe.duplicated', { name: copy.name }));
+    setTimeout(() => setToast(''), 1600);
   };
 
   const tabs = [
@@ -411,7 +445,7 @@ export function Nutrition() {
                 <div style={{ fontSize: 12, color: t.muted, lineHeight: 1.5 }}>{T('nutr.norecipesbody')}</div>
               </div>
             ) : recipes.map(r => (
-              <Card key={r.id} style={{ padding: 14 }}>
+              <Card key={r.id} style={{ padding: 14, position: 'relative' }}>
                 <div style={{ display: 'flex', gap: 12 }}>
                   {r.image
                     ? <img src={r.image} alt="" style={{ width: 56, height: 56, borderRadius: 12, objectFit: 'cover', flexShrink: 0 }} />
@@ -419,11 +453,17 @@ export function Nutrition() {
                   }
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
-                      <div>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{r.name}</div>
+                      <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
                         <div style={{ fontSize: 11, color: t.muted, fontWeight: 600, letterSpacing: '0.05em', marginTop: 2 }}>{(r.cat||'').toUpperCase()} · {(r.items||[]).length} {T('nutr.products')}</div>
                       </div>
-                      <div style={{ fontSize: 16, fontWeight: 800, color: t.green }}>{r.kcal}<span style={{ fontSize: 10, color: t.muted, marginLeft: 2 }}>kcal</span></div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                        <div style={{ fontSize: 16, fontWeight: 800, color: t.green }}>{r.kcal}<span style={{ fontSize: 10, color: t.muted, marginLeft: 2 }}>kcal</span></div>
+                        <div onClick={() => setRecipeActions(r)} style={{
+                          width: 30, height: 30, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          cursor: 'pointer', color: t.soft, fontSize: 18, letterSpacing: '0.1em', marginLeft: 4,
+                        }}>⋯</div>
+                      </div>
                     </div>
                     <div style={{ display: 'flex', gap: 12, fontSize: 11.5 }}>
                       <span><span style={{ color: t.protein, fontWeight: 700 }}>{r.p}g</span> <span style={{ color: t.muted }}>P</span></span>
@@ -544,9 +584,12 @@ export function Nutrition() {
                       <div style={{ fontSize: 14, fontWeight: 700, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</div>
                       <span style={{ fontSize: 9, color: t.green, fontWeight: 700, background: t.greenBg, padding: '2px 6px', borderRadius: 5, letterSpacing: '0.05em', flexShrink: 0 }}>{(c.type||'').toUpperCase()}</span>
                     </div>
-                    <div style={{ fontSize: 11.5, color: t.muted }}>{c.kcal} kcal{c.type === 'week' ? '/day avg' : ''}</div>
+                    <div style={{ fontSize: 11.5, color: t.muted }}>{c.kcal} kcal{c.type === 'week' ? '/' + T('common.dayshort') + ' ' + T('common.avg') : ''}</div>
                   </div>
-                  <Icon name="chevR" size={16} color={t.muted} />
+                  <div onClick={() => setConceptActions(c)} style={{
+                    width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer', color: t.soft, fontSize: 18, letterSpacing: '0.1em', flexShrink: 0,
+                  }}>⋯</div>
                 </div>
               </Card>
             ))}
@@ -595,8 +638,25 @@ export function Nutrition() {
 
       {/* Create flows */}
       <CreateProductModal visible={showCreateProduct} onClose={() => { setShowCreateProduct(false); setProductPrefill(null); }} onSave={saveProduct} prefill={productPrefill} />
-      <CreateRecipeModal visible={showCreateRecipe} onClose={() => setShowCreateRecipe(false)} onSave={saveRecipe} products={products} onCreateProduct={(p) => saveProfileData({ products: [...products, p] })} />
-      <CreateConceptModal visible={conceptType !== null} onClose={() => setConceptType(null)} onSave={saveConcept} type={conceptType} recipes={recipes} products={products} dayConcepts={concepts.filter(c => c.type === 'day')} onCreateProduct={(p) => saveProfileData({ products: [...products, p] })} />
+      <CreateRecipeModal
+        visible={showCreateRecipe || !!editingRecipe}
+        onClose={() => { setShowCreateRecipe(false); setEditingRecipe(null); }}
+        onSave={saveRecipe}
+        products={products}
+        editing={editingRecipe}
+        onCreateProduct={(p) => saveProfileData({ products: [...products, p] })}
+      />
+      <CreateConceptModal
+        visible={conceptType !== null || !!editingConcept}
+        onClose={() => { setConceptType(null); setEditingConcept(null); }}
+        onSave={saveConcept}
+        type={editingConcept ? editingConcept.type : conceptType}
+        recipes={recipes}
+        products={products}
+        dayConcepts={concepts.filter(c => c.type === 'day')}
+        editing={editingConcept}
+        onCreateProduct={(p) => saveProfileData({ products: [...products, p] })}
+      />
 
       {/* Barcode scanner */}
       <BarcodeScanner visible={showScanner} onClose={() => setShowScanner(false)} onResult={handleScanResult} />
@@ -653,6 +713,45 @@ export function Nutrition() {
         currentImage={photoEditing?.currentImage}
         onSave={saveEditedPhoto}
       />
+
+      {/* RECIPE actions menu (⋯) */}
+      <Modal visible={!!recipeActions} onClose={() => setRecipeActions(null)} title={recipeActions?.name || ''}>
+        <Btn full variant="ghost" style={{ marginBottom: 8 }} onClick={() => {
+          const r = recipeActions; setRecipeActions(null); setEditingRecipe(r);
+        }}>{T('common.edit')}</Btn>
+        <Btn full variant="ghost" style={{ marginBottom: 8 }} onClick={() => {
+          duplicateRecipe(recipeActions); setRecipeActions(null);
+        }}>{T('common.duplicate')}</Btn>
+        <Btn full variant="outline" style={{ color: '#F87171', borderColor: 'rgba(248,113,113,0.3)' }} onClick={() => {
+          setConfirmDelete({ kind: 'recipe', item: recipeActions }); setRecipeActions(null);
+        }}>{T('common.delete')}</Btn>
+      </Modal>
+
+      {/* CONCEPT actions menu (⋯) */}
+      <Modal visible={!!conceptActions} onClose={() => setConceptActions(null)} title={conceptActions?.name || ''}>
+        <Btn full variant="ghost" style={{ marginBottom: 8 }} onClick={() => {
+          const c = conceptActions; setConceptActions(null); setEditingConcept(c);
+        }}>{T('common.edit')}</Btn>
+        <Btn full variant="ghost" style={{ marginBottom: 8 }} onClick={() => {
+          duplicateConcept(conceptActions); setConceptActions(null);
+        }}>{T('common.duplicate')}</Btn>
+        <Btn full variant="outline" style={{ color: '#F87171', borderColor: 'rgba(248,113,113,0.3)' }} onClick={() => {
+          setConfirmDelete({ kind: 'concept', item: conceptActions }); setConceptActions(null);
+        }}>{T('common.delete')}</Btn>
+      </Modal>
+
+      {/* CONFIRM DELETE (shared) */}
+      <Modal visible={!!confirmDelete} onClose={() => setConfirmDelete(null)} title={T('confirm.delete.title')}>
+        <div style={{ fontSize: 14, color: t.text, marginBottom: 8 }}>{T('confirm.delete.body', { name: confirmDelete?.item?.name || '' })}</div>
+        <div style={{ fontSize: 12, color: t.muted, marginBottom: 18 }}>{T('confirm.delete.irreversible')}</div>
+        <Btn full onClick={async () => {
+          if (!confirmDelete) return;
+          if (confirmDelete.kind === 'recipe') await deleteRecipe(confirmDelete.item.id);
+          else if (confirmDelete.kind === 'concept') await deleteConcept(confirmDelete.item.id);
+          setConfirmDelete(null);
+        }} style={{ background: '#DC2626', color: '#fff', marginBottom: 8 }}>{T('common.delete')}</Btn>
+        <Btn full variant="outline" onClick={() => setConfirmDelete(null)}>{T('common.cancel')}</Btn>
+      </Modal>
 
       {/* Toast */}
       <Toast message={toast} visible={!!toast} />
