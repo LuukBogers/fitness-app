@@ -23,7 +23,7 @@ export const PhotoPicker = ({ value, onChange, accent = 'green' }) => {
   return (
     <div style={{ marginBottom: 14 }}>
       <div style={{ fontSize: 12, color: t.soft, fontWeight: 600, marginBottom: 6 }}>{T('modal.photooptional')}</div>
-      <input ref={inputRef} type="file" accept="image/*" capture="environment" onChange={handleFile} style={{ display: 'none' }} />
+      <input ref={inputRef} type="file" accept="image/*" onChange={handleFile} style={{ display: 'none' }} />
       {value ? (
         <div style={{ position: 'relative', borderRadius: 14, overflow: 'hidden', border: `1px solid ${t.border}` }}>
           <img src={value} alt="" style={{ width: '100%', height: 180, objectFit: 'cover', display: 'block' }} />
@@ -68,7 +68,7 @@ export function CreateProductModal({ visible, onClose, onSave, prefill }) {
       setForm({
         name: prefill?.name || '', brand: prefill?.brand || '',
         store: prefill?.store || 'AH', shelf: prefill?.shelf || 'shelf',
-        kcal: prefill?.kcal || '', p: prefill?.p || '', c: prefill?.c || '', f: prefill?.f || '',
+        kcal: prefill?.kcal ?? '', p: prefill?.p ?? '', c: prefill?.c ?? '', f: prefill?.f ?? '',
         image: prefill?.image || null,
       });
     }
