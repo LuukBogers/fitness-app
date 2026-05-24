@@ -76,7 +76,7 @@ export function DiagnosePage() {
               <Pre>Per-bron status:{'\n'}{shortPreview(data.status || {})}</Pre>
               {products.slice(0, 5).map((p, i) => {
                 const name = p.product_name_nl || p.product_name || p.product_name_en || p.generic_name || '(geen naam)';
-                const brand = (p.brands || '').split(',')[0];
+                const brand = (Array.isArray(p.brands) ? (p.brands[0] || '') : String(p.brands || '').split(',')[0]);
                 const n = p.nutriments || {};
                 const kcal = n['energy-kcal_100g'] || '?';
                 const src = p._src || '?';

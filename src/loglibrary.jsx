@@ -89,7 +89,7 @@ function offToProduct(raw) {
   return {
     id,
     name,
-    brand: (p.brands || '').split(',')[0].trim(),
+    brand: (Array.isArray(p.brands) ? (p.brands[0] || '') : String(p.brands || '').split(',')[0]).trim(),
     image: p.image_front_small_url || p.image_small_url || p.image_url || null,
     kcal: Math.round(kcal || 0),
     p: Math.round((n.proteins_100g || 0) * 10) / 10,

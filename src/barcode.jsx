@@ -191,7 +191,7 @@ async function lookupBarcode(barcode) {
   return {
     barcode,
     name: p.product_name || p.product_name_en || 'Unknown product',
-    brand: p.brands || '',
+    brand: Array.isArray(p.brands) ? (p.brands[0] || '') : (p.brands || ''),
     image: p.image_front_url || p.image_url || null,
     quantity: p.quantity || '',
     kcal: Math.round(kcal || 0),
