@@ -251,11 +251,12 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
         const seen = new Set();
         const deduped = [];
         for (const p of merged) {
-          const key = (p.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 24);
+          // Full name + brand as dedupe key — no truncation, so flavour variants stay distinct
+          const key = ((p.name || '') + '|' + (p.brand || '')).toLowerCase();
           if (seen.has(key)) continue;
           seen.add(key);
           deduped.push(p);
-          if (deduped.length >= 12) break;
+          if (deduped.length >= 50) break;
         }
 
         setWebHits(deduped);
