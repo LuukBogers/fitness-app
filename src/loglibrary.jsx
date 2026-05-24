@@ -16,11 +16,13 @@ import { searchLocalFoods, NL_EN_FOOD } from './local_foods';
  * ═══════════════════════════════════════════════════════════════════════════ */
 
 const SEARCHALICIOUS = 'https://search.openfoodfacts.org/search';
+const OFF_V1_CGI = 'https://world.openfoodfacts.org/cgi/search.pl';
+const OFF_V2_SEARCH = 'https://world.openfoodfacts.org/api/v2/search';
 const USDA_API = 'https://api.nal.usda.gov/fdc/v1/foods/search';
 const USDA_KEY = 'DEMO_KEY'; // 30 req/hr per IP — fine for low traffic, user can swap
 
-// localStorage cache helpers
-const CACHE_KEY_PREFIX = 'foodsearch:';
+// localStorage cache helpers — version-prefixed to bust stale entries when format changes
+const CACHE_KEY_PREFIX = 'foodsearch:v3:';
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 1 day
 
 function cacheGet(query) {
@@ -186,29 +188,75 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
     debounceRef.current = setTimeout(async () => {
       const seq = ++fetchSeq.current;
 
-      // Search-a-licious (replaces the broken cgi/search.pl which returns 503 since April 2026).
-      // Official spec: GET /search, params q + page_size + langs (array, repeated).
+      // OpenFoodFacts via 3 parallel endpoints — first non-empty result wins.
+      // Search-a-licious (modern, Elasticsearch), v1 cgi (legacy, may 503), v2 search (categorical).
+      // Browsers send their own User-Agent so OFF won't block us as a bot.
       const offPromise = (async () => {
-        try {
-          const params = new URLSearchParams();
-          params.append('q', q);
-          params.append('page_size', '15');
-          params.append('langs', lang || 'nl');
-          if ((lang || 'nl') !== 'en') params.append('langs', 'en');
-          const url = `${SEARCHALICIOUS}?${params.toString()}`;
-          const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-          if (!res.ok) {
-            console.warn('[search-a-licious]', res.status, res.statusText, url);
-            return [];
-          }
-          const data = await res.json();
-          const items = data.hits || data.products || [];
-          console.log('[search-a-licious] hits=', items.length, 'for q=', q);
-          return items.map(offToProduct);
-        } catch (e) {
-          console.warn('[search-a-licious] error:', e?.message || e);
-          return [];
+        // 1) Search-a-licious
+        const salFetch = (async () => {
+          try {
+            const params = new URLSearchParams();
+            params.append('q', q);
+            params.append('page_size', '15');
+            params.append('langs', lang || 'nl');
+            if ((lang || 'nl') !== 'en') params.append('langs', 'en');
+            const res = await fetch(`${SEARCHALICIOUS}?${params.toString()}`, { headers: { Accept: 'application/json' } });
+            if (!res.ok) { console.warn('[off:sal]', res.status); return []; }
+            const data = await res.json();
+            const items = data.hits || data.products || [];
+            console.log('[off:sal]', items.length, 'hits');
+            return items.map(offToProduct);
+          } catch (e) { console.warn('[off:sal] err', e?.message); return []; }
+        })();
+        // 2) v1 cgi (legacy — full-text search)
+        const cgiFetch = (async () => {
+          try {
+            const params = new URLSearchParams({
+              search_terms: q,
+              search_simple: '1',
+              json: '1',
+              page_size: '15',
+              action: 'process',
+              sort_by: 'unique_scans_n',
+              lc: lang || 'nl',
+            });
+            const res = await fetch(`${OFF_V1_CGI}?${params.toString()}`);
+            if (!res.ok) { console.warn('[off:cgi]', res.status); return []; }
+            const data = await res.json();
+            const items = data.products || [];
+            console.log('[off:cgi]', items.length, 'products');
+            return items.map(offToProduct);
+          } catch (e) { console.warn('[off:cgi] err', e?.message); return []; }
+        })();
+        // 3) v2 search (newer endpoint, full-text via search_terms)
+        const v2Fetch = (async () => {
+          try {
+            const params = new URLSearchParams({
+              search_terms: q,
+              page_size: '15',
+              fields: 'code,product_name,product_name_en,product_name_nl,generic_name,brands,image_front_small_url,image_small_url,image_url,nutriments,quantity',
+            });
+            const res = await fetch(`${OFF_V2_SEARCH}?${params.toString()}`);
+            if (!res.ok) { console.warn('[off:v2]', res.status); return []; }
+            const data = await res.json();
+            const items = data.products || [];
+            console.log('[off:v2]', items.length, 'products');
+            return items.map(offToProduct);
+          } catch (e) { console.warn('[off:v2] err', e?.message); return []; }
+        })();
+        // Race: collect all, return whatever any of them produces
+        const [sal, cgi, v2] = await Promise.all([salFetch, cgiFetch, v2Fetch]);
+        // Merge all three, dedupe by code (= barcode) - prefer SAL since it's the modern source
+        const allOff = [...sal, ...cgi, ...v2];
+        const seenCodes = new Set();
+        const unique = [];
+        for (const p of allOff) {
+          const code = (p.id || '').replace('off:', '');
+          if (code && seenCodes.has(code)) continue;
+          if (code) seenCodes.add(code);
+          unique.push(p);
         }
+        return unique;
       })();
 
       // USDA FoodData Central — translate NL term → EN if possible, else send raw

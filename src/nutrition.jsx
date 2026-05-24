@@ -440,8 +440,8 @@ export function Nutrition() {
         {sub === 'products' && (
           <LogLibrary
             onProductTap={async (p) => {
-              // If it's a remote hit (OpenFoodFacts or NEVO basis-food), auto-save to local first
-              if ((p.source === 'openfoodfacts' || p.source === 'nevo') && !products.find(x => x.id === p.id)) {
+              // Auto-save remote hits (OFF, USDA, NEVO) to local library on first tap
+              if ((p.source === 'openfoodfacts' || p.source === 'usda' || p.source === 'nevo') && !products.find(x => x.id === p.id)) {
                 const saved = { ...p, createdAt: new Date().toISOString() };
                 await saveProfileData({ products: [...products, saved] });
                 setOpenProduct(saved);

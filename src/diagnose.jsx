@@ -51,7 +51,7 @@ export function DiagnosePage() {
     setR2({ badge: 'bezig...', color: '#facc15', status: '', body: null });
     setR3({ badge: 'bezig...', color: '#facc15', status: '', body: null });
 
-    // Test 1: Search-a-licious
+    // Test 1: OFF — Search-a-licious + v1 cgi + v2 search (laat zien wat werkt)
     const sal = (async () => {
       const params = new URLSearchParams();
       params.append('q', q);
@@ -59,42 +59,47 @@ export function DiagnosePage() {
       params.append('langs', 'nl');
       params.append('langs', 'en');
       const url = `https://search.openfoodfacts.org/search?${params.toString()}`;
-      try {
-        const t0 = performance.now();
-        const res = await fetch(url, { headers: { Accept: 'application/json' } });
-        const dt = Math.round(performance.now() - t0);
-        if (!res.ok) {
-          setR1({ badge: `HTTP ${res.status}`, color: '#f87171', status: url, body: <Pre>HTTP {res.status} {res.statusText}{'\n'}Duur: {dt}ms</Pre> });
-          return;
-        }
-        const data = await res.json();
-        const hits = data.hits || data.products || [];
-        setR1({
-          badge: `${hits.length} hits (${dt}ms)`,
-          color: hits.length > 0 ? '#22C55E' : '#f87171',
-          status: url,
-          body: (
-            <div>
-              {hits.slice(0, 5).map((rawHit, i) => {
-                const p = rawHit._source || rawHit;
-                const name = p.product_name_nl || p.product_name || p.product_name_en || p.generic_name || '(geen naam)';
-                const brand = (p.brands || '').split(',')[0];
-                const n = p.nutriments || {};
-                const kcal = n['energy-kcal_100g'] || p['energy-kcal_100g'] || (n.energy_100g ? Math.round(n.energy_100g / 4.184) : '?');
-                return (
-                  <div key={i} style={{ padding: '8px 10px', background: '#09090B', border: `1px solid ${t.border}`, borderRadius: 8, marginBottom: 6, fontSize: 12 }}>
-                    <b style={{ color: t.text }}>{name}</b> <i style={{ color: t.muted, fontStyle: 'normal' }}>{brand ? '· ' + brand : ''}</i>
-                    <br /><span style={{ color: t.green }}>{kcal} kcal/100g</span> · code: {p.code || '?'}
+      const cgiUrl = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&json=1&page_size=5&action=process`;
+      const v2Url = `https://world.openfoodfacts.org/api/v2/search?search_terms=${encodeURIComponent(q)}&page_size=5`;
+
+      const results = await Promise.allSettled([
+        fetch(url, { headers: { Accept: 'application/json' } }).then(async r => ({ ep: 'SAL', status: r.status, data: r.ok ? await r.json() : null })),
+        fetch(cgiUrl).then(async r => ({ ep: 'CGI v1', status: r.status, data: r.ok ? await r.json() : null })),
+        fetch(v2Url).then(async r => ({ ep: 'API v2', status: r.status, data: r.ok ? await r.json() : null })),
+      ]);
+
+      const summary = results.map((r, i) => {
+        const labels = ['SAL', 'CGI v1', 'API v2'];
+        if (r.status === 'rejected') return { ep: labels[i], err: String(r.reason?.message || r.reason) };
+        const x = r.value;
+        const items = x.data ? (x.data.hits || x.data.products || []) : [];
+        return { ep: x.ep, status: x.status, count: items.length, sample: items[0] };
+      });
+
+      const totalHits = summary.reduce((a, b) => a + (b.count || 0), 0);
+      const anyOk = summary.some(s => s.count > 0);
+      setR1({
+        badge: anyOk ? `${totalHits} totaal` : 'allemaal leeg',
+        color: anyOk ? '#22C55E' : '#f87171',
+        status: `3 OFF endpoints parallel getest`,
+        body: (
+          <div>
+            {summary.map((s, i) => (
+              <div key={i} style={{ padding: '8px 10px', background: '#09090B', border: `1px solid ${t.border}`, borderRadius: 8, marginBottom: 6, fontSize: 12 }}>
+                <b style={{ color: s.count > 0 ? t.green : (s.err ? '#f87171' : t.muted) }}>{s.ep}</b>
+                {' · '}
+                {s.err ? <span style={{ color: '#f87171' }}>FAIL: {s.err}</span>
+                  : <span>HTTP {s.status} · <b>{s.count}</b> hits</span>}
+                {s.sample && (
+                  <div style={{ fontSize: 11, color: t.muted, marginTop: 4 }}>
+                    eerste: {(s.sample._source || s.sample).product_name || (s.sample._source || s.sample).product_name_nl || '(geen naam)'}
                   </div>
-                );
-              })}
-              <Pre>Sample raw hit:{'\n'}{shortPreview(hits[0] || {})}</Pre>
-            </div>
-          ),
-        });
-      } catch (e) {
-        setR1({ badge: 'error', color: '#f87171', status: url, body: <Pre>FAIL: {e.message || String(e)}{'\n\n'}Dit wijst op CORS-blokkade of network-fout in de browser.</Pre> });
-      }
+                )}
+              </div>
+            ))}
+          </div>
+        ),
+      });
     })();
 
     // Test 2: USDA
