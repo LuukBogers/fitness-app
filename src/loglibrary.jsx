@@ -21,6 +21,30 @@ function offToProduct(p) {
   let kcal = n['energy-kcal_100g'];
   if (kcal == null && n['energy_100g']) kcal = n['energy_100g'] / 4.184;
   const id = 'off:' + (p.code || (p._id || ''));
+  // Parse quantity ("500 g", "1.5 L", "330ml") → default portion suggestion
+  let defaultPortion = null;
+  if (p.quantity) {
+    const q = String(p.quantity).toLowerCase().replace(',', '.');
+    const m = q.match(/([\d.]+)\s*(kg|g|l|ml|cl)/);
+    if (m) {
+      let val = parseFloat(m[1]);
+      const unit = m[2];
+      let liquid = false;
+      if (unit === 'kg') val *= 1000;
+      else if (unit === 'l') { val *= 1000; liquid = true; }
+      else if (unit === 'cl') { val *= 10; liquid = true; }
+      else if (unit === 'ml') liquid = true;
+      defaultPortion = {
+        id: 'default',
+        name: liquid ? 'Bottle' : 'Pack',
+        ...(liquid ? { ml: Math.round(val) } : { g: Math.round(val) }),
+        makeDefault: true,
+      };
+    }
+  }
+  if (!defaultPortion) {
+    defaultPortion = { id: 'default', name: 'Portion', g: 100, makeDefault: true };
+  }
   return {
     id,
     name: p.product_name || p.product_name_en || p.generic_name || 'Unknown product',
@@ -31,12 +55,14 @@ function offToProduct(p) {
     c: Math.round((n.carbohydrates_100g || 0) * 10) / 10,
     f: Math.round((n.fat_100g || 0) * 10) / 10,
     barcode: p.code || '',
+    quantity: p.quantity || '',
     store: 'AH', shelf: 'shelf', favorite: false,
+    defaultPortion,
     source: 'openfoodfacts',
   };
 }
 
-export function LogLibrary({ onProductTap, onOpenBarcode, onlyRecipes }) {
+export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRecipeActions, onlyRecipes }) {
   const T = useT();
   const { profile, saveProfileData } = useApp();
   const products = useMemo(() => Array.isArray(profile?.data?.products) ? profile.data.products : [], [profile]);
@@ -63,7 +89,7 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onlyRecipes }) {
     debounceRef.current = setTimeout(async () => {
       const seq = ++fetchSeq.current;
       try {
-        const url = `${OFF_SEARCH}?action=process&search_terms=${encodeURIComponent(q)}&search_simple=1&json=1&page_size=20&fields=code,product_name,product_name_en,generic_name,brands,image_front_small_url,image_small_url,image_url,nutriments`;
+        const url = `${OFF_SEARCH}?action=process&search_terms=${encodeURIComponent(q)}&search_simple=1&json=1&page_size=20&fields=code,product_name,product_name_en,generic_name,brands,image_front_small_url,image_small_url,image_url,nutriments,quantity`;
         const res = await fetch(url);
         if (!res.ok) throw new Error('net');
         const data = await res.json();
@@ -192,15 +218,15 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onlyRecipes }) {
 
         {/* Local + filtered results */}
         {filter !== 'meals' && localHits.map(p => (
-          <ProductRow key={p.id} product={p} onTap={() => handleProductTap(p)} onFav={(e) => toggleFavorite(p.id, e)} />
+          <ProductRow key={p.id} product={p} onTap={() => handleProductTap(p)} onFav={(e) => toggleFavorite(p.id, e)} onActions={onProductActions ? (e) => { e.stopPropagation(); onProductActions(p); } : null} />
         ))}
 
         {/* Recipe results when filter = meals */}
         {filter === 'meals' && recipeHits.length > 0 && recipeHits.map(r => (
-          <div key={r.id} style={{
+          <div key={r.id} onClick={() => onProductTap?.({ ...r, isRecipe: true })} style={{
             display: 'flex', gap: 12, padding: 12, marginBottom: 8,
             background: t.card, borderRadius: 14, border: `1px solid ${t.border}`,
-            boxShadow: t.cardShadow,
+            boxShadow: t.cardShadow, cursor: 'pointer', alignItems: 'center',
           }}>
             {r.image ? (
               <img src={r.image} alt="" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
@@ -211,6 +237,13 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onlyRecipes }) {
               <div style={{ fontSize: 14, fontWeight: 700, color: t.text, marginBottom: 3 }}>{r.name}</div>
               <div style={{ fontSize: 11.5, color: t.muted }}>{r.kcal} kcal · {(r.items||[]).length} {T('nutr.products')}</div>
             </div>
+            {onRecipeActions && (
+              <div onClick={(e) => { e.stopPropagation(); onRecipeActions(r); }} style={{
+                width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center',
+                justifyContent: 'center', color: t.soft, fontSize: 18, cursor: 'pointer', flexShrink: 0,
+                letterSpacing: '0.1em',
+              }}>⋯</div>
+            )}
           </div>
         ))}
 
@@ -306,7 +339,7 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onlyRecipes }) {
 }
 
 /* ─────────────────────── ProductRow ─────────────────────── */
-function ProductRow({ product, onTap, onFav, isWeb }) {
+function ProductRow({ product, onTap, onFav, onActions, isWeb }) {
   const T = useT();
   const isFav = product.favorite === true;
   return (
@@ -337,13 +370,21 @@ function ProductRow({ product, onTap, onFav, isWeb }) {
       </div>
       {!isWeb && onFav && (
         <div onClick={onFav} style={{
-          width: 36, height: 36, borderRadius: 10,
+          width: 32, height: 36, borderRadius: 10,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           color: isFav ? t.error : t.muted, fontSize: 20, cursor: 'pointer',
           flexShrink: 0, alignSelf: 'center',
         }}>
           {isFav ? '♥' : '♡'}
         </div>
+      )}
+      {!isWeb && onActions && (
+        <div onClick={onActions} style={{
+          width: 28, height: 36, borderRadius: 10,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: t.soft, fontSize: 18, cursor: 'pointer',
+          flexShrink: 0, alignSelf: 'center', letterSpacing: '0.1em',
+        }}>⋯</div>
       )}
     </div>
   );

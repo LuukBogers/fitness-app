@@ -157,13 +157,30 @@ export default function App() {
         setProfile(data || null);
         setPhase('onboarding');
       } else {
-        // Migration: ensure every product has `favorite` field (default false).
+        // Migrations: ensure all expected fields exist on the data shape.
         // Runs once per profile load; no-op if already migrated.
         const prods = Array.isArray(data.data?.products) ? data.data.products : [];
-        const needsMigration = prods.some(p => p.favorite === undefined);
-        if (needsMigration) {
-          const migrated = prods.map(p => ({ ...p, favorite: p.favorite === true }));
-          const mergedData = { ...(data.data || {}), products: migrated };
+        const needsFav = prods.some(p => p.favorite === undefined);
+        const needsDefaultPortion = prods.some(p => !p.defaultPortion);
+        const meals = data.data?.meals || {};
+        const needsItemEaten = Object.values(meals).some(dayList =>
+          (dayList || []).some(m => (m.itemsFull || []).some(it => it.eaten === undefined))
+        );
+
+        if (needsFav || needsDefaultPortion || needsItemEaten) {
+          const migratedProds = prods.map(p => ({
+            ...p,
+            favorite: p.favorite === true,
+            defaultPortion: p.defaultPortion || { id: 'default', name: 'Portion', g: 100, makeDefault: true },
+          }));
+          const migratedMeals = {};
+          Object.entries(meals).forEach(([dateKey, dayList]) => {
+            migratedMeals[dateKey] = (dayList || []).map(m => ({
+              ...m,
+              itemsFull: (m.itemsFull || []).map(it => ({ ...it, eaten: it.eaten === undefined ? !!m.eaten : it.eaten })),
+            }));
+          });
+          const mergedData = { ...(data.data || {}), products: migratedProds, meals: migratedMeals };
           await supabase.from('profiles')
             .update({ data: mergedData, updated_at: new Date().toISOString() })
             .eq('id', session.user.id);

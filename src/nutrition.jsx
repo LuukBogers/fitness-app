@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { t, STATUS, WEEK, SLOTS, useApp, useT, useLang, todayIdx, weekDates, todayKey, monthName, monthShort, weekDayShort, slotKey, fmtKey, dayStatus } from './lib';
 import { Icon, Card, Label, Btn, Chip, Modal } from './shared';
-import { CreateProductModal, CreateRecipeModal, CreateConceptModal, Toast } from './modals';
+import { CreateProductModal, CreateRecipeModal, CreateConceptModal, ProductActionsModal, EditPhotoModal, Toast } from './modals';
 import { ProductDetailModal } from './logflow';
 import { LogLibrary } from './loglibrary';
 import { BarcodeScanner, ScannedProductModal } from './barcode';
@@ -32,6 +32,12 @@ export function Nutrition() {
   const [showScanner, setShowScanner] = useState(false);
   const [scannedCode, setScannedCode] = useState(null);
   const [toast, setToast] = useState('');
+  const [activeSlot, setActiveSlot] = useState(null); // slot pre-selected when opening LogLibrary from a section "+"
+
+  // Module C — actions menu state
+  const [actionsTarget, setActionsTarget] = useState(null); // { kind: 'product'|'recipe', item }
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [photoEditing, setPhotoEditing] = useState(null); // { kind, id, currentImage }
 
   // Create modals
   const [showCreateProduct, setShowCreateProduct] = useState(false);
@@ -41,11 +47,70 @@ export function Nutrition() {
 
   // Selected day key
   const selDate = (() => { const dt = new Date(); dt.setDate(dt.getDate() - ti + selectedDay); return fmtKey(dt); })();
-  const selDayName = WEEK[selectedDay];
-  const selMeals = meals[selDate] || SLOTS.map(slot => ({ slot, items: [], kcal: 0, p:0, c:0, f:0, locked: false, eaten: false }));
+  const selMeals = meals[selDate] || SLOTS.map(slot => ({ slot, items: [], itemsFull: [], kcal: 0, p:0, c:0, f:0, locked: false, eaten: false }));
   // Ensure all 6 slots exist
-  const slotMeals = SLOTS.map(slot => selMeals.find(m => m.slot === slot) || { slot, items: [], kcal: 0, p:0, c:0, f:0, locked: false, eaten: false });
-  const todayEaten = slotMeals.reduce((s, m) => s + (m.eaten ? m.kcal : 0), 0);
+  const slotMeals = SLOTS.map(slot => selMeals.find(m => m.slot === slot) || { slot, items: [], itemsFull: [], kcal: 0, p:0, c:0, f:0, locked: false, eaten: false });
+
+  // Day-level totals = ONLY items where eaten === true (handover: "alleen aangevinkte tellen voor dagtotaal")
+  const eatenTotals = useMemo(() => {
+    let kcal = 0, p = 0, c = 0, f = 0;
+    slotMeals.forEach(m => {
+      (m.itemsFull || []).forEach(it => {
+        if (it.eaten) { kcal += it.kcal || 0; p += it.p || 0; c += it.c || 0; f += it.f || 0; }
+      });
+    });
+    return { kcal: Math.round(kcal), p: Math.round(p), c: Math.round(c), f: Math.round(f) };
+  }, [slotMeals]);
+
+  // Toggle a single item's eaten state — recomputes slot totals
+  const toggleItemEaten = async (slot, itemIdx) => {
+    const dayMeals = meals[selDate] || SLOTS.map(s => ({ slot: s, items: [], itemsFull: [], kcal: 0, p:0, c:0, f:0, locked: false, eaten: false }));
+    const ensured = SLOTS.map(s => dayMeals.find(m => m.slot === s) || { slot: s, items: [], itemsFull: [], kcal: 0, p:0, c:0, f:0, locked: false, eaten: false });
+    const updated = ensured.map(m => {
+      if (m.slot !== slot) return m;
+      const newItems = (m.itemsFull || []).map((it, i) => i === itemIdx ? { ...it, eaten: !it.eaten } : it);
+      const eat = newItems.filter(it => it.eaten);
+      return {
+        ...m,
+        itemsFull: newItems,
+        kcal: eat.reduce((s, it) => s + (it.kcal || 0), 0),
+        p:    eat.reduce((s, it) => s + (it.p || 0), 0),
+        c:    eat.reduce((s, it) => s + (it.c || 0), 0),
+        f:    eat.reduce((s, it) => s + (it.f || 0), 0),
+        eaten: eat.length > 0,
+      };
+    });
+    await saveProfileData({ meals: { ...meals, [selDate]: updated } });
+  };
+
+  // Delete product / recipe (called from ProductActionsModal)
+  const deleteProduct = async (id) => {
+    await saveProfileData({ products: products.filter(p => p.id !== id) });
+    setToast(T('product.deleted'));
+    setTimeout(() => setToast(''), 1600);
+  };
+  const deleteRecipe = async (id) => {
+    await saveProfileData({ recipes: recipes.filter(r => r.id !== id) });
+    setToast(T('recipe.deleted'));
+    setTimeout(() => setToast(''), 1600);
+  };
+  // Save edited product
+  const updateProduct = async (updated) => {
+    await saveProfileData({ products: products.map(p => p.id === updated.id ? updated : p) });
+    setEditingProduct(null);
+    setToast(T('scan.toast.saved', { name: updated.name }));
+    setTimeout(() => setToast(''), 1600);
+  };
+  // Save edited photo (product OR recipe)
+  const saveEditedPhoto = async (newImage) => {
+    if (!photoEditing) return;
+    if (photoEditing.kind === 'product') {
+      await saveProfileData({ products: products.map(p => p.id === photoEditing.id ? { ...p, image: newImage } : p) });
+    } else if (photoEditing.kind === 'recipe') {
+      await saveProfileData({ recipes: recipes.map(r => r.id === photoEditing.id ? { ...r, image: newImage } : r) });
+    }
+    setPhotoEditing(null);
+  };
 
   // Day status colors for week strip
   const dayStatuses = WEEK.map((_, i) => {
@@ -207,41 +272,119 @@ export function Nutrition() {
               </div>
             </Card>
 
+            {/* Day label + eaten kcal */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '20px 4px 12px' }}>
               <div style={{ fontSize: 17, fontWeight: 700, color: t.text }}>{weekDayShort(lang, selectedDay).charAt(0) + weekDayShort(lang, selectedDay).slice(1).toLowerCase()}, {dates[selectedDay]} {monthShort(lang)}</div>
-              <div style={{ fontSize: 12, color: t.soft }}>{slotMeals.reduce((s,m)=>s+(m.eaten?m.kcal:0),0)} / {calories || '—'} kcal</div>
+              <div style={{ fontSize: 12, color: t.soft }}>{eatenTotals.kcal} / {calories || '—'} kcal</div>
             </div>
 
-            {/* 6 meal slots */}
-            {slotMeals.map((m, i) => (
-              <Card key={i} onClick={() => m.locked && !m.eaten ? setShowLockedDeviate(true) : setShowMealOptions(i)}
-                style={{ padding: 14, marginBottom: 8 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
-                    <div style={{
-                      width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-                      background: m.eaten ? t.greenBg : m.locked ? t.orangeBg : t.card2,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      border: `1px solid ${m.eaten ? t.greenBorder : m.locked ? t.orangeBorder : t.border}`,
-                    }}>
-                      {m.eaten ? <Icon name="check" size={16} color={t.green} stroke={2.5} /> :
-                       m.locked ? <Icon name="lock" size={14} color={t.orange} /> :
-                       <Icon name="plus" size={16} color={t.muted} />}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{T(slotKey(m.slot))}</div>
-                        {m.eaten && <span style={{ fontSize: 9, color: t.green, fontWeight: 700, background: t.greenBg, padding: '2px 6px', borderRadius: 5, letterSpacing: '0.05em' }}>{T('common.eaten')}</span>}
-                      </div>
-                      <div style={{ fontSize: 12, color: t.soft, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {(m.items||[]).length ? (m.items||[]).join(' · ') : T('nutr.nomealplanned')}
+            {/* 3 macro rings — Yazio-style */}
+            <Card style={{ padding: 16 }}>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between' }}>
+                {[
+                  { label: T('macros.carbs'),   color: t.carbs,   target: d.carbs   || 0, value: eatenTotals.c, icon: 'wheat' },
+                  { label: T('macros.protein'), color: t.protein, target: d.protein || 0, value: eatenTotals.p, icon: 'egg' },
+                  { label: T('macros.fat'),     color: t.fat,     target: d.fat     || 0, value: eatenTotals.f, icon: 'drop' },
+                ].map(macro => {
+                  const ratio = macro.target ? macro.value / macro.target : 0;
+                  const pct = Math.round(ratio * 100);
+                  const diff = Math.round(macro.value - macro.target);
+                  const status = ratio > 1 ? 'over' : 'left';
+                  return (
+                    <div key={macro.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <div style={{ fontSize: 10.5, color: macro.color, fontWeight: 700, marginBottom: 8, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{macro.label}</div>
+                      <MacroRing percent={pct} color={macro.color} size={68} />
+                      <div style={{ fontSize: 11, color: status === 'over' ? t.warning : t.muted, fontWeight: 700, marginTop: 8 }}>
+                        {status === 'over' ? T('day.macros.over', { g: Math.abs(diff) }) : T('day.macros.left', { g: Math.max(0, -diff) })}
                       </div>
                     </div>
+                  );
+                })}
+              </div>
+            </Card>
+
+            {/* Meal sections — Yazio-style (replaces old slot cards) */}
+            <div style={{ marginTop: 18 }}>
+              {slotMeals.map((m, i) => {
+                const items = m.itemsFull || [];
+                const sectionKcal = items.reduce((s, it) => s + (it.kcal || 0), 0);
+                const pctOfDay = calories ? Math.round((sectionKcal / calories) * 100) : 0;
+                return (
+                  <div key={i} style={{ marginBottom: 18 }}>
+                    {/* Section header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', padding: '0 4px 8px', borderBottom: `1px solid ${t.border}` }}>
+                      <div>
+                        <div style={{ fontSize: 17, fontWeight: 800, color: t.text, letterSpacing: '-0.01em' }}>{T(slotKey(m.slot))}</div>
+                        {items.length > 0 && (
+                          <div style={{ fontSize: 12, color: t.green, fontWeight: 600, marginTop: 2 }}>
+                            {T('day.section.kcal', { kcal: sectionKcal, pct: pctOfDay })}
+                          </div>
+                        )}
+                      </div>
+                      <div onClick={() => { setActiveSlot(m.slot); setSub('products'); }} style={{
+                        width: 32, height: 32, borderRadius: 16,
+                        border: `1.5px solid ${t.green}`, color: t.green,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 18, fontWeight: 700, cursor: 'pointer',
+                      }}>+</div>
+                    </div>
+
+                    {/* Items list (or empty hint) */}
+                    {items.length === 0 ? (
+                      <div onClick={() => { setActiveSlot(m.slot); setSub('products'); }} style={{
+                        padding: '14px', textAlign: 'center', color: t.muted, fontSize: 12,
+                        cursor: 'pointer',
+                      }}>
+                        {T('day.section.empty')}
+                      </div>
+                    ) : (
+                      <div style={{ marginTop: 8, background: t.card, borderRadius: 14, border: `1px solid ${t.border}`, boxShadow: t.cardShadow, overflow: 'hidden' }}>
+                        {items.map((it, idx) => (
+                          <div key={idx} style={{
+                            display: 'flex', alignItems: 'center', gap: 12, padding: 12,
+                            borderBottom: idx < items.length - 1 ? `1px solid ${t.border}` : 'none',
+                          }}>
+                            {it.image ? (
+                              <img src={it.image} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover', background: '#fff', flexShrink: 0 }} />
+                            ) : (
+                              <div style={{ width: 36, height: 36, borderRadius: 8, background: t.card3, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <Icon name="apple" size={18} color={t.green} />
+                              </div>
+                            )}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 13.5, fontWeight: 700, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</div>
+                              <div style={{ fontSize: 11.5, color: t.muted, marginTop: 2 }}>
+                                {it.kcal} kcal · {it.count || 1}× ({Math.round(it.grams || 0)}g)
+                              </div>
+                            </div>
+                            <div onClick={() => toggleItemEaten(m.slot, idx)} style={{
+                              width: 22, height: 22, borderRadius: 11, flexShrink: 0, cursor: 'pointer',
+                              border: `2px solid ${it.eaten ? t.green : t.muted}`,
+                              background: it.eaten ? t.green : 'transparent',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                              {it.eaten && <Icon name="check" size={12} color="#0A0A0B" stroke={3} />}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: m.kcal ? t.text : t.muted, marginLeft: 8 }}>{m.kcal || '—'}</div>
-                </div>
-              </Card>
-            ))}
+                );
+              })}
+            </div>
+
+            {/* Floating + button — Yazio-style */}
+            <div onClick={() => setSub('products')} style={{
+              position: 'sticky', bottom: 18, marginLeft: 'auto', marginRight: 4,
+              width: 56, height: 56, borderRadius: 28,
+              background: t.metalGreen,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', boxShadow: '0 12px 28px rgba(34,197,94,0.45), inset 0 1px 0 rgba(255,255,255,0.2)',
+              zIndex: 10,
+            }}>
+              <Icon name="plus" size={28} color="#0A0A0B" stroke={2.6} />
+            </div>
           </>
         )}
 
@@ -284,7 +427,7 @@ export function Nutrition() {
         {sub === 'products' && (
           <LogLibrary
             onProductTap={async (p) => {
-              // If it's an OpenFoodFacts hit (source: 'openfoodfacts'), auto-save to local first
+              // If it's an OpenFoodFacts hit, auto-save to local first
               if (p.source === 'openfoodfacts' && !products.find(x => x.id === p.id)) {
                 const saved = { ...p, createdAt: new Date().toISOString() };
                 await saveProfileData({ products: [...products, saved] });
@@ -294,6 +437,8 @@ export function Nutrition() {
               }
             }}
             onOpenBarcode={() => setShowScanner(true)}
+            onProductActions={(p) => setActionsTarget({ kind: 'product', item: p })}
+            onRecipeActions={(r) => setActionsTarget({ kind: 'recipe', item: r })}
           />
         )}
 
@@ -437,15 +582,78 @@ export function Nutrition() {
         visible={!!openProduct}
         product={openProduct}
         onClose={() => setOpenProduct(null)}
-        defaultSlot={showMealOptions !== null ? slotMeals[showMealOptions]?.slot : 'Lunch'}
+        defaultSlot={activeSlot || (showMealOptions !== null ? slotMeals[showMealOptions]?.slot : 'Lunch')}
         onLogged={({ kcal, slot }) => {
+          setActiveSlot(null);
+          setSub('week'); // jump back to day overview so user sees what was added
           setToast(T('product.logged.toast', { kcal, slot }));
           setTimeout(() => setToast(''), 2400);
         }}
+        onEditPhoto={openProduct ? () => setPhotoEditing({ kind: 'product', id: openProduct.id, currentImage: openProduct.image }) : null}
+        onEditProduct={openProduct ? () => { setEditingProduct(openProduct); setOpenProduct(null); } : null}
+      />
+
+      {/* Actions menu (⋯) for products & recipes in list view */}
+      <ProductActionsModal
+        visible={!!actionsTarget}
+        onClose={() => setActionsTarget(null)}
+        title={actionsTarget?.item?.name || ''}
+        onEdit={() => {
+          if (actionsTarget?.kind === 'product') setEditingProduct(actionsTarget.item);
+          else if (actionsTarget?.kind === 'recipe') setShowCreateRecipe(true); // recipe edit reuses create modal — extend later
+        }}
+        onChangePhoto={() => {
+          if (!actionsTarget) return;
+          setPhotoEditing({ kind: actionsTarget.kind, id: actionsTarget.item.id, currentImage: actionsTarget.item.image });
+        }}
+        onDelete={() => {
+          if (!actionsTarget) return;
+          if (actionsTarget.kind === 'product') deleteProduct(actionsTarget.item.id);
+          else if (actionsTarget.kind === 'recipe') deleteRecipe(actionsTarget.item.id);
+        }}
+      />
+
+      {/* Edit product modal — reuses CreateProductModal with `editing` */}
+      <CreateProductModal
+        visible={!!editingProduct}
+        editing={editingProduct}
+        onClose={() => setEditingProduct(null)}
+        onSave={updateProduct}
+      />
+
+      {/* Edit photo modal */}
+      <EditPhotoModal
+        visible={!!photoEditing}
+        onClose={() => setPhotoEditing(null)}
+        currentImage={photoEditing?.currentImage}
+        onSave={saveEditedPhoto}
       />
 
       {/* Toast */}
       <Toast message={toast} visible={!!toast} />
+    </div>
+  );
+}
+
+/* ─────────────────────── MacroRing ─────────────────────── */
+function MacroRing({ percent = 0, color = '#22C55E', size = 68 }) {
+  const stroke = 6;
+  const radius = (size - stroke) / 2;
+  const C = 2 * Math.PI * radius;
+  const clamped = Math.min(Math.max(percent, 0), 150);
+  const dash = (Math.min(clamped, 100) / 100) * C;
+  const showOver = clamped > 100;
+  return (
+    <div style={{ position: 'relative', width: size, height: size }}>
+      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={size/2} cy={size/2} r={radius} stroke="rgba(255,255,255,0.08)" strokeWidth={stroke} fill="none" />
+        <circle cx={size/2} cy={size/2} r={radius} stroke={color} strokeWidth={stroke} fill="none"
+          strokeDasharray={`${dash} ${C}`} strokeLinecap="round" />
+      </svg>
+      <div style={{
+        position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: size * 0.26, fontWeight: 800, color: showOver ? '#FFB84D' : color, letterSpacing: '-0.02em',
+      }}>{Math.round(percent)}<span style={{ fontSize: '0.55em', marginLeft: 1 }}>%</span></div>
     </div>
   );
 }

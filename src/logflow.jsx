@@ -23,10 +23,13 @@ export const portionGrams = (portion) => {
 };
 
 // Builds the full ordered portion list for a product:
-// [product-specific customs..., gram/ml universal, ...all globals]
+// [defaultPortion (if set), product-specific customs..., gram/ml universal, ...all globals]
 const buildPortionList = (product) => {
   const customs = Array.isArray(product?.customPortions) ? product.customPortions : [];
+  const dp = product?.defaultPortion;
+  const dpAlreadyInCustoms = dp && customs.find(c => c.id === dp.id);
   return [
+    ...(dp && !dpAlreadyInCustoms ? [{ ...dp, custom: true }] : []),
     ...customs.map(c => ({ ...c, custom: true })),
     { id: 'gramml', g: 1 }, // 1g per 1x → user enters grams directly
     ...GLOBAL_PORTIONS,
@@ -187,7 +190,7 @@ export function CreatePortionModal({ visible, onClose, onSave, product }) {
  *   - "Eaten as" slot dropdown
  *   - "Add to diary" CTA
  */
-export function ProductDetailModal({ visible, product, onClose, defaultSlot, onLogged }) {
+export function ProductDetailModal({ visible, product, onClose, defaultSlot, onLogged, onEditPhoto, onEditProduct }) {
   const T = useT();
   const { profile, saveProfileData } = useApp();
   const [count, setCount] = useState(1);
@@ -214,9 +217,14 @@ export function ProductDetailModal({ visible, product, onClose, defaultSlot, onL
     setCount(1);
     setSlot(defaultSlot || 'Lunch');
     setGrams(100);
-    const customs = product.customPortions || [];
-    const def = customs.find(c => c.makeDefault);
-    setPortionKey(def ? def.id : 'gramml');
+    const dp = product.defaultPortion;
+    if (dp) {
+      setPortionKey(dp.id);
+    } else {
+      const customs = product.customPortions || [];
+      const def = customs.find(c => c.makeDefault);
+      setPortionKey(def ? def.id : 'gramml');
+    }
   }, [visible, product?.id, defaultSlot]);
 
   if (!visible || !product) return null;
@@ -252,6 +260,8 @@ export function ProductDetailModal({ visible, product, onClose, defaultSlot, onL
       grams: totalGrams, count, portionKey,
       kcal: tKcal, p: tP, c: tC, f: tF,
       store: product.store, shelf: product.shelf,
+      image: product.image || null,
+      eaten: true,
     };
     const updated = ensured.map(m => m.slot === slot ? {
       ...m,
@@ -289,6 +299,13 @@ export function ProductDetailModal({ visible, product, onClose, defaultSlot, onL
         }}>
           <Icon name="chevL" size={20} color={t.text} />
         </div>
+        {onEditProduct && (
+          <div onClick={onEditProduct} style={{
+            padding: '8px 14px', borderRadius: 12, background: t.card2,
+            border: `1px solid ${t.border}`, cursor: 'pointer',
+            fontSize: 12.5, fontWeight: 700, color: t.soft,
+          }}>{T('actions.edit')}</div>
+        )}
       </div>
 
       {/* Scrollable body */}
@@ -314,6 +331,17 @@ export function ProductDetailModal({ visible, product, onClose, defaultSlot, onL
               boxShadow: `0 10px 30px rgba(0,0,0,0.4)`,
             }}>
               <Icon name="apple" size={60} color={t.green} />
+            </div>
+          )}
+          {onEditPhoto && (
+            <div onClick={onEditPhoto} style={{
+              position: 'absolute', bottom: 0, right: 'calc(50% - 78px)',
+              width: 36, height: 36, borderRadius: 18, zIndex: 2,
+              background: t.green, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer', border: '3px solid ' + t.bg,
+              boxShadow: '0 6px 14px rgba(34,197,94,0.4)',
+            }}>
+              <Icon name="photo" size={16} color="#0A0A0B" stroke={2.4} />
             </div>
           )}
         </div>

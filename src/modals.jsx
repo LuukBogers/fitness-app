@@ -54,32 +54,76 @@ export const PhotoPicker = ({ value, onChange, accent = 'green' }) => {
   );
 };
 
-/* ═══════════════════════════ CREATE PRODUCT MODAL ═══════════════════════════ */
-export function CreateProductModal({ visible, onClose, onSave, prefill }) {
+/* ═══════════════════════════ CREATE PRODUCT MODAL ═══════════════════════════
+ * Used for both creating new products AND editing existing ones (via `editing` prop).
+ * Now requires a default portion (name + size in grams/ml) so users can log
+ * "1× Tub" or "1× Slice" instead of guessing grams every time.
+ */
+export function CreateProductModal({ visible, onClose, onSave, prefill, editing }) {
   const T = useT();
   const [form, setForm] = useState({
     name: '', brand: '', store: 'AH', shelf: 'shelf',
     kcal: '', p: '', c: '', f: '', image: null,
+    portionName: '', portionSize: '100', portionLiquid: false,
   });
   const upd = (k, v) => setForm(p => ({ ...p, [k]: v }));
 
   useEffect(() => {
-    if (visible) {
-      setForm({
-        name: prefill?.name || '', brand: prefill?.brand || '',
-        store: prefill?.store || 'AH', shelf: prefill?.shelf || 'shelf',
-        kcal: prefill?.kcal ?? '', p: prefill?.p ?? '', c: prefill?.c ?? '', f: prefill?.f ?? '',
-        image: prefill?.image || null,
-      });
+    if (!visible) return;
+    // Determine starting portion from prefill (OFF quantity) or existing defaultPortion
+    let portionName = '';
+    let portionSize = '100';
+    let portionLiquid = false;
+    const editDp = editing?.defaultPortion;
+    if (editDp) {
+      portionName = editDp.name || '';
+      portionSize = String(editDp.g != null ? editDp.g : (editDp.ml != null ? editDp.ml : 100));
+      portionLiquid = editDp.ml != null;
+    } else if (prefill?.defaultPortion) {
+      portionName = prefill.defaultPortion.name || '';
+      portionSize = String(prefill.defaultPortion.g != null ? prefill.defaultPortion.g : (prefill.defaultPortion.ml != null ? prefill.defaultPortion.ml : 100));
+      portionLiquid = prefill.defaultPortion.ml != null;
+    } else if (prefill?.quantity) {
+      // Parse OFF quantity like "500 g", "1 kg", "1.5 L", "330ml"
+      const q = String(prefill.quantity).toLowerCase().replace(',', '.');
+      const m = q.match(/([\d.]+)\s*(kg|g|gram|l|liter|ml|cl)/);
+      if (m) {
+        let val = parseFloat(m[1]);
+        const unit = m[2];
+        if (unit === 'kg') { val *= 1000; portionLiquid = false; }
+        else if (unit === 'l' || unit === 'liter') { val *= 1000; portionLiquid = true; }
+        else if (unit === 'cl') { val *= 10; portionLiquid = true; }
+        else if (unit === 'ml') { portionLiquid = true; }
+        portionSize = String(Math.round(val));
+        portionName = portionLiquid ? T('portion.fles.500').split(' ')[0] : T('modal.portionname.ph').split(',')[0].replace('bijv. ','').replace('e.g. ','').replace('z.B. ','').replace('ex. ','').replace('ej. ','').replace('es. ','').replace('np. ','');
+      }
     }
-  }, [visible, prefill]);
+    setForm({
+      name: editing?.name || prefill?.name || '',
+      brand: editing?.brand || prefill?.brand || '',
+      store: editing?.store || prefill?.store || 'AH',
+      shelf: editing?.shelf || prefill?.shelf || 'shelf',
+      kcal: editing?.kcal ?? prefill?.kcal ?? '',
+      p: editing?.p ?? prefill?.p ?? '',
+      c: editing?.c ?? prefill?.c ?? '',
+      f: editing?.f ?? prefill?.f ?? '',
+      image: editing?.image || prefill?.image || null,
+      portionName, portionSize, portionLiquid,
+    });
+  }, [visible, prefill, editing]);
 
-  const canSave = form.name.trim() && form.kcal !== '';
+  const canSave = form.name.trim() && form.kcal !== '' && form.portionName.trim() && form.portionSize !== '' && parseFloat(form.portionSize) > 0;
 
   const save = () => {
     if (!canSave) return;
-    onSave({
-      id: newId(),
+    const sz = parseFloat(form.portionSize) || 100;
+    const defaultPortion = {
+      id: 'default',
+      name: form.portionName.trim(),
+      ...(form.portionLiquid ? { ml: sz } : { g: sz }),
+      makeDefault: true,
+    };
+    const baseFields = {
       name: form.name.trim(),
       brand: form.brand.trim(),
       store: form.store,
@@ -89,13 +133,23 @@ export function CreateProductModal({ visible, onClose, onSave, prefill }) {
       c: parseFloat(form.c) || 0,
       f: parseFloat(form.f) || 0,
       image: form.image,
-      createdAt: new Date().toISOString(),
-    });
-    setForm({ name:'', brand:'', store:'AH', shelf:'shelf', kcal:'', p:'', c:'', f:'', image:null });
+      defaultPortion,
+    };
+    if (editing) {
+      onSave({ ...editing, ...baseFields });
+    } else {
+      onSave({
+        id: newId(),
+        ...baseFields,
+        favorite: false,
+        createdAt: new Date().toISOString(),
+      });
+    }
+    setForm({ name:'', brand:'', store:'AH', shelf:'shelf', kcal:'', p:'', c:'', f:'', image:null, portionName:'', portionSize:'100', portionLiquid:false });
   };
 
   return (
-    <Modal visible={visible} onClose={onClose} title={T('modal.addproduct')}>
+    <Modal visible={visible} onClose={onClose} title={editing ? T('modal.editproduct') : T('modal.addproduct')}>
       <PhotoPicker value={form.image} onChange={v => upd('image', v)} />
       <Field label={T('modal.field.name')} value={form.name} onChange={v => upd('name', v)} placeholder={T('modal.ph.productname')} />
       <Field label={T('modal.field.brand')} value={form.brand} onChange={v => upd('brand', v)} placeholder={T('modal.ph.brandname')} />
@@ -110,7 +164,64 @@ export function CreateProductModal({ visible, onClose, onSave, prefill }) {
         <Field label={T('macros.fat')} value={form.f} onChange={v => upd('f', v)} type="number" placeholder="0" unit="g" />
       </div>
 
-      <Btn full onClick={save} style={{ marginTop: 8, opacity: canSave ? 1 : 0.4, pointerEvents: canSave ? 'auto' : 'none' }}>{T('modal.saveproduct')}</Btn>
+      {/* MANDATORY default portion */}
+      <div style={{ marginTop: 16, padding: 14, borderRadius: 14, background: t.greenBg, border: `1px solid ${t.greenBorder}` }}>
+        <div style={{ fontSize: 13, color: t.green, fontWeight: 700, marginBottom: 4 }}>{T('modal.defaultportion')}</div>
+        <div style={{ fontSize: 11.5, color: t.soft, marginBottom: 12, lineHeight: 1.4 }}>{T('modal.defaultportion.hint')}</div>
+        <Field label={T('modal.portionname')} value={form.portionName} onChange={v => upd('portionName', v)} placeholder={T('modal.portionname.ph')} />
+        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+          <div onClick={() => upd('portionLiquid', false)} style={{
+            flex: 1, padding: '10px', borderRadius: 10, textAlign: 'center', cursor: 'pointer',
+            background: !form.portionLiquid ? t.green : t.card2,
+            color: !form.portionLiquid ? '#0A0A0B' : t.soft,
+            fontSize: 12.5, fontWeight: 700,
+            border: `1px solid ${!form.portionLiquid ? t.green : t.border}`,
+          }}>{T('modal.portion.solid')}</div>
+          <div onClick={() => upd('portionLiquid', true)} style={{
+            flex: 1, padding: '10px', borderRadius: 10, textAlign: 'center', cursor: 'pointer',
+            background: form.portionLiquid ? t.green : t.card2,
+            color: form.portionLiquid ? '#0A0A0B' : t.soft,
+            fontSize: 12.5, fontWeight: 700,
+            border: `1px solid ${form.portionLiquid ? t.green : t.border}`,
+          }}>{T('modal.portion.liquid')}</div>
+        </div>
+        <Field label={T('modal.portion.size')} value={form.portionSize} onChange={v => upd('portionSize', v)} type="number" placeholder="100" unit={form.portionLiquid ? 'ml' : 'g'} />
+      </div>
+
+      <Btn full onClick={save} style={{ marginTop: 12, opacity: canSave ? 1 : 0.4, pointerEvents: canSave ? 'auto' : 'none' }}>{editing ? T('modal.saveproductedit') : T('modal.saveproduct')}</Btn>
+      <Btn full variant="outline" onClick={onClose} style={{ marginTop: 8 }}>{T('common.cancel')}</Btn>
+    </Modal>
+  );
+}
+
+/* ═══════════════════════════ PRODUCT/RECIPE ACTIONS MODAL ═══════════════════════════
+ * The "⋯" menu attached to product/recipe rows: Edit / Change photo / Delete.
+ */
+export function ProductActionsModal({ visible, onClose, onEdit, onChangePhoto, onDelete, title }) {
+  const T = useT();
+  return (
+    <Modal visible={visible} onClose={onClose} title={title || T('actions.title')}>
+      <Btn full variant="ghost" style={{ marginBottom: 8 }} onClick={() => { onEdit?.(); onClose(); }}>{T('actions.edit')}</Btn>
+      <Btn full variant="ghost" style={{ marginBottom: 8 }} onClick={() => { onChangePhoto?.(); onClose(); }}>{T('actions.changephoto')}</Btn>
+      <Btn full variant="ghost" accent="orange" style={{ marginBottom: 8 }} onClick={() => {
+        if (window.confirm(T('actions.deleteconfirm'))) { onDelete?.(); onClose(); }
+      }}>{T('actions.delete')}</Btn>
+      <Btn full variant="outline" onClick={onClose}>{T('common.cancel')}</Btn>
+    </Modal>
+  );
+}
+
+/* ═══════════════════════════ EDIT PHOTO MODAL ═══════════════════════════
+ * Mini modal that only swaps the photo (used by ⋯ → "Change photo").
+ */
+export function EditPhotoModal({ visible, onClose, currentImage, onSave }) {
+  const T = useT();
+  const [image, setImage] = useState(currentImage || null);
+  useEffect(() => { if (visible) setImage(currentImage || null); }, [visible, currentImage]);
+  return (
+    <Modal visible={visible} onClose={onClose} title={T('product.photo.edit')}>
+      <PhotoPicker value={image} onChange={setImage} />
+      <Btn full onClick={() => { onSave(image); onClose(); }}>{T('common.save')}</Btn>
       <Btn full variant="outline" onClick={onClose} style={{ marginTop: 8 }}>{T('common.cancel')}</Btn>
     </Modal>
   );
