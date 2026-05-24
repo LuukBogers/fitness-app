@@ -97,9 +97,9 @@ function offToProduct(raw) {
     f: Math.round((n.fat_100g || 0) * 10) / 10,
     barcode: p.code || '',
     quantity: p.quantity || '',
-    store: 'AH', shelf: 'shelf', favorite: false,
+    store: '', shelf: 'shelf', favorite: false,
     defaultPortion,
-    source: 'openfoodfacts',
+    source: p._src === 'usda' ? 'usda' : 'openfoodfacts',
   };
 }
 
@@ -188,102 +188,27 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
     debounceRef.current = setTimeout(async () => {
       const seq = ++fetchSeq.current;
 
-      // OpenFoodFacts via 3 parallel endpoints — first non-empty result wins.
-      // Search-a-licious (modern, Elasticsearch), v1 cgi (legacy, may 503), v2 search (categorical).
-      // Browsers send their own User-Agent so OFF won't block us as a bot.
+      // Single call to Vercel serverless proxy (bypasses CORS).
+      // Proxy fans out to 4 sources (Search-a-licious, OFF cgi v1, OFF v2, USDA)
+      // server-side and returns merged + deduped products.
       const offPromise = (async () => {
-        // 1) Search-a-licious
-        const salFetch = (async () => {
-          try {
-            const params = new URLSearchParams();
-            params.append('q', q);
-            params.append('page_size', '15');
-            params.append('langs', lang || 'nl');
-            if ((lang || 'nl') !== 'en') params.append('langs', 'en');
-            const res = await fetch(`${SEARCHALICIOUS}?${params.toString()}`, { headers: { Accept: 'application/json' } });
-            if (!res.ok) { console.warn('[off:sal]', res.status); return []; }
-            const data = await res.json();
-            const items = data.hits || data.products || [];
-            console.log('[off:sal]', items.length, 'hits');
-            return items.map(offToProduct);
-          } catch (e) { console.warn('[off:sal] err', e?.message); return []; }
-        })();
-        // 2) v1 cgi (legacy — full-text search)
-        const cgiFetch = (async () => {
-          try {
-            const params = new URLSearchParams({
-              search_terms: q,
-              search_simple: '1',
-              json: '1',
-              page_size: '15',
-              action: 'process',
-              sort_by: 'unique_scans_n',
-              lc: lang || 'nl',
-            });
-            const res = await fetch(`${OFF_V1_CGI}?${params.toString()}`);
-            if (!res.ok) { console.warn('[off:cgi]', res.status); return []; }
-            const data = await res.json();
-            const items = data.products || [];
-            console.log('[off:cgi]', items.length, 'products');
-            return items.map(offToProduct);
-          } catch (e) { console.warn('[off:cgi] err', e?.message); return []; }
-        })();
-        // 3) v2 search (newer endpoint, full-text via search_terms)
-        const v2Fetch = (async () => {
-          try {
-            const params = new URLSearchParams({
-              search_terms: q,
-              page_size: '15',
-              fields: 'code,product_name,product_name_en,product_name_nl,generic_name,brands,image_front_small_url,image_small_url,image_url,nutriments,quantity',
-            });
-            const res = await fetch(`${OFF_V2_SEARCH}?${params.toString()}`);
-            if (!res.ok) { console.warn('[off:v2]', res.status); return []; }
-            const data = await res.json();
-            const items = data.products || [];
-            console.log('[off:v2]', items.length, 'products');
-            return items.map(offToProduct);
-          } catch (e) { console.warn('[off:v2] err', e?.message); return []; }
-        })();
-        // Race: collect all, return whatever any of them produces
-        const [sal, cgi, v2] = await Promise.all([salFetch, cgiFetch, v2Fetch]);
-        // Merge all three, dedupe by code (= barcode) - prefer SAL since it's the modern source
-        const allOff = [...sal, ...cgi, ...v2];
-        const seenCodes = new Set();
-        const unique = [];
-        for (const p of allOff) {
-          const code = (p.id || '').replace('off:', '');
-          if (code && seenCodes.has(code)) continue;
-          if (code) seenCodes.add(code);
-          unique.push(p);
-        }
-        return unique;
-      })();
-
-      // USDA FoodData Central — translate NL term → EN if possible, else send raw
-      const usdaPromise = (async () => {
         try {
-          const qLow = q.toLowerCase();
-          const enQ = NL_EN_FOOD[qLow] || NL_EN_FOOD[qLow.replace(/s$/, '')] || q;
-          const params = new URLSearchParams({
-            query: enQ,
-            pageSize: '10',
-            dataType: 'Foundation,SR Legacy,Survey (FNDDS),Branded',
-            api_key: USDA_KEY,
-          });
-          const res = await fetch(`${USDA_API}?${params.toString()}`);
-          if (!res.ok) {
-            console.warn('[usda]', res.status, res.statusText);
-            return [];
-          }
+          const u = new URL('/api/foodsearch', window.location.origin);
+          u.searchParams.set('q', q);
+          u.searchParams.set('lang', lang || 'nl');
+          const res = await fetch(u.toString());
+          if (!res.ok) { console.warn('[proxy]', res.status); return []; }
           const data = await res.json();
-          const foods = data.foods || [];
-          console.log('[usda] foods=', foods.length, 'for q=', q, '(en:', enQ, ')');
-          return foods.map(usdaToProduct);
+          console.log('[proxy] ms=', data.ms, 'status=', data.status, 'products=', (data.products || []).length);
+          return (data.products || []).map(offToProduct);
         } catch (e) {
-          console.warn('[usda] error:', e?.message || e);
+          console.warn('[proxy] err', e?.message);
           return [];
         }
       })();
+
+      // USDA is handled inside the proxy too — no separate client-side call needed
+      const usdaPromise = Promise.resolve([]);
 
       try {
         const [offList, usdaList] = await Promise.all([offPromise, usdaPromise]);
