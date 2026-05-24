@@ -2,26 +2,59 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { t, useT, useApp, useLang } from './lib';
 import { Icon, Btn } from './shared';
 import { Toast } from './modals';
-import { searchLocalFoods } from './local_foods';
+import { searchLocalFoods, NL_EN_FOOD } from './local_foods';
 
 /* ═══════════════════════════ MODULE A2: LOG LIBRARY ═══════════════════════════
- * Yazio-style product search screen with dual source (local + OpenFoodFacts).
- * Improvements (May 2026):
- *  - OFF query uses sort_by=unique_scans_n (popularity) + locale-aware lc param
- *  - page_size reduced 20→12 for faster TTFB
- *  - Client-side ranking: exact match > starts-with > word-boundary > contains
- *  - Results with no name-token match are filtered out (fixes "appel" → "appelsap" noise)
+ * Multi-source food search:
+ *   1. User's own products (local)
+ *   2. NEVO basis-voeding (~255 items, embedded, 0ms)
+ *   3. OpenFoodFacts via Search-a-licious (new Elasticsearch endpoint, since OFF
+ *      legacy cgi/search.pl returns 503s globally since April 2026)
+ *   4. USDA FoodData Central (~380K items, parallel, NL→EN translation layer)
+ *
+ * localStorage cache: last 50 queries, 1-day TTL, instant repeat searches.
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-const OFF_SEARCH = 'https://world.openfoodfacts.org/cgi/search.pl';
+const SEARCHALICIOUS = 'https://search.openfoodfacts.org/search';
+const USDA_API = 'https://api.nal.usda.gov/fdc/v1/foods/search';
+const USDA_KEY = 'DEMO_KEY'; // 30 req/hr per IP — fine for low traffic, user can swap
 
-// Map an OFF search hit → product-shape compatible with rest of app
+// localStorage cache helpers
+const CACHE_KEY_PREFIX = 'foodsearch:';
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 1 day
+
+function cacheGet(query) {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY_PREFIX + query);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts > CACHE_TTL) {
+      localStorage.removeItem(CACHE_KEY_PREFIX + query);
+      return null;
+    }
+    return data;
+  } catch (e) { return null; }
+}
+function cacheSet(query, data) {
+  try {
+    localStorage.setItem(CACHE_KEY_PREFIX + query, JSON.stringify({ ts: Date.now(), data }));
+    // Trim cache: keep newest 50 entries
+    const keys = Object.keys(localStorage).filter(k => k.startsWith(CACHE_KEY_PREFIX));
+    if (keys.length > 50) {
+      const sorted = keys.map(k => {
+        try { return { k, ts: JSON.parse(localStorage.getItem(k)).ts }; } catch { return { k, ts: 0 }; }
+      }).sort((a, b) => a.ts - b.ts);
+      sorted.slice(0, sorted.length - 50).forEach(({ k }) => localStorage.removeItem(k));
+    }
+  } catch (e) {}
+}
+
+// Map an OFF search hit (Search-a-licious or v2) → product-shape
 function offToProduct(p) {
   const n = p.nutriments || {};
   let kcal = n['energy-kcal_100g'];
   if (kcal == null && n['energy_100g']) kcal = n['energy_100g'] / 4.184;
-  const id = 'off:' + (p.code || (p._id || ''));
-  // Prefer locale-specific name (NL/DE/etc) over generic product_name
+  const id = 'off:' + (p.code || (p._id || p.id || ''));
   const name = p.product_name_nl || p.product_name || p.product_name_en || p.generic_name || 'Unknown product';
   // Parse quantity ("500 g", "1.5 L", "330ml") → default portion suggestion
   let defaultPortion = null;
@@ -64,6 +97,37 @@ function offToProduct(p) {
   };
 }
 
+// Map USDA FoodData Central food → product-shape
+function usdaToProduct(food) {
+  const nutrients = food.foodNutrients || [];
+  const findN = (id) => {
+    const found = nutrients.find(n => n.nutrientId === id || n.nutrient?.id === id);
+    return found ? (found.value ?? found.amount ?? 0) : 0;
+  };
+  // USDA nutrient IDs: 1008=Energy(kcal), 1003=Protein, 1005=Carbs, 1004=Fat
+  let kcal = findN(1008);
+  if (!kcal) {
+    const kj = findN(1062); // Energy in kJ
+    if (kj) kcal = kj / 4.184;
+  }
+  const name = (food.description || '').trim();
+  return {
+    id: 'usda:' + food.fdcId,
+    name,
+    brand: (food.brandOwner || food.brandName || '').trim(),
+    image: null,
+    kcal: Math.round(kcal || 0),
+    p: Math.round((findN(1003) || 0) * 10) / 10,
+    c: Math.round((findN(1005) || 0) * 10) / 10,
+    f: Math.round((findN(1004) || 0) * 10) / 10,
+    store: '',
+    shelf: 'shelf',
+    favorite: false,
+    defaultPortion: { id: 'default', name: 'Portion', g: 100, makeDefault: true },
+    source: 'usda',
+  };
+}
+
 export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRecipeActions, onlyRecipes }) {
   const T = useT();
   const { lang } = useLang();
@@ -95,7 +159,7 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
     return 0;
   };
 
-  // Debounced web search
+  // Debounced multi-source web search: Search-a-licious (OFF) + USDA, with cache
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const q = query.trim();
@@ -103,36 +167,80 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
       setWebHits([]); setWebLoading(false); setWebError(false);
       return;
     }
+
+    // Instant cache hit?
+    const cacheKey = `${lang || 'nl'}:${q.toLowerCase()}`;
+    const cached = cacheGet(cacheKey);
+    if (cached) {
+      setWebHits(cached);
+      setWebLoading(false);
+      setWebError(false);
+      return;
+    }
+
     setWebLoading(true);
     debounceRef.current = setTimeout(async () => {
       const seq = ++fetchSeq.current;
+
+      // Search-a-licious (replaces the broken cgi/search.pl which returns 503 since April 2026)
+      const offPromise = (async () => {
+        try {
+          const params = new URLSearchParams({
+            q,
+            page_size: '15',
+            langs: (lang || 'nl') + ',en',
+            fields: 'code,product_name,product_name_en,product_name_nl,generic_name,brands,image_front_small_url,image_small_url,image_url,nutriments,quantity',
+          });
+          const res = await fetch(`${SEARCHALICIOUS}?${params.toString()}`);
+          if (!res.ok) throw new Error('off');
+          const data = await res.json();
+          return (data.hits || data.products || []).map(offToProduct);
+        } catch (e) { return []; }
+      })();
+
+      // USDA FoodData Central — translate NL term → EN if possible, else send raw
+      const usdaPromise = (async () => {
+        try {
+          const qLow = q.toLowerCase();
+          const enQ = NL_EN_FOOD[qLow] || NL_EN_FOOD[qLow.replace(/s$/, '')] || q;
+          const params = new URLSearchParams({
+            query: enQ,
+            pageSize: '10',
+            dataType: 'Foundation,SR Legacy,Survey (FNDDS),Branded',
+            api_key: USDA_KEY,
+          });
+          const res = await fetch(`${USDA_API}?${params.toString()}`);
+          if (!res.ok) throw new Error('usda');
+          const data = await res.json();
+          return (data.foods || []).map(usdaToProduct);
+        } catch (e) { return []; }
+      })();
+
       try {
-        // Use popularity sort + user's language locale for better NL-matching
-        const params = new URLSearchParams({
-          action: 'process',
-          search_terms: q,
-          search_simple: '1',
-          json: '1',
-          page_size: '12',
-          sort_by: 'unique_scans_n',
-          lc: lang || 'en',
-          fields: 'code,product_name,product_name_en,product_name_nl,generic_name,brands,image_front_small_url,image_small_url,image_url,nutriments,quantity',
-        });
-        const url = `${OFF_SEARCH}?${params.toString()}`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error('net');
-        const data = await res.json();
+        const [offList, usdaList] = await Promise.all([offPromise, usdaPromise]);
         if (seq !== fetchSeq.current) return; // stale
-        // Map + score + filter + sort by relevance
-        const list = (data.products || [])
-          .map(offToProduct)
+
+        // Merge, filter junk, dedupe by normalized name, rank, sort
+        const merged = [...offList, ...usdaList]
           .filter(p => p.kcal > 0 && p.name && p.name !== 'Unknown product')
           .map(p => ({ ...p, _score: rankHit(p.name, q) }))
-          .filter(p => p._score > 0)
-          .sort((a, b) => b._score - a._score)
-          .slice(0, 10);
-        setWebHits(list);
-        setWebError(false);
+          .filter(p => p._score > 0);
+
+        const seen = new Set();
+        const deduped = [];
+        merged.sort((a, b) => b._score - a._score);
+        for (const p of merged) {
+          const key = (p.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 24);
+          if (seen.has(key)) continue;
+          seen.add(key);
+          deduped.push(p);
+          if (deduped.length >= 12) break;
+        }
+
+        setWebHits(deduped);
+        setWebError(deduped.length === 0 && offList.length === 0 && usdaList.length === 0);
+        // Cache only non-empty result sets
+        if (deduped.length > 0) cacheSet(cacheKey, deduped);
       } catch (e) {
         if (seq !== fetchSeq.current) return;
         setWebHits([]); setWebError(true);
@@ -425,10 +533,14 @@ function ProductRow({ product, onTap, onFav, onActions, isWeb, isNevo }) {
           <div style={{ fontSize: 14, fontWeight: 700, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{product.name}</div>
           {isWeb && (
             <span style={{
-              fontSize: 9, color: t.glow, fontWeight: 700,
-              background: 'rgba(139,233,255,0.12)', padding: '2px 6px', borderRadius: 5,
-              letterSpacing: '0.05em', flexShrink: 0, border: '1px solid rgba(139,233,255,0.3)',
-            }}>{T('log.web.badge')}</span>
+              fontSize: 9,
+              color: product.source === 'usda' ? '#f97316' : t.glow,
+              fontWeight: 700,
+              background: product.source === 'usda' ? 'rgba(249,115,22,0.12)' : 'rgba(139,233,255,0.12)',
+              padding: '2px 6px', borderRadius: 5,
+              letterSpacing: '0.05em', flexShrink: 0,
+              border: product.source === 'usda' ? '1px solid rgba(249,115,22,0.35)' : '1px solid rgba(139,233,255,0.3)',
+            }}>{product.source === 'usda' ? 'USDA' : T('log.web.badge')}</span>
           )}
           {isNevo && (
             <span style={{
