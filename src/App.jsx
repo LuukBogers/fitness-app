@@ -94,7 +94,7 @@ export default function App() {
     favicon.href = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%94%A5%3C/text%3E%3C/svg%3E";
 
     const link = document.createElement('link');
-    link.href = 'https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap';
+    link.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap';
     link.rel = 'stylesheet';
     document.head.appendChild(link);
 
@@ -102,13 +102,23 @@ export default function App() {
     styleEl.innerHTML = `
       @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
       @keyframes slideUp { from { transform: translateY(100%) } to { transform: translateY(0) } }
+      @keyframes slideUpSheet { from { transform: translateY(100%); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
       @keyframes scanline { 0%, 100% { transform: translateY(-70px); opacity: 0.4 } 50% { transform: translateY(70px); opacity: 1 } }
       @keyframes spin { to { transform: rotate(360deg) } }
       @keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.5 } }
+      @keyframes ambientPulse {
+        0%, 100% { opacity: 0.5; transform: translate(0, 0) }
+        50%      { opacity: 0.8; transform: translate(6px, -4px) }
+      }
+      @keyframes shimmer {
+        0%   { background-position: -200% 0 }
+        100% { background-position: 200% 0 }
+      }
       ::-webkit-scrollbar { display: none }
       input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
       input[type=number] { -moz-appearance: textfield; }
       button:disabled { cursor: not-allowed }
+      button:active { transform: scale(0.97); transition: transform 0.08s ease; }
     `;
     document.head.appendChild(styleEl);
     return () => { try { document.head.removeChild(link); document.head.removeChild(styleEl); } catch(e) {} };
@@ -228,8 +238,18 @@ export default function App() {
 
   const phoneStyle = {
     width: '100%', maxWidth: 430, height: '100vh', maxHeight: 920,
-    margin: '0 auto', background: t.bg, color: t.text,
-    fontFamily: '"DM Sans", -apple-system, system-ui, sans-serif',
+    margin: '0 auto', color: t.text,
+    background: `
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(122,166,255,0.07), transparent 60%),
+      radial-gradient(ellipse 70% 50% at 50% 110%, rgba(139,233,255,0.05), transparent 60%),
+      radial-gradient(ellipse 50% 30% at 0% 50%, rgba(34,197,94,0.025), transparent 70%),
+      radial-gradient(ellipse 50% 30% at 100% 50%, rgba(249,115,22,0.025), transparent 70%),
+      ${t.bg}
+    `,
+    fontFamily: '"Inter", -apple-system, "SF Pro Display", system-ui, sans-serif',
+    fontFeatureSettings: '"cv11", "ss01", "ss03"',
+    WebkitFontSmoothing: 'antialiased', MozOsxFontSmoothing: 'grayscale',
+    letterSpacing: '-0.005em',
     position: 'relative', overflow: 'hidden',
     boxShadow: '0 0 80px rgba(0,0,0,0.5)',
     display: 'flex', flexDirection: 'column',
@@ -237,9 +257,9 @@ export default function App() {
 
   return (
     <div style={{
-      minHeight: '100vh', background: '#000',
+      minHeight: '100vh',
+      background: 'radial-gradient(ellipse 60% 50% at 20% 10%, rgba(122,166,255,0.05), transparent 60%), radial-gradient(ellipse 50% 40% at 80% 90%, rgba(139,233,255,0.04), transparent 60%), radial-gradient(ellipse 40% 30% at 10% 80%, rgba(34,197,94,0.03), transparent 60%), radial-gradient(ellipse 40% 30% at 90% 20%, rgba(249,115,22,0.03), transparent 60%), #000',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      backgroundImage: `radial-gradient(circle at 20% 20%, rgba(34,197,94,0.06), transparent 50%), radial-gradient(circle at 80% 80%, rgba(249,115,22,0.06), transparent 50%)`,
     }}>
       <div style={phoneStyle}>
         <LangContext.Provider value={{ lang, setLang }}>
