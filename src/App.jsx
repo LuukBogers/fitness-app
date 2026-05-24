@@ -282,9 +282,9 @@ function App() {
     width: '100%', maxWidth: 430, height: '100vh', maxHeight: 920,
     margin: '0 auto', color: t.text,
     background: `
-      radial-gradient(circle at 75% 20%, rgba(255,255,255,0.10), transparent 32%),
-      radial-gradient(circle at 20% 80%, rgba(200,177,138,0.08), transparent 35%),
-      linear-gradient(135deg, #08090B 0%, #15171B 55%, #0A0B0D 100%)
+      linear-gradient(180deg, rgba(8,9,11,0.65) 0%, rgba(8,9,11,0.78) 60%, rgba(8,9,11,0.90) 100%),
+      url('/bg-graphite.jpg') center/cover no-repeat,
+      #08090B
     `,
     fontFamily: '"Inter", -apple-system, "SF Pro Display", system-ui, sans-serif',
     fontFeatureSettings: '"cv11", "ss01", "ss03"',
@@ -298,7 +298,7 @@ function App() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'radial-gradient(circle at 75% 20%, rgba(255,255,255,0.06), transparent 40%), radial-gradient(circle at 20% 80%, rgba(200,177,138,0.05), transparent 45%), linear-gradient(135deg, #08090B 0%, #0F1114 50%, #08090B 100%)',
+      background: `linear-gradient(180deg, rgba(8,9,11,0.55) 0%, rgba(8,9,11,0.82) 100%), url('/bg-graphite.jpg') center/cover fixed no-repeat, #08090B`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
     }}>
       <div style={phoneStyle}>

@@ -72,8 +72,8 @@ export const t = {
   green:  '#D8D8DA', greenBg:  'rgba(255,255,255,0.06)',  greenBorder:  'rgba(255,255,255,0.18)',
   // Premium accents (new, addressable directly)
   silver: '#D8D8DA', chrome: '#F5F5F6', champagne: '#C8B18A', graphite: '#3A3D42',
-  // Macro chart colours — desaturated cool/warm tints, premium look
-  protein: '#B8C5D6', carbs: '#D6C49B', fat: '#D6A799',
+  // Macro chart colours — premium pastel-metallic, lighter & more readable
+  protein: '#D4E4F5', carbs: '#EBDCB0', fat: '#EFC2B4',
   // Status overlays (subtler than before)
   glow: '#E8EAEE',
   success: '#B8D6BE', warning: '#D6C49B', error: '#D6A799',
