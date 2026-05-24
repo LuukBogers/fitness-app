@@ -299,7 +299,7 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
     if (!q) return [];
     // Dedupe against local custom products (same name)
     const localNames = new Set(localHits.map(p => (p.name || '').toLowerCase()));
-    return searchLocalFoods(q, 8).filter(f => !localNames.has(f.name.toLowerCase()));
+    return searchLocalFoods(q, 15).filter(f => !localNames.has(f.name.toLowerCase()));
   }, [query, filter, localHits]);
 
   // Top-2000 NL OpenFoodFacts (instant, baked into bundle at build time)
@@ -311,7 +311,7 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
       ...localHits.map(p => (p.name + '|' + (p.brand || '')).toLowerCase()),
       ...localFoodHits.map(p => p.name.toLowerCase()),
     ]);
-    return searchOffNl(q, 10).filter(p =>
+    return searchOffNl(q, 20).filter(p =>
       !seenKeys.has((p.name + '|' + p.brand).toLowerCase()) &&
       !seenKeys.has(p.name.toLowerCase())
     );
