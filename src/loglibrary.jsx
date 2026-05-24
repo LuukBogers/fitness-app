@@ -241,15 +241,13 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
         const [offList, usdaList] = await Promise.all([offPromise, usdaPromise]);
         if (seq !== fetchSeq.current) return; // stale
 
-        // Merge, filter junk, dedupe by normalized name, rank, sort
+        // Trust the API's own relevance ranking - DON'T double-filter on substring match.
+        // Just drop entries with no usable data (no name, no kcal).
         const merged = [...offList, ...usdaList]
-          .filter(p => p.kcal > 0 && p.name && p.name !== 'Unknown product')
-          .map(p => ({ ...p, _score: rankHit(p.name, q) }))
-          .filter(p => p._score > 0);
+          .filter(p => p.kcal > 0 && p.name && p.name !== 'Unknown product');
 
         const seen = new Set();
         const deduped = [];
-        merged.sort((a, b) => b._score - a._score);
         for (const p of merged) {
           const key = (p.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 24);
           if (seen.has(key)) continue;
