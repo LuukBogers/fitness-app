@@ -41,15 +41,59 @@ function shortPreview(obj, limit = 800) {
 export function DiagnosePage() {
   const [q, setQ] = useState('appel');
   const [busy, setBusy] = useState(false);
+  const [r0, setR0] = useState({ badge: 'wachten', color: '#facc15', status: '', body: null });
   const [r1, setR1] = useState({ badge: 'wachten', color: '#facc15', status: '', body: null });
   const [r2, setR2] = useState({ badge: 'wachten', color: '#facc15', status: '', body: null });
   const [r3, setR3] = useState({ badge: 'wachten', color: '#facc15', status: '', body: null });
 
   async function testAll() {
     setBusy(true);
+    setR0({ badge: 'bezig...', color: '#facc15', status: '', body: null });
     setR1({ badge: 'bezig...', color: '#facc15', status: '', body: null });
     setR2({ badge: 'bezig...', color: '#facc15', status: '', body: null });
     setR3({ badge: 'bezig...', color: '#facc15', status: '', body: null });
+
+    // Test 0: Vercel serverless PROXY (the one we want working)
+    const proxy = (async () => {
+      const url = `/api/foodsearch?q=${encodeURIComponent(q)}&lang=nl`;
+      try {
+        const t0 = performance.now();
+        const res = await fetch(url);
+        const dt = Math.round(performance.now() - t0);
+        if (!res.ok) {
+          const text = await res.text().catch(() => '');
+          setR0({ badge: `HTTP ${res.status}`, color: '#f87171', status: url, body: <Pre>HTTP {res.status} {res.statusText}{'\n'}Duur: {dt}ms{'\n\n'}{text.slice(0, 500)}</Pre> });
+          return;
+        }
+        const data = await res.json();
+        const products = data.products || [];
+        setR0({
+          badge: `${products.length} totaal (${data.ms || dt}ms)`,
+          color: products.length > 0 ? '#22C55E' : '#f87171',
+          status: url + ' — fan-out naar 4 bronnen server-side',
+          body: (
+            <div>
+              <Pre>Per-bron status:{'\n'}{shortPreview(data.status || {})}</Pre>
+              {products.slice(0, 5).map((p, i) => {
+                const name = p.product_name_nl || p.product_name || p.product_name_en || p.generic_name || '(geen naam)';
+                const brand = (p.brands || '').split(',')[0];
+                const n = p.nutriments || {};
+                const kcal = n['energy-kcal_100g'] || '?';
+                const src = p._src || '?';
+                return (
+                  <div key={i} style={{ padding: '8px 10px', background: '#09090B', border: `1px solid ${t.border}`, borderRadius: 8, marginBottom: 6, fontSize: 12 }}>
+                    <b style={{ color: t.text }}>{name}</b> <i style={{ color: t.muted, fontStyle: 'normal' }}>{brand ? '· ' + brand : ''}</i>
+                    <br /><span style={{ color: t.green }}>{kcal} kcal/100g</span> · bron: <span style={{ color: src === 'usda' ? '#f97316' : '#22D3EE' }}>{src}</span>
+                  </div>
+                );
+              })}
+            </div>
+          ),
+        });
+      } catch (e) {
+        setR0({ badge: 'error', color: '#f87171', status: url, body: <Pre>FAIL: {e.message || String(e)}</Pre> });
+      }
+    })();
 
     // Test 1: OFF — Search-a-licious + v1 cgi + v2 search (laat zien wat werkt)
     const sal = (async () => {
@@ -190,7 +234,7 @@ export function DiagnosePage() {
       }
     })();
 
-    await Promise.all([sal, usda, legacy]);
+    await Promise.all([proxy, sal, usda, legacy]);
     setBusy(false);
   }
 
@@ -215,6 +259,7 @@ export function DiagnosePage() {
         </button>
       </div>
 
+      <Panel title="🚀 Vercel proxy /api/foodsearch (HOOFDBRON)" badge={r0.badge} badgeColor={r0.color} status={r0.status}>{r0.body}</Panel>
       <Panel title="Search-a-licious (OpenFoodFacts)" badge={r1.badge} badgeColor={r1.color} status={r1.status}>{r1.body}</Panel>
       <Panel title="USDA FoodData Central" badge={r2.badge} badgeColor={r2.color} status={r2.status}>{r2.body}</Panel>
       <Panel title="OFF legacy cgi (controle)" badge={r3.badge} badgeColor={r3.color} status={r3.status}>{r3.body}</Panel>
