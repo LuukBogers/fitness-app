@@ -449,27 +449,83 @@ export function CreateConceptModal({ visible, onClose, onSave, type, recipes = [
   // type: 'day' = build day with multi-item slots; 'week' = pick a day-concept per weekday
   const [name, setName] = useState('');
   const [image, setImage] = useState(null);
-  // Day-type: { slotName: [{itemType:'recipe'|'product', refId, name, kcal, p, c, f, image}] }
+  // Day-type: { slotName: [{itemType, refId, name, kcal, p, c, f, image, brand, source, grams?, portions?}] }
   const [slots, setSlots] = useState({});
   // Week-type: { dayName: dayConceptId | null }
   const [weekPicks, setWeekPicks] = useState({});
-  // Picker state: { slot } for day, { day } for week, with optional tab
-  const [picker, setPicker] = useState(null);
-  const [pickerTab, setPickerTab] = useState('recipes'); // recipes | products
+  const [picker, setPicker] = useState(null); // { slot } day or { day } week
+  const [pickerTab, setPickerTab] = useState('products'); // recipes | products
+  const [pickerSearch, setPickerSearch] = useState('');
+  // Edit-item modal: { slot, idx }
+  const [editingItem, setEditingItem] = useState(null);
 
   useEffect(() => {
     if (visible) {
-      setName(''); setImage(null); setSlots({}); setWeekPicks({}); setPicker(null); setPickerTab('recipes');
+      setName(''); setImage(null); setSlots({}); setWeekPicks({}); setPicker(null);
+      setPickerTab('products'); setPickerSearch(''); setEditingItem(null);
     }
   }, [visible, type]);
 
-  // Build a snapshot item from a recipe or product
-  const snapshotRecipe = (r) => ({ itemType: 'recipe', refId: r.id, name: r.name, kcal: r.kcal||0, p: r.p||0, c: r.c||0, f: r.f||0, image: r.image||null });
-  const snapshotProduct = (p) => ({ itemType: 'product', refId: p.id, name: p.name, kcal: p.kcal||0, p: p.p||0, c: p.c||0, f: p.f||0, image: p.image||null });
+  // Snapshot builders with edit defaults
+  const snapshotRecipe = (r) => ({
+    itemType: 'recipe', refId: r.id, name: r.name,
+    kcal: r.kcal||0, p: r.p||0, c: r.c||0, f: r.f||0,
+    image: r.image||null, brand: '', source: 'own', portions: 1,
+  });
+  const snapshotProduct = (p) => ({
+    itemType: 'product', refId: p.id, name: p.name,
+    kcal: p.kcal||0, p: p.p||0, c: p.c||0, f: p.f||0,
+    image: p.image||null, brand: p.brand||'', source: p._src || 'own', grams: 100,
+  });
+
+  // Combined product pool: own + NEVO + OFF_NL (same as CreateRecipeModal picker)
+  const allProducts = useMemo(() => {
+    const own = (products || []).map(p => ({ ...p, _src: 'own' }));
+    const nevo = LOCAL_FOODS.filter(f => (f.kcal||0) > 0).map(f => ({
+      id: f.id, name: f.name, brand: '', kcal: f.kcal, p: f.p, c: f.c, f: f.f, image: null, _src: 'nevo'
+    }));
+    const off = OFF_NL.map(it => ({
+      id: 'offnl:' + it.c, name: it.n, brand: it.b || '',
+      kcal: it.k, p: it.p, c: it.h, f: it.f,
+      image: it.i ? 'https://images.openfoodfacts.org' + it.i : null,
+      _src: 'offnl',
+    }));
+    return [...own, ...nevo, ...off];
+  }, [products]);
+
+  // Filtered search results for picker
+  const pickerHits = useMemo(() => {
+    const q = pickerSearch.toLowerCase().trim();
+    if (pickerTab === 'recipes') {
+      if (!q) return recipes;
+      return recipes.filter(r => (r.name||'').toLowerCase().includes(q));
+    } else {
+      if (!q) return allProducts.slice(0, 30);
+      return allProducts.filter(p =>
+        (p.name||'').toLowerCase().includes(q) ||
+        (p.brand||'').toLowerCase().includes(q)
+      ).slice(0, 60);
+    }
+  }, [pickerSearch, pickerTab, recipes, allProducts]);
+
+  // Compute actual kcal/macros for one item, applying grams (product) or portions (recipe) factor
+  const itemFactor = (it) => it.itemType === 'recipe'
+    ? (parseFloat(it.portions) || 0)
+    : ((parseFloat(it.grams) || 0) / 100);
+  const itemMacros = (it) => {
+    const f = itemFactor(it);
+    return { kcal: (it.kcal||0)*f, p: (it.p||0)*f, c: (it.c||0)*f, f: (it.f||0)*f };
+  };
 
   const addItemToSlot = (slot, item) => {
     setSlots(prev => ({ ...prev, [slot]: [...(prev[slot] || []), item] }));
-    setPicker(null);
+    setPicker(null); setPickerSearch('');
+  };
+  const updateItemInSlot = (slot, idx, patch) => {
+    setSlots(prev => {
+      const list = (prev[slot] || []).map((it, i) => i === idx ? { ...it, ...patch } : it);
+      return { ...prev, [slot]: list };
+    });
   };
   const removeItemFromSlot = (slot, idx) => {
     setSlots(prev => {
@@ -486,16 +542,15 @@ export function CreateConceptModal({ visible, onClose, onSave, type, recipes = [
   };
 
   // Macro totals
-  const sumItems = (items) => (items || []).reduce(
-    (acc, it) => ({ kcal: acc.kcal + (it.kcal||0), p: acc.p + (it.p||0), c: acc.c + (it.c||0), f: acc.f + (it.f||0) }),
-    { kcal: 0, p: 0, c: 0, f: 0 }
-  );
+  const sumItems = (items) => (items || []).reduce((acc, it) => {
+    const m = itemMacros(it);
+    return { kcal: acc.kcal + m.kcal, p: acc.p + m.p, c: acc.c + m.c, f: acc.f + m.f };
+  }, { kcal: 0, p: 0, c: 0, f: 0 });
   const dayTotal = SLOTS.reduce((acc, slot) => {
     const s = sumItems(slots[slot]);
     return { kcal: acc.kcal + s.kcal, p: acc.p + s.p, c: acc.c + s.c, f: acc.f + s.f };
   }, { kcal: 0, p: 0, c: 0, f: 0 });
 
-  // Week-type: derive total from chosen day-concepts
   const weekTotalKcal = Object.values(weekPicks).reduce((s, cid) => {
     if (!cid) return s;
     const dc = dayConcepts.find(c => c.id === cid);
@@ -517,7 +572,7 @@ export function CreateConceptModal({ visible, onClose, onSave, type, recipes = [
         name: name.trim(),
         type: 'day',
         image,
-        slots, // {slot: [items]}
+        slots,
         kcal: Math.round(dayTotal.kcal),
         p: Math.round(dayTotal.p * 10) / 10,
         c: Math.round(dayTotal.c * 10) / 10,
@@ -530,19 +585,19 @@ export function CreateConceptModal({ visible, onClose, onSave, type, recipes = [
         name: name.trim(),
         type: 'week',
         image,
-        days: weekPicks, // {dayName: dayConceptId}
+        days: weekPicks,
         kcal: filledDays > 0 ? Math.round(weekTotalKcal / filledDays) : 0,
         createdAt: new Date().toISOString(),
       });
     }
   };
 
-  // ──────────────────────────── RENDER ────────────────────────────
   const noDayConcepts = type === 'week' && dayConcepts.length === 0;
+  const editing = editingItem ? (slots[editingItem.slot] || [])[editingItem.idx] : null;
 
   return (
     <>
-      <Modal visible={visible && !picker} onClose={onClose} title={type === 'day' ? T('modal.createdayconcept') : T('modal.createweekconcept')}>
+      <Modal visible={visible && !picker && !editingItem} onClose={onClose} title={type === 'day' ? T('modal.createdayconcept') : T('modal.createweekconcept')}>
         <PhotoPicker value={image} onChange={setImage} />
         <Field label={T('modal.field.name')} value={name} onChange={setName} placeholder={type === 'day' ? T('modal.ph.dayconceptname') : T('modal.ph.weekconceptname')} />
 
@@ -567,19 +622,28 @@ export function CreateConceptModal({ visible, onClose, onSave, type, recipes = [
                       {items.length > 0 ? `${items.length} · ${Math.round(slotSum.kcal)} kcal` : T('modal.emptyslot')}
                     </div>
                   </div>
-                  {items.map((it, idx) => (
-                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: t.card3, borderRadius: 9, marginTop: idx === 0 ? 0 : 4 }}>
-                      <div style={{ width: 22, height: 22, borderRadius: 6, background: it.itemType === 'recipe' ? t.orangeBg : t.greenBg, color: it.itemType === 'recipe' ? t.orange : t.green, fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        {it.itemType === 'recipe' ? 'R' : 'P'}
+                  {items.map((it, idx) => {
+                    const m = itemMacros(it);
+                    const sub = it.itemType === 'recipe'
+                      ? `${it.portions}× · ${Math.round(m.kcal)} kcal`
+                      : `${Math.round(parseFloat(it.grams)||0)}g · ${Math.round(m.kcal)} kcal`;
+                    return (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', background: t.card3, borderRadius: 9, marginTop: idx === 0 ? 0 : 4 }}>
+                        <div style={{ width: 22, height: 22, borderRadius: 6, background: it.itemType === 'recipe' ? t.orangeBg : t.greenBg, color: it.itemType === 'recipe' ? t.orange : t.green, fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          {it.itemType === 'recipe' ? 'R' : 'P'}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12.5, color: t.text, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</div>
+                          <div style={{ fontSize: 10.5, color: t.muted }}>{sub}</div>
+                        </div>
+                        <div onClick={() => setEditingItem({ slot, idx })} style={{
+                          width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          cursor: 'pointer', color: t.soft, fontSize: 16, flexShrink: 0, letterSpacing: '0.1em',
+                        }}>⋯</div>
                       </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12.5, color: t.text, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</div>
-                        <div style={{ fontSize: 10.5, color: t.muted }}>{Math.round(it.kcal)} kcal</div>
-                      </div>
-                      <div onClick={() => removeItemFromSlot(slot, idx)} style={{ width: 26, height: 26, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: t.muted, fontSize: 14, flexShrink: 0 }}>✕</div>
-                    </div>
-                  ))}
-                  <div onClick={() => { setPickerTab(recipes.length > 0 ? 'recipes' : 'products'); setPicker({ slot }); }} style={{
+                    );
+                  })}
+                  <div onClick={() => { setPickerTab('products'); setPickerSearch(''); setPicker({ slot }); }} style={{
                     marginTop: items.length > 0 ? 6 : 0, padding: '8px 10px', borderRadius: 9,
                     background: 'transparent', border: `1px dashed ${t.border}`, color: t.soft, fontSize: 12, fontWeight: 600,
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'pointer',
@@ -631,25 +695,35 @@ export function CreateConceptModal({ visible, onClose, onSave, type, recipes = [
         <Btn full variant="outline" onClick={onClose} style={{ marginTop: 8 }}>{T('common.cancel')}</Btn>
       </Modal>
 
-      {/* Picker for day-type: tabs Recipes | Products */}
-      <Modal visible={!!picker && type === 'day'} onClose={() => setPicker(null)} title={picker?.slot ? T('modal.addtoslotof', { slot: T(slotKey(picker.slot)) }) : ''}>
+      {/* Picker for day-type: SEARCH BAR + tabs Recipes | Products */}
+      <Modal visible={!!picker && type === 'day'} onClose={() => { setPicker(null); setPickerSearch(''); }} title={picker?.slot ? T('modal.addtoslotof', { slot: T(slotKey(picker.slot)) }) : ''}>
+        <input type="text" value={pickerSearch} onChange={e => setPickerSearch(e.target.value)}
+          placeholder={pickerTab === 'recipes' ? T('modal.ph.searchrecipes') : T('modal.ph.searchproducts')}
+          style={{
+            width: '100%', padding: '12px 14px', borderRadius: 12,
+            border: `1px solid ${t.border}`, fontSize: 14, fontFamily: 'inherit',
+            color: t.text, background: t.card2, boxSizing: 'border-box', outline: 'none', marginBottom: 12,
+          }} autoFocus />
+
         <div style={{ display: 'flex', gap: 6, marginBottom: 12, background: t.card3, padding: 4, borderRadius: 10 }}>
-          <div onClick={() => setPickerTab('recipes')} style={{
+          <div onClick={() => { setPickerTab('products'); setPickerSearch(''); }} style={{
+            flex: 1, padding: '8px 10px', borderRadius: 7, textAlign: 'center', fontSize: 12, fontWeight: 700,
+            background: pickerTab === 'products' ? t.card : 'transparent',
+            color: pickerTab === 'products' ? t.green : t.muted, cursor: 'pointer',
+          }}>{T('modal.tab.products')}</div>
+          <div onClick={() => { setPickerTab('recipes'); setPickerSearch(''); }} style={{
             flex: 1, padding: '8px 10px', borderRadius: 7, textAlign: 'center', fontSize: 12, fontWeight: 700,
             background: pickerTab === 'recipes' ? t.card : 'transparent',
             color: pickerTab === 'recipes' ? t.green : t.muted, cursor: 'pointer',
           }}>{T('modal.tab.recipes')} ({recipes.length})</div>
-          <div onClick={() => setPickerTab('products')} style={{
-            flex: 1, padding: '8px 10px', borderRadius: 7, textAlign: 'center', fontSize: 12, fontWeight: 700,
-            background: pickerTab === 'products' ? t.card : 'transparent',
-            color: pickerTab === 'products' ? t.green : t.muted, cursor: 'pointer',
-          }}>{T('modal.tab.products')} ({products.length})</div>
         </div>
 
         {pickerTab === 'recipes' && (
-          recipes.length === 0 ? (
-            <div style={{ padding: 28, textAlign: 'center', color: t.muted, fontSize: 12 }}>{T('modal.norecipesyet')}</div>
-          ) : recipes.map(r => (
+          pickerHits.length === 0 ? (
+            <div style={{ padding: 28, textAlign: 'center', color: t.muted, fontSize: 12 }}>
+              {pickerSearch ? T('modal.nomatches') : T('modal.norecipesyet')}
+            </div>
+          ) : pickerHits.map(r => (
             <div key={r.id} onClick={() => addItemToSlot(picker.slot, snapshotRecipe(r))} style={{
               display: 'flex', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12,
               background: t.card2, marginBottom: 6, cursor: 'pointer', border: `1px solid ${t.border}`,
@@ -667,24 +741,78 @@ export function CreateConceptModal({ visible, onClose, onSave, type, recipes = [
         )}
 
         {pickerTab === 'products' && (
-          products.length === 0 ? (
-            <div style={{ padding: 28, textAlign: 'center', color: t.muted, fontSize: 12 }}>{T('modal.noproductsyet')}</div>
-          ) : products.map(p => (
-            <div key={p.id} onClick={() => addItemToSlot(picker.slot, snapshotProduct(p))} style={{
+          pickerHits.length === 0 ? (
+            <div style={{ padding: 28, textAlign: 'center', color: t.muted, fontSize: 12 }}>
+              {pickerSearch ? T('modal.nomatches') : T('modal.noproductsyet')}
+            </div>
+          ) : pickerHits.map(p => (
+            <div key={p.id + ':' + p._src} onClick={() => addItemToSlot(picker.slot, snapshotProduct(p))} style={{
               display: 'flex', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12,
               background: t.card2, marginBottom: 6, cursor: 'pointer', border: `1px solid ${t.border}`,
             }}>
               {p.image
                 ? <img src={p.image} alt="" style={{ width: 40, height: 40, borderRadius: 9, objectFit: 'cover', background: '#fff' }} />
-                : <div style={{ width: 40, height: 40, borderRadius: 9, background: t.card3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🥫</div>}
+                : <div style={{ width: 40, height: 40, borderRadius: 9, background: p._src === 'nevo' ? t.greenBg : t.card3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{p._src === 'nevo' ? '🥗' : '🥫'}</div>}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, color: t.text, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
-                <div style={{ fontSize: 11, color: t.muted }}>{p.brand ? `${p.brand} · ` : ''}{p.kcal} kcal</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                  <div style={{ fontSize: 13.5, color: t.text, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{p.name}</div>
+                  {p._src === 'nevo' && (
+                    <span style={{ fontSize: 9, color: t.green, fontWeight: 700, background: t.greenBg, padding: '2px 5px', borderRadius: 4, flexShrink: 0, border: `1px solid ${t.greenBorder}` }}>NEVO</span>
+                  )}
+                  {p._src === 'offnl' && (
+                    <span style={{ fontSize: 9, color: '#F97316', fontWeight: 700, background: 'rgba(249,115,22,0.12)', padding: '2px 5px', borderRadius: 4, flexShrink: 0, border: '1px solid rgba(249,115,22,0.35)' }}>NL</span>
+                  )}
+                </div>
+                <div style={{ fontSize: 11, color: t.muted }}>{p.brand ? `${p.brand} · ` : ''}{p.kcal} kcal/100g</div>
               </div>
               <Icon name="plus" size={14} color={t.muted} />
             </div>
           ))
         )}
+      </Modal>
+
+      {/* EDIT ITEM modal — adjust grams (product) or portions (recipe), or remove */}
+      <Modal visible={!!editing} onClose={() => setEditingItem(null)} title={editing?.name || ''}>
+        {editing && (() => {
+          const isRecipe = editing.itemType === 'recipe';
+          const m = itemMacros(editing);
+          const fieldVal = isRecipe ? editing.portions : editing.grams;
+          const fieldLabel = isRecipe ? T('modal.edit.portions') : T('modal.edit.grams');
+          const fieldPatch = (v) => updateItemInSlot(editingItem.slot, editingItem.idx, isRecipe ? { portions: v } : { grams: v });
+          const baseLine = isRecipe
+            ? `${editing.kcal} kcal ${T('modal.edit.perportion')}`
+            : `${editing.kcal} kcal / 100g`;
+          return (
+            <>
+              <div style={{ padding: 12, background: t.card3, borderRadius: 12, marginBottom: 14, border: `1px solid ${t.border}` }}>
+                <div style={{ fontSize: 11, color: t.muted, marginBottom: 4 }}>{baseLine}{editing.brand ? ' · ' + editing.brand : ''}</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontSize: 11, color: t.muted }}>{T('common.total')}</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: t.green }}>{Math.round(m.kcal)} kcal</div>
+                </div>
+                <div style={{ display: 'flex', gap: 10, fontSize: 10.5, marginTop: 4 }}>
+                  <span><span style={{ color: t.protein, fontWeight: 700 }}>{Math.round(m.p * 10)/10}g</span> <span style={{ color: t.muted }}>P</span></span>
+                  <span><span style={{ color: t.carbs, fontWeight: 700 }}>{Math.round(m.c * 10)/10}g</span> <span style={{ color: t.muted }}>C</span></span>
+                  <span><span style={{ color: t.fat, fontWeight: 700 }}>{Math.round(m.f * 10)/10}g</span> <span style={{ color: t.muted }}>F</span></span>
+                </div>
+              </div>
+
+              <Field label={fieldLabel}
+                value={String(fieldVal)}
+                onChange={v => fieldPatch(v.replace(',', '.'))}
+                placeholder={isRecipe ? '1' : '100'}
+                type="number"
+              />
+
+              <Btn full variant="outline" onClick={() => { removeItemFromSlot(editingItem.slot, editingItem.idx); setEditingItem(null); }} style={{ marginTop: 10, color: '#F87171', borderColor: 'rgba(248,113,113,0.3)' }}>
+                {T('common.delete')}
+              </Btn>
+              <Btn full onClick={() => setEditingItem(null)} style={{ marginTop: 8 }}>
+                {T('common.done')}
+              </Btn>
+            </>
+          );
+        })()}
       </Modal>
 
       {/* Picker for week-type: choose day-concept */}
