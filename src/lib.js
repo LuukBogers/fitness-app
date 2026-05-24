@@ -59,11 +59,31 @@ export { detectLang };
 
 /* ═══════════════════════════ TOKENS ═══════════════════════════ */
 export const t = {
-  bg: '#09090B', card: '#16161B', card2: '#1C1C22', card3: '#22222A',
-  border: '#27272F', text: '#FAFAFA', soft: '#A1A1AA', muted: '#71717A', dim: '#52525B',
+  // Surfaces (Liquid Chrome — cinematic dark)
+  bg: '#0A0A0B', bg2: '#121417',
+  card: '#171A1F', card2: '#1E2128', card3: '#252A33',
+  // Borders & dividers (frosted)
+  border: 'rgba(255,255,255,0.08)', borderStrong: 'rgba(255,255,255,0.14)',
+  // Text
+  text: '#F5F7FA', soft: '#9AA4B2', muted: '#6B7280', dim: '#4B5563',
+  // Functional accents (kept — brand identity)
   orange: '#F97316', orangeBg: 'rgba(249,115,22,0.12)', orangeBorder: 'rgba(249,115,22,0.3)',
-  green: '#22C55E', greenBg: 'rgba(34,197,94,0.12)', greenBorder: 'rgba(34,197,94,0.3)',
+  green:  '#22C55E', greenBg:  'rgba(34,197,94,0.12)',  greenBorder:  'rgba(34,197,94,0.3)',
+  // Macro chart colours
   protein: '#60A5FA', carbs: '#FACC15', fat: '#F87171',
+  // Liquid Chrome system
+  glow: '#8BE9FF',
+  success: '#7DFFA1', warning: '#FFB84D', error: '#FF6464',
+  // Metallic gradients (use as background on primary buttons / hero accents)
+  metalGreen:  'linear-gradient(135deg, #2EE070 0%, #1F9F4B 60%, #16803A 100%)',
+  metalOrange: 'linear-gradient(135deg, #FF8A3D 0%, #DE6010 60%, #B14A0A 100%)',
+  metalSilver: 'linear-gradient(135deg, #EAEFF6 0%, #B8C2D1 50%, #828B99 100%)',
+  // Reusable surface effects
+  glass:        'rgba(255,255,255,0.04)',
+  glassHover:   'rgba(255,255,255,0.07)',
+  innerHi:      'inset 0 1px 0 0 rgba(255,255,255,0.06)',
+  softShadow:   '0 8px 28px rgba(0,0,0,0.45)',
+  cardShadow:   '0 4px 18px rgba(0,0,0,0.4), inset 0 1px 0 0 rgba(255,255,255,0.04)',
 };
 
 export const STATUS = {

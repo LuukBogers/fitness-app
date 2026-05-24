@@ -44,30 +44,54 @@ export const Icon = ({ name, size = 20, color = 'currentColor', stroke = 1.8 }) 
 /* ═══════════════════════════ SHARED COMPONENTS ═══════════════════════════ */
 export const Card = ({ children, style, onClick, glow }) => (
   <div onClick={onClick} style={{
-    background: t.card, borderRadius: 20, padding: 18, marginBottom: 12,
+    background: t.card, borderRadius: 22, padding: 18, marginBottom: 12,
     border: `1px solid ${t.border}`, cursor: onClick ? 'pointer' : 'default',
-    boxShadow: glow || 'none', transition: 'all 0.2s', ...style,
+    boxShadow: glow || t.cardShadow,
+    backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+    transition: 'transform 0.2s ease, box-shadow 0.2s ease', ...style,
   }}>{children}</div>
 );
 
 export const Label = ({ children, color, style }) => (
-  <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: color || t.muted, marginBottom: 8, ...style }}>{children}</div>
+  <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: color || t.muted, marginBottom: 8, ...style }}>{children}</div>
 );
 
 export const Btn = ({ children, onClick, variant = 'primary', accent = 'green', full, small, style }) => {
-  const acc = accent === 'orange' ? t.orange : t.green;
-  const accBg = accent === 'orange' ? t.orangeBg : t.greenBg;
+  const isOrange = accent === 'orange';
+  const acc      = isOrange ? t.orange : t.green;
+  const accBg    = isOrange ? t.orangeBg : t.greenBg;
+  const accBd    = isOrange ? t.orangeBorder : t.greenBorder;
+  const metal    = isOrange ? t.metalOrange : t.metalGreen;
+  // Liquid Chrome glow halo around primary buttons — colored ring under the metallic surface
+  const primaryShadow = `0 8px 24px ${isOrange ? 'rgba(249,115,22,0.32)' : 'rgba(34,197,94,0.30)'}, ${t.innerHi}`;
   const vars = {
-    primary: { background: acc, color: '#0A0A0B' },
-    ghost: { background: accBg, color: acc, border: `1px solid ${accent === 'orange' ? t.orangeBorder : t.greenBorder}` },
-    outline: { background: 'transparent', color: t.text, border: `1px solid ${t.border}` },
-    danger: { background: 'rgba(239,68,68,0.15)', color: '#F87171', border: `1px solid rgba(239,68,68,0.3)` },
+    primary: {
+      background: metal, color: '#0A0A0B',
+      boxShadow: primaryShadow,
+      border: `1px solid ${accBd}`,
+    },
+    ghost: {
+      background: accBg, color: acc,
+      border: `1px solid ${accBd}`,
+      backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+    },
+    outline: {
+      background: t.glass, color: t.text,
+      border: `1px solid ${t.border}`,
+      backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+    },
+    danger: {
+      background: 'rgba(255,100,100,0.12)', color: t.error,
+      border: `1px solid rgba(255,100,100,0.3)`,
+      backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+    },
   };
   return (
     <button onClick={onClick} style={{
-      ...vars[variant], borderRadius: 14, padding: small ? '9px 14px' : '14px 20px',
-      fontSize: small ? 13 : 15, fontWeight: 600, cursor: 'pointer', width: full ? '100%' : undefined,
-      border: vars[variant].border || 'none', fontFamily: 'inherit', transition: 'opacity 0.15s',
+      ...vars[variant], borderRadius: 14, padding: small ? '10px 16px' : '14px 22px',
+      fontSize: small ? 13 : 15, fontWeight: 700, cursor: 'pointer', width: full ? '100%' : undefined,
+      fontFamily: 'inherit', letterSpacing: '-0.005em',
+      transition: 'transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease',
       ...style,
     }}>{children}</button>
   );
@@ -77,12 +101,17 @@ export const Toggle = ({ on, onChange, accent = 'green' }) => {
   const acc = accent === 'orange' ? t.orange : t.green;
   return (
     <div onClick={() => onChange(!on)} style={{
-      width: 44, height: 26, borderRadius: 13, background: on ? acc : '#3F3F46',
-      position: 'relative', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0,
+      width: 46, height: 28, borderRadius: 14,
+      background: on ? acc : 'rgba(255,255,255,0.08)',
+      boxShadow: on ? `0 0 14px ${acc}55, ${t.innerHi}` : `inset 0 1px 2px rgba(0,0,0,0.4)`,
+      position: 'relative', cursor: 'pointer', transition: 'background 0.22s ease, box-shadow 0.22s ease',
+      flexShrink: 0,
     }}>
       <div style={{
-        position: 'absolute', top: 2, left: on ? 20 : 2, width: 22, height: 22, borderRadius: 11,
-        background: '#fff', boxShadow: '0 2px 6px rgba(0,0,0,0.3)', transition: 'left 0.2s',
+        position: 'absolute', top: 2, left: on ? 20 : 2, width: 24, height: 24, borderRadius: 12,
+        background: 'linear-gradient(180deg, #FFFFFF 0%, #E5E9F0 100%)',
+        boxShadow: '0 2px 6px rgba(0,0,0,0.35), inset 0 -1px 0 rgba(0,0,0,0.06)',
+        transition: 'left 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
       }} />
     </div>
   );
@@ -114,20 +143,28 @@ export const Modal = ({ visible, onClose, title, children, accent = 'green' }) =
   if (!visible) return null;
   return (
     <div style={{
-      position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)',
-      zIndex: 100, display: 'flex', alignItems: 'flex-end', animation: 'fadeIn 0.2s',
+      position: 'absolute', inset: 0,
+      background: 'rgba(8,10,14,0.55)',
+      backdropFilter: 'blur(16px) saturate(140%)', WebkitBackdropFilter: 'blur(16px) saturate(140%)',
+      zIndex: 100, display: 'flex', alignItems: 'flex-end', animation: 'fadeIn 0.22s ease',
     }} onClick={onClose}>
       <div onClick={e => e.stopPropagation()} style={{
-        background: t.card, borderRadius: '28px 28px 0 0', width: '100%',
-        maxHeight: '92%', overflow: 'auto', padding: '20px 20px 32px',
-        border: `1px solid ${t.border}`, borderBottom: 'none',
-        animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+        background: `linear-gradient(180deg, ${t.card2} 0%, ${t.card} 100%)`,
+        borderRadius: '28px 28px 0 0', width: '100%',
+        maxHeight: '92%', overflow: 'auto', padding: '22px 22px 32px',
+        border: `1px solid ${t.borderStrong}`, borderBottom: 'none',
+        boxShadow: `0 -20px 60px rgba(0,0,0,0.55), ${t.innerHi}`,
+        animation: 'slideUp 0.32s cubic-bezier(0.16, 1, 0.3, 1)',
       }}>
-        <div style={{ width: 40, height: 4, background: t.card3, borderRadius: 2, margin: '0 auto 18px' }} />
+        <div style={{ width: 44, height: 4, background: t.borderStrong, borderRadius: 2, margin: '0 auto 18px' }} />
         {title && (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-            <div style={{ fontSize: 18, fontWeight: 700, color: t.text }}>{title}</div>
-            <div onClick={onClose} style={{ cursor: 'pointer', color: t.muted, padding: 4 }}><Icon name="x" size={18} /></div>
+            <div style={{ fontSize: 19, fontWeight: 800, color: t.text, letterSpacing: '-0.015em' }}>{title}</div>
+            <div onClick={onClose} style={{
+              cursor: 'pointer', color: t.soft, width: 32, height: 32, borderRadius: 10,
+              background: t.glass, border: `1px solid ${t.border}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}><Icon name="x" size={16} /></div>
           </div>
         )}
         {children}
@@ -139,8 +176,13 @@ export const Modal = ({ visible, onClose, title, children, accent = 'green' }) =
 export const ProgressBar = ({ value, max, color, height = 8 }) => {
   const pct = Math.min((value / max) * 100, 100);
   return (
-    <div style={{ background: t.card3, borderRadius: height/2, height, overflow: 'hidden' }}>
-      <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: height/2, transition: 'width 0.5s ease-out' }} />
+    <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: height/2, height, overflow: 'hidden', boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.3)' }}>
+      <div style={{
+        width: `${pct}%`, height: '100%',
+        background: `linear-gradient(90deg, ${color}cc 0%, ${color} 100%)`,
+        borderRadius: height/2, transition: 'width 0.6s ease-out',
+        boxShadow: `0 0 10px ${color}66`,
+      }} />
     </div>
   );
 };
