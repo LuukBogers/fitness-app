@@ -291,16 +291,20 @@ export function Nutrition() {
                   { label: T('macros.protein'), color: t.protein, target: d.protein || 0, value: eatenTotals.p, icon: 'egg' },
                   { label: T('macros.fat'),     color: t.fat,     target: d.fat     || 0, value: eatenTotals.f, icon: 'drop' },
                 ].map(macro => {
-                  const ratio = macro.target ? macro.value / macro.target : 0;
+                  const noTarget = !macro.target;
+                  const ratio = noTarget ? 0 : macro.value / macro.target;
                   const pct = Math.round(ratio * 100);
                   const diff = Math.round(macro.value - macro.target);
-                  const status = ratio > 1 ? 'over' : 'left';
                   return (
                     <div key={macro.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                       <div style={{ fontSize: 10.5, color: macro.color, fontWeight: 700, marginBottom: 8, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{macro.label}</div>
-                      <MacroRing percent={pct} color={macro.color} size={68} />
-                      <div style={{ fontSize: 11, color: status === 'over' ? t.warning : t.muted, fontWeight: 700, marginTop: 8 }}>
-                        {status === 'over' ? T('day.macros.over', { g: Math.abs(diff) }) : T('day.macros.left', { g: Math.max(0, -diff) })}
+                      <MacroRing percent={pct} color={macro.color} size={68} value={Math.round(macro.value)} noTarget={noTarget} />
+                      <div style={{ fontSize: 11, color: noTarget ? t.muted : (ratio > 1 ? t.warning : t.muted), fontWeight: 700, marginTop: 8 }}>
+                        {noTarget
+                          ? T('day.macros.eaten', { g: Math.round(macro.value) })
+                          : ratio > 1
+                            ? T('day.macros.over', { g: Math.abs(diff) })
+                            : T('day.macros.left', { g: Math.max(0, -diff) })}
                       </div>
                     </div>
                   );
@@ -436,8 +440,8 @@ export function Nutrition() {
         {sub === 'products' && (
           <LogLibrary
             onProductTap={async (p) => {
-              // If it's an OpenFoodFacts hit, auto-save to local first
-              if (p.source === 'openfoodfacts' && !products.find(x => x.id === p.id)) {
+              // If it's a remote hit (OpenFoodFacts or NEVO basis-food), auto-save to local first
+              if ((p.source === 'openfoodfacts' || p.source === 'nevo') && !products.find(x => x.id === p.id)) {
                 const saved = { ...p, createdAt: new Date().toISOString() };
                 await saveProfileData({ products: [...products, saved] });
                 setOpenProduct(saved);
@@ -645,7 +649,7 @@ export function Nutrition() {
 }
 
 /* ─────────────────────── MacroRing ─────────────────────── */
-function MacroRing({ percent = 0, color = '#22C55E', size = 68 }) {
+function MacroRing({ percent = 0, color = '#22C55E', size = 68, value, noTarget }) {
   const stroke = 6;
   const radius = (size - stroke) / 2;
   const C = 2 * Math.PI * radius;
@@ -656,13 +660,21 @@ function MacroRing({ percent = 0, color = '#22C55E', size = 68 }) {
     <div style={{ position: 'relative', width: size, height: size }}>
       <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
         <circle cx={size/2} cy={size/2} r={radius} stroke="rgba(255,255,255,0.08)" strokeWidth={stroke} fill="none" />
-        <circle cx={size/2} cy={size/2} r={radius} stroke={color} strokeWidth={stroke} fill="none"
-          strokeDasharray={`${dash} ${C}`} strokeLinecap="round" />
+        {!noTarget && (
+          <circle cx={size/2} cy={size/2} r={radius} stroke={color} strokeWidth={stroke} fill="none"
+            strokeDasharray={`${dash} ${C}`} strokeLinecap="round" />
+        )}
       </svg>
       <div style={{
         position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: size * 0.26, fontWeight: 800, color: showOver ? '#FFB84D' : color, letterSpacing: '-0.02em',
-      }}>{Math.round(percent)}<span style={{ fontSize: '0.55em', marginLeft: 1 }}>%</span></div>
+      }}>
+        {noTarget ? (
+          <>{value || 0}<span style={{ fontSize: '0.55em', marginLeft: 1 }}>g</span></>
+        ) : (
+          <>{Math.round(percent)}<span style={{ fontSize: '0.55em', marginLeft: 1 }}>%</span></>
+        )}
+      </div>
     </div>
   );
 }

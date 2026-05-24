@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { t, useT, useApp, useLang } from './lib';
 import { Icon, Btn } from './shared';
 import { Toast } from './modals';
+import { searchLocalFoods } from './local_foods';
 
 /* ═══════════════════════════ MODULE A2: LOG LIBRARY ═══════════════════════════
  * Yazio-style product search screen with dual source (local + OpenFoodFacts).
@@ -161,11 +162,28 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
     return list;
   }, [recipes, query, filter]);
 
-  // Dedupe web hits against local by name+brand (case-insensitive)
+  // Local NL foods (NEVO-style basis-data, instant, no API)
+  const localFoodHits = useMemo(() => {
+    if (filter === 'favorites' || filter === 'meals' || filter === 'aiscans') return [];
+    const q = query.trim();
+    if (!q) return [];
+    // Dedupe against local custom products (same name)
+    const localNames = new Set(localHits.map(p => (p.name || '').toLowerCase()));
+    return searchLocalFoods(q, 8).filter(f => !localNames.has(f.name.toLowerCase()));
+  }, [query, filter, localHits]);
+
+  // Dedupe web hits against local + NEVO
   const webHitsDedupe = useMemo(() => {
-    const seen = new Set(localHits.map(p => (p.name + '|' + (p.brand || '')).toLowerCase()));
-    return webHits.filter(p => !seen.has((p.name + '|' + (p.brand || '')).toLowerCase()));
-  }, [webHits, localHits]);
+    const seen = new Set([
+      ...localHits.map(p => (p.name + '|' + (p.brand || '')).toLowerCase()),
+      ...localFoodHits.map(p => p.name.toLowerCase()),
+    ]);
+    return webHits.filter(p => {
+      const key1 = (p.name + '|' + (p.brand || '')).toLowerCase();
+      const key2 = p.name.toLowerCase();
+      return !seen.has(key1) && !seen.has(key2);
+    });
+  }, [webHits, localHits, localFoodHits]);
 
   const toggleFavorite = async (productId, e) => {
     e.stopPropagation();
@@ -185,7 +203,7 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
     { k: 'aiscans',   l: T('log.filter.aiscans'),   icon: null },
   ];
 
-  const showEmpty = !query.trim() && localHits.length === 0 && recipeHits.length === 0 && webHits.length === 0;
+  const showEmpty = !query.trim() && localHits.length === 0 && recipeHits.length === 0 && webHits.length === 0 && localFoodHits.length === 0;
 
   return (
     <div style={{ position: 'relative' }}>
@@ -253,6 +271,20 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
         {filter !== 'meals' && localHits.map(p => (
           <ProductRow key={p.id} product={p} onTap={() => handleProductTap(p)} onFav={(e) => toggleFavorite(p.id, e)} onActions={onProductActions ? (e) => { e.stopPropagation(); onProductActions(p); } : null} />
         ))}
+
+        {/* NEVO local NL foods (RIVM-style basis-voeding) */}
+        {filter !== 'meals' && localFoodHits.length > 0 && (
+          <>
+            {localHits.length > 0 && (
+              <div style={{ fontSize: 10.5, color: t.muted, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '12px 4px 8px' }}>
+                {T('log.nevo.section')}
+              </div>
+            )}
+            {localFoodHits.map(p => (
+              <ProductRow key={p.id} product={p} onTap={() => handleProductTap(p)} isNevo />
+            ))}
+          </>
+        )}
 
         {/* Recipe results when filter = meals */}
         {filter === 'meals' && recipeHits.length > 0 && recipeHits.map(r => (
@@ -372,7 +404,7 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
 }
 
 /* ─────────────────────── ProductRow ─────────────────────── */
-function ProductRow({ product, onTap, onFav, onActions, isWeb }) {
+function ProductRow({ product, onTap, onFav, onActions, isWeb, isNevo }) {
   const T = useT();
   const isFav = product.favorite === true;
   return (
@@ -384,7 +416,9 @@ function ProductRow({ product, onTap, onFav, onActions, isWeb }) {
       {product.image ? (
         <img src={product.image} alt="" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', background: '#fff', flexShrink: 0 }} />
       ) : (
-        <div style={{ width: 44, height: 44, borderRadius: 10, background: t.card3, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>📦</div>
+        <div style={{ width: 44, height: 44, borderRadius: 10, background: isNevo ? t.greenBg : t.card3, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: isNevo ? `1px solid ${t.greenBorder}` : 'none' }}>
+          <Icon name={isNevo ? 'apple' : 'photo'} size={20} color={isNevo ? t.green : t.muted} />
+        </div>
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
@@ -396,12 +430,19 @@ function ProductRow({ product, onTap, onFav, onActions, isWeb }) {
               letterSpacing: '0.05em', flexShrink: 0, border: '1px solid rgba(139,233,255,0.3)',
             }}>{T('log.web.badge')}</span>
           )}
+          {isNevo && (
+            <span style={{
+              fontSize: 9, color: t.green, fontWeight: 700,
+              background: t.greenBg, padding: '2px 6px', borderRadius: 5,
+              letterSpacing: '0.05em', flexShrink: 0, border: `1px solid ${t.greenBorder}`,
+            }}>NEVO</span>
+          )}
         </div>
         <div style={{ fontSize: 11.5, color: t.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {product.kcal} kcal · {T('common.per100g')}{product.brand ? ` · ${product.brand}` : ''}
         </div>
       </div>
-      {!isWeb && onFav && (
+      {!isWeb && !isNevo && onFav && (
         <div onClick={onFav} style={{
           width: 32, height: 36, borderRadius: 10,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -411,7 +452,7 @@ function ProductRow({ product, onTap, onFav, onActions, isWeb }) {
           {isFav ? '♥' : '♡'}
         </div>
       )}
-      {!isWeb && onActions && (
+      {!isWeb && !isNevo && onActions && (
         <div onClick={onActions} style={{
           width: 28, height: 36, borderRadius: 10,
           display: 'flex', alignItems: 'center', justifyContent: 'center',

@@ -448,6 +448,10 @@ export const TRANSLATIONS = {
     'product.photo.edit': 'Change photo',
     'product.deleted': 'Product deleted',
     'recipe.deleted': 'Recipe deleted',
+
+    // additional v3 keys
+    'day.macros.eaten': '{g}g eaten',
+    'log.nevo.section': 'Basis foods (NEVO)',
   },
 
   /* ─────────── NEDERLANDS ─────────── */
@@ -862,6 +866,10 @@ export const TRANSLATIONS = {
     'product.photo.edit': 'Foto wijzigen',
     'product.deleted': 'Product verwijderd',
     'recipe.deleted': 'Recept verwijderd',
+
+    // additional v3 keys
+    'day.macros.eaten': '{g}g gegeten',
+    'log.nevo.section': 'Basis-voeding (NEVO)',
   },
 
   /* ─────────── DEUTSCH ─────────── */
@@ -1276,6 +1284,10 @@ export const TRANSLATIONS = {
     'product.photo.edit': 'Foto ändern',
     'product.deleted': 'Produkt gelöscht',
     'recipe.deleted': 'Rezept gelöscht',
+
+    // additional v3 keys
+    'day.macros.eaten': '{g}g gegessen',
+    'log.nevo.section': 'Grundnahrungsmittel',
   },
 
   /* ─────────── FRANÇAIS ─────────── */
@@ -1690,6 +1702,10 @@ export const TRANSLATIONS = {
     'product.photo.edit': 'Changer la photo',
     'product.deleted': 'Produit supprimé',
     'recipe.deleted': 'Recette supprimée',
+
+    // additional v3 keys
+    'day.macros.eaten': '{g}g consommés',
+    'log.nevo.section': 'Aliments de base',
   },
 
   /* ─────────── ESPAÑOL ─────────── */
@@ -2104,6 +2120,10 @@ export const TRANSLATIONS = {
     'product.photo.edit': 'Cambiar foto',
     'product.deleted': 'Producto eliminado',
     'recipe.deleted': 'Receta eliminada',
+
+    // additional v3 keys
+    'day.macros.eaten': '{g}g consumidos',
+    'log.nevo.section': 'Alimentos básicos',
   },
 
   /* ─────────── ITALIANO ─────────── */
@@ -2518,6 +2538,10 @@ export const TRANSLATIONS = {
     'product.photo.edit': 'Cambia foto',
     'product.deleted': 'Prodotto eliminato',
     'recipe.deleted': 'Ricetta eliminata',
+
+    // additional v3 keys
+    'day.macros.eaten': '{g}g consumati',
+    'log.nevo.section': 'Alimenti di base',
   },
 
   /* ─────────── PORTUGUÊS ─────────── */
@@ -2932,6 +2956,10 @@ export const TRANSLATIONS = {
     'product.photo.edit': 'Mudar foto',
     'product.deleted': 'Produto eliminado',
     'recipe.deleted': 'Receita eliminada',
+
+    // additional v3 keys
+    'day.macros.eaten': '{g}g consumidos',
+    'log.nevo.section': 'Alimentos básicos',
   },
 
   /* ─────────── POLSKI ─────────── */
@@ -3346,5 +3374,9 @@ export const TRANSLATIONS = {
     'product.photo.edit': 'Zmień zdjęcie',
     'product.deleted': 'Produkt usunięty',
     'recipe.deleted': 'Przepis usunięty',
+
+    // additional v3 keys
+    'day.macros.eaten': '{g}g zjedzone',
+    'log.nevo.section': 'Produkty podstawowe',
   },
 };
