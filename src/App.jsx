@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase, isConfigured, AppContext, LangContext, t, todayKey, detectLang } from './lib';
 import { LoadingScreen, ConfigError, AuthFlow } from './auth';
 import { Onboarding } from './onboarding';
@@ -8,6 +8,61 @@ import { Nutrition } from './nutrition';
 import { Workouts } from './workouts';
 import { Settings } from './settings';
 import { BottomNav } from './nav';
+
+/* ═══════════════════════════ SWIPE-TO-CHANGE-TAB ═══════════════════════════
+ * Horizontal swipe between Home / Nutrition / Workouts / Settings.
+ * Native-feeling iOS/Android pattern. Ignores swipes that:
+ *  - start inside a horizontal scroll container (chip rows, week strips, etc.)
+ *  - are mostly vertical (regular scroll)
+ *  - are too short (< 60px) or too slow (> 600ms)
+ */
+const TABS_ORDER = ['home', 'nutrition', 'workouts', 'settings'];
+function SwipeTabs({ tab, setTab, children }) {
+  const touch = useRef({ x: 0, y: 0, t: 0, valid: false });
+
+  const isInsideHorizontalScroller = (node) => {
+    let el = node;
+    while (el && el.nodeType === 1) {
+      const cs = window.getComputedStyle ? window.getComputedStyle(el) : null;
+      if (cs) {
+        const ox = cs.overflowX;
+        if ((ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth + 1) return true;
+      }
+      if (el.dataset && el.dataset.noSwipe === 'true') return true;
+      el = el.parentElement;
+    }
+    return false;
+  };
+
+  const onTouchStart = (e) => {
+    if (e.touches.length !== 1) { touch.current.valid = false; return; }
+    if (isInsideHorizontalScroller(e.target)) { touch.current.valid = false; return; }
+    const tch = e.touches[0];
+    touch.current = { x: tch.clientX, y: tch.clientY, t: Date.now(), valid: true };
+  };
+
+  const onTouchEnd = (e) => {
+    if (!touch.current.valid) return;
+    const tch = (e.changedTouches && e.changedTouches[0]) || null;
+    if (!tch) return;
+    const dx = tch.clientX - touch.current.x;
+    const dy = tch.clientY - touch.current.y;
+    const dt = Date.now() - touch.current.t;
+    touch.current.valid = false;
+    // Require: > 60px horizontal, mostly-horizontal (|dx| > 1.6 * |dy|), < 600ms
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.6 || dt > 600) return;
+    const i = TABS_ORDER.indexOf(tab);
+    if (i === -1) return;
+    if (dx > 0 && i > 0) setTab(TABS_ORDER[i - 1]);                        // swipe right → previous tab
+    else if (dx < 0 && i < TABS_ORDER.length - 1) setTab(TABS_ORDER[i + 1]); // swipe left → next tab
+  };
+
+  return (
+    <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd} style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      {children}
+    </div>
+  );
+}
 
 /* ═══════════════════════════ MAIN APP ═══════════════════════════ */
 export default function App() {
@@ -194,7 +249,7 @@ export default function App() {
             {phase === 'auth' && <AuthFlow />}
             {phase === 'onboarding' && <Onboarding onComplete={completeOnboarding} />}
             {phase === 'main' && (
-              <>
+              <SwipeTabs tab={tab} setTab={setTab}>
                 <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
                   {tab === 'home' && <Home onOpenCheckIn={() => setShowCheckIn(true)} />}
                   {tab === 'nutrition' && <Nutrition />}
@@ -203,7 +258,7 @@ export default function App() {
                 </div>
                 <BottomNav tab={tab} setTab={setTab} />
                 <CheckIn visible={showCheckIn} onClose={() => setShowCheckIn(false)} />
-              </>
+              </SwipeTabs>
             )}
           </AppContext.Provider>
         </LangContext.Provider>
