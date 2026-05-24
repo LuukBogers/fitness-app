@@ -310,7 +310,6 @@ export function Nutrition() {
 
   const tabs = [
     { k: 'week', l: T('nutr.tab.planning') },
-    { k: 'recipes', l: T('nutr.tab.recipes') },
     { k: 'products', l: T('nutr.tab.products') },
     { k: 'groceries', l: T('nutr.tab.groceries') },
     { k: 'concepts', l: T('nutr.tab.concepts') },
@@ -319,7 +318,6 @@ export function Nutrition() {
   // + button context-aware: opens correct create flow per sub-tab
   const handlePlus = () => {
     if (sub === 'products') { setProductPrefill(null); setShowCreateProduct(true); }
-    else if (sub === 'recipes') setShowCreateRecipe(true);
     else if (sub === 'concepts') setConceptType('day');
     else { setProductPrefill(null); setShowCreateProduct(true); }
   };
@@ -512,48 +510,6 @@ export function Nutrition() {
           </>
         )}
 
-        {sub === 'recipes' && (
-          <>
-            <Btn full variant="ghost" style={{ marginBottom: 14 }} onClick={() => setShowCreateRecipe(true)}>{T('nutr.createrecipe')}</Btn>
-            {recipes.length === 0 ? (
-              <div style={{ padding: 40, textAlign: 'center', borderRadius: 16, background: t.card, border: `1px dashed ${t.border}` }}>
-                <div style={{ fontSize: 32, marginBottom: 10 }}>🍽️</div>
-                <div style={{ fontSize: 14, color: t.text, fontWeight: 600, marginBottom: 6 }}>{T('nutr.norecipes')}</div>
-                <div style={{ fontSize: 12, color: t.muted, lineHeight: 1.5 }}>{T('nutr.norecipesbody')}</div>
-              </div>
-            ) : recipes.map(r => (
-              <Card key={r.id} style={{ padding: 14, position: 'relative' }}>
-                <div style={{ display: 'flex', gap: 12 }}>
-                  {r.image
-                    ? <img src={r.image} alt="" style={{ width: 56, height: 56, borderRadius: 12, objectFit: 'cover', flexShrink: 0 }} />
-                    : <div style={{ width: 56, height: 56, borderRadius: 12, background: t.card3, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>🍽️</div>
-                  }
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
-                      <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
-                        <div style={{ fontSize: 11, color: t.muted, fontWeight: 600, letterSpacing: '0.05em', marginTop: 2 }}>{(r.cat||'').toUpperCase()} · {(r.items||[]).length} {T('nutr.products')}</div>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                        <div style={{ fontSize: 16, fontWeight: 800, color: t.green }}>{r.kcal}<span style={{ fontSize: 10, color: t.muted, marginLeft: 2 }}>kcal</span></div>
-                        <div onClick={() => setRecipeActions(r)} style={{
-                          width: 30, height: 30, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          cursor: 'pointer', color: t.soft, fontSize: 18, letterSpacing: '0.1em', marginLeft: 4,
-                        }}>⋯</div>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 12, fontSize: 11.5 }}>
-                      <span><span style={{ color: t.protein, fontWeight: 700 }}>{r.p}g</span> <span style={{ color: t.muted }}>P</span></span>
-                      <span><span style={{ color: t.carbs, fontWeight: 700 }}>{r.c}g</span> <span style={{ color: t.muted }}>C</span></span>
-                      <span><span style={{ color: t.fat, fontWeight: 700 }}>{r.f}g</span> <span style={{ color: t.muted }}>F</span></span>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </>
-        )}
-
         {sub === 'products' && (
           <LogLibrary
             onProductTap={async (p) => {
@@ -568,7 +524,9 @@ export function Nutrition() {
             }}
             onOpenBarcode={() => setShowScanner(true)}
             onProductActions={(p) => setActionsTarget({ kind: 'product', item: p })}
-            onRecipeActions={(r) => setActionsTarget({ kind: 'recipe', item: r })}
+            onRecipeActions={(r) => setRecipeActions(r)}
+            onAddProduct={() => { setProductPrefill(null); setShowCreateProduct(true); }}
+            onAddMeal={() => setShowCreateRecipe(true)}
           />
         )}
 

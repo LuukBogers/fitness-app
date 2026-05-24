@@ -163,7 +163,7 @@ function usdaToProduct(food) {
   };
 }
 
-export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRecipeActions, onlyRecipes }) {
+export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRecipeActions, onlyRecipes, onAddProduct, onAddMeal }) {
   const T = useT();
   const { lang } = useLang();
   const { profile, saveProfileData } = useApp();
@@ -406,6 +406,30 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
 
       {/* Result list */}
       <div style={{ paddingBottom: 8 }}>
+        {/* Context-aware add CTA — per filter */}
+        {filter === 'meals' && onAddMeal && (
+          <div onClick={onAddMeal} style={{
+            display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 14,
+            background: t.greenBg, border: `1px dashed ${t.greenBorder}`, marginBottom: 10, cursor: 'pointer',
+          }}>
+            <div style={{ width: 36, height: 36, borderRadius: 9, background: t.greenBg, border: `1px solid ${t.greenBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Icon name="plus" size={18} color={t.green} />
+            </div>
+            <div style={{ fontSize: 14, color: t.green, fontWeight: 700 }}>{T('log.addmeal')}</div>
+          </div>
+        )}
+        {(filter === 'all' || filter === 'favorites') && onAddProduct && (
+          <div onClick={onAddProduct} style={{
+            display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 14,
+            background: t.greenBg, border: `1px dashed ${t.greenBorder}`, marginBottom: 10, cursor: 'pointer',
+          }}>
+            <div style={{ width: 36, height: 36, borderRadius: 9, background: t.greenBg, border: `1px solid ${t.greenBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Icon name="plus" size={18} color={t.green} />
+            </div>
+            <div style={{ fontSize: 14, color: t.green, fontWeight: 700 }}>{T('log.addproduct')}</div>
+          </div>
+        )}
+
         {/* Empty state */}
         {showEmpty && (
           <div style={{ padding: 32, textAlign: 'center', borderRadius: 16, background: t.card, border: `1px dashed ${t.border}` }}>
