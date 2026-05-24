@@ -3,6 +3,7 @@ import { t, STATUS, WEEK, SLOTS, useApp, useT, useLang, todayIdx, weekDates, tod
 import { Icon, Card, Label, Btn, Chip, Modal } from './shared';
 import { CreateProductModal, CreateRecipeModal, CreateConceptModal, Toast } from './modals';
 import { ProductDetailModal } from './logflow';
+import { LogLibrary } from './loglibrary';
 import { BarcodeScanner, ScannedProductModal } from './barcode';
 
 /* ═══════════════════════════ NUTRITION ═══════════════════════════ */
@@ -281,42 +282,19 @@ export function Nutrition() {
         )}
 
         {sub === 'products' && (
-          <>
-            <Btn full variant="ghost" style={{ marginBottom: 14 }} onClick={() => { setProductPrefill(null); setShowCreateProduct(true); }}>{T('nutr.addproduct')}</Btn>
-            {products.length === 0 ? (
-              <div style={{ padding: 40, textAlign: 'center', borderRadius: 16, background: t.card, border: `1px dashed ${t.border}` }}>
-                <div style={{ fontSize: 32, marginBottom: 10 }}>📦</div>
-                <div style={{ fontSize: 14, color: t.text, fontWeight: 600, marginBottom: 6 }}>{T('nutr.noproducts')}</div>
-                <div style={{ fontSize: 12, color: t.muted, lineHeight: 1.5 }}>{T('nutr.noproductsbody')}</div>
-              </div>
-            ) : products.map(p => (
-              <Card key={p.id} onClick={() => setOpenProduct(p)} style={{ padding: 14 }}>
-                <div style={{ display: 'flex', gap: 12 }}>
-                  {p.image
-                    ? <img src={p.image} alt="" style={{ width: 48, height: 48, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
-                    : <div style={{ width: 48, height: 48, borderRadius: 10, background: t.card3, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>📦</div>
-                  }
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                          <div style={{ fontSize: 15, fontWeight: 700, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
-                          <span style={{ fontSize: 9, color: t.muted, fontWeight: 700, background: t.card2, padding: '2px 6px', borderRadius: 5, letterSpacing: '0.05em', border: `1px solid ${t.border}`, textTransform: 'uppercase', flexShrink: 0 }}>{p.shelf}</span>
-                        </div>
-                        <div style={{ fontSize: 11.5, color: t.muted }}>{T('common.per100g')} · {p.store}{p.brand ? ` · ${p.brand}` : ''}</div>
-                      </div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: t.text, flexShrink: 0, marginLeft: 8 }}>{p.kcal}<span style={{ fontSize: 10, color: t.muted, marginLeft: 2 }}>kcal</span></div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 12, fontSize: 11.5, marginTop: 8 }}>
-                      <span><span style={{ color: t.protein, fontWeight: 700 }}>{p.p}g</span> <span style={{ color: t.muted }}>P</span></span>
-                      <span><span style={{ color: t.carbs, fontWeight: 700 }}>{p.c}g</span> <span style={{ color: t.muted }}>C</span></span>
-                      <span><span style={{ color: t.fat, fontWeight: 700 }}>{p.f}g</span> <span style={{ color: t.muted }}>F</span></span>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </>
+          <LogLibrary
+            onProductTap={async (p) => {
+              // If it's an OpenFoodFacts hit (source: 'openfoodfacts'), auto-save to local first
+              if (p.source === 'openfoodfacts' && !products.find(x => x.id === p.id)) {
+                const saved = { ...p, createdAt: new Date().toISOString() };
+                await saveProfileData({ products: [...products, saved] });
+                setOpenProduct(saved);
+              } else {
+                setOpenProduct(p);
+              }
+            }}
+            onOpenBarcode={() => setShowScanner(true)}
+          />
         )}
 
         {sub === 'groceries' && (

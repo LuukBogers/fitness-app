@@ -401,9 +401,26 @@ export const TRANSLATIONS = {
     'portion.pint': "pint",
     'portion.fles.500': "bottle 0.5l",
 
-
-
-
+    // log library (Module A2)
+    'log.searchproducts': 'Search products',
+    'log.filter.favorites': 'Favorites',
+    'log.filter.all': 'All products',
+    'log.filter.meals': 'Meals',
+    'log.filter.aiscans': 'AI scans',
+    'log.action.aiscan': 'AI scan',
+    'log.action.aiscan.soon': 'AI scan — coming soon',
+    'log.action.search': 'Search',
+    'log.action.barcode': 'Barcode',
+    'log.web.badge': 'Web',
+    'log.web.section': 'From the web',
+    'log.web.searching': 'Searching the web…',
+    'log.web.offline': 'Could not reach the web — showing your products only.',
+    'log.openfoodfacts.attribution': 'Data from Open Food Facts',
+    'log.empty.title': 'Start searching',
+    'log.empty.body': 'Type a product name to search your library and 2.8M products on the web.',
+    'log.empty.meals': 'No meals yet — create your first recipe.',
+    'log.toast.fav.added': 'Added to favorites',
+    'log.toast.fav.removed': 'Removed from favorites',
   },
 
   /* ─────────── NEDERLANDS ─────────── */
@@ -771,9 +788,26 @@ export const TRANSLATIONS = {
     'portion.pint': "pint",
     'portion.fles.500': "fles 0,5l",
 
-
-
-
+    // log library (Module A2)
+    'log.searchproducts': 'Zoek producten',
+    'log.filter.favorites': 'Favorieten',
+    'log.filter.all': 'Alle producten',
+    'log.filter.meals': 'Maaltijden',
+    'log.filter.aiscans': 'AI scans',
+    'log.action.aiscan': 'AI scan',
+    'log.action.aiscan.soon': 'AI scan — binnenkort beschikbaar',
+    'log.action.search': 'Zoeken',
+    'log.action.barcode': 'Barcode',
+    'log.web.badge': 'Web',
+    'log.web.section': 'Van het web',
+    'log.web.searching': 'Zoeken op het web…',
+    'log.web.offline': 'Geen verbinding met het web — alleen jouw producten worden getoond.',
+    'log.openfoodfacts.attribution': 'Data van Open Food Facts',
+    'log.empty.title': 'Begin met zoeken',
+    'log.empty.body': 'Typ een productnaam om je eigen bibliotheek en 2,8 miljoen producten op het web te doorzoeken.',
+    'log.empty.meals': 'Nog geen maaltijden — maak je eerste recept aan.',
+    'log.toast.fav.added': 'Toegevoegd aan favorieten',
+    'log.toast.fav.removed': 'Verwijderd uit favorieten',
   },
 
   /* ─────────── DEUTSCH ─────────── */
@@ -1141,9 +1175,26 @@ export const TRANSLATIONS = {
     'portion.pint': "Pint",
     'portion.fles.500': "Flasche 0,5l",
 
-
-
-
+    // log library (Module A2)
+    'log.searchproducts': 'Produkte suchen',
+    'log.filter.favorites': 'Favoriten',
+    'log.filter.all': 'Alle Produkte',
+    'log.filter.meals': 'Mahlzeiten',
+    'log.filter.aiscans': 'KI-Scans',
+    'log.action.aiscan': 'KI-Scan',
+    'log.action.aiscan.soon': 'KI-Scan — bald verfügbar',
+    'log.action.search': 'Suchen',
+    'log.action.barcode': 'Barcode',
+    'log.web.badge': 'Web',
+    'log.web.section': 'Aus dem Web',
+    'log.web.searching': 'Web wird durchsucht…',
+    'log.web.offline': 'Web nicht erreichbar — nur deine Produkte werden angezeigt.',
+    'log.openfoodfacts.attribution': 'Daten von Open Food Facts',
+    'log.empty.title': 'Suche starten',
+    'log.empty.body': 'Gib einen Produktnamen ein, um deine Bibliothek und 2,8 Mio. Produkte im Web zu durchsuchen.',
+    'log.empty.meals': 'Noch keine Mahlzeiten — erstelle dein erstes Rezept.',
+    'log.toast.fav.added': 'Zu Favoriten hinzugefügt',
+    'log.toast.fav.removed': 'Aus Favoriten entfernt',
   },
 
   /* ─────────── FRANÇAIS ─────────── */
@@ -1511,9 +1562,26 @@ export const TRANSLATIONS = {
     'portion.pint': "pinte",
     'portion.fles.500': "bouteille 0,5l",
 
-
-
-
+    // log library (Module A2)
+    'log.searchproducts': 'Rechercher des produits',
+    'log.filter.favorites': 'Favoris',
+    'log.filter.all': 'Tous les produits',
+    'log.filter.meals': 'Repas',
+    'log.filter.aiscans': 'Scans IA',
+    'log.action.aiscan': 'Scan IA',
+    'log.action.aiscan.soon': 'Scan IA — bientôt disponible',
+    'log.action.search': 'Rechercher',
+    'log.action.barcode': 'Code-barres',
+    'log.web.badge': 'Web',
+    'log.web.section': 'Depuis le web',
+    'log.web.searching': 'Recherche sur le web…',
+    'log.web.offline': 'Web inaccessible — seuls vos produits sont affichés.',
+    'log.openfoodfacts.attribution': 'Données d\'Open Food Facts',
+    'log.empty.title': 'Commencez à chercher',
+    'log.empty.body': 'Tapez un nom de produit pour chercher dans votre bibliothèque et 2,8 M de produits sur le web.',
+    'log.empty.meals': 'Aucun repas — créez votre première recette.',
+    'log.toast.fav.added': 'Ajouté aux favoris',
+    'log.toast.fav.removed': 'Retiré des favoris',
   },
 
   /* ─────────── ESPAÑOL ─────────── */
@@ -1881,9 +1949,26 @@ export const TRANSLATIONS = {
     'portion.pint': "pinta",
     'portion.fles.500': "botella 0,5l",
 
-
-
-
+    // log library (Module A2)
+    'log.searchproducts': 'Buscar productos',
+    'log.filter.favorites': 'Favoritos',
+    'log.filter.all': 'Todos los productos',
+    'log.filter.meals': 'Comidas',
+    'log.filter.aiscans': 'Escaneos IA',
+    'log.action.aiscan': 'Escaneo IA',
+    'log.action.aiscan.soon': 'Escaneo IA — próximamente',
+    'log.action.search': 'Buscar',
+    'log.action.barcode': 'Código de barras',
+    'log.web.badge': 'Web',
+    'log.web.section': 'Desde la web',
+    'log.web.searching': 'Buscando en la web…',
+    'log.web.offline': 'Web no disponible — solo se muestran tus productos.',
+    'log.openfoodfacts.attribution': 'Datos de Open Food Facts',
+    'log.empty.title': 'Empieza a buscar',
+    'log.empty.body': 'Escribe un nombre de producto para buscar en tu biblioteca y 2,8 M de productos en la web.',
+    'log.empty.meals': 'Aún no hay comidas — crea tu primera receta.',
+    'log.toast.fav.added': 'Añadido a favoritos',
+    'log.toast.fav.removed': 'Eliminado de favoritos',
   },
 
   /* ─────────── ITALIANO ─────────── */
@@ -2251,9 +2336,26 @@ export const TRANSLATIONS = {
     'portion.pint': "pinta",
     'portion.fles.500': "bottiglia 0,5l",
 
-
-
-
+    // log library (Module A2)
+    'log.searchproducts': 'Cerca prodotti',
+    'log.filter.favorites': 'Preferiti',
+    'log.filter.all': 'Tutti i prodotti',
+    'log.filter.meals': 'Pasti',
+    'log.filter.aiscans': 'Scansioni IA',
+    'log.action.aiscan': 'Scansione IA',
+    'log.action.aiscan.soon': 'Scansione IA — in arrivo',
+    'log.action.search': 'Cerca',
+    'log.action.barcode': 'Codice a barre',
+    'log.web.badge': 'Web',
+    'log.web.section': 'Dal web',
+    'log.web.searching': 'Ricerca sul web…',
+    'log.web.offline': 'Web non raggiungibile — vengono mostrati solo i tuoi prodotti.',
+    'log.openfoodfacts.attribution': 'Dati da Open Food Facts',
+    'log.empty.title': 'Inizia a cercare',
+    'log.empty.body': 'Digita un nome prodotto per cercare nella tua libreria e in 2,8 M di prodotti sul web.',
+    'log.empty.meals': 'Nessun pasto ancora — crea la tua prima ricetta.',
+    'log.toast.fav.added': 'Aggiunto ai preferiti',
+    'log.toast.fav.removed': 'Rimosso dai preferiti',
   },
 
   /* ─────────── PORTUGUÊS ─────────── */
@@ -2621,9 +2723,26 @@ export const TRANSLATIONS = {
     'portion.pint': "pint",
     'portion.fles.500': "garrafa 0,5l",
 
-
-
-
+    // log library (Module A2)
+    'log.searchproducts': 'Pesquisar produtos',
+    'log.filter.favorites': 'Favoritos',
+    'log.filter.all': 'Todos os produtos',
+    'log.filter.meals': 'Refeições',
+    'log.filter.aiscans': 'Scans IA',
+    'log.action.aiscan': 'Scan IA',
+    'log.action.aiscan.soon': 'Scan IA — em breve',
+    'log.action.search': 'Pesquisar',
+    'log.action.barcode': 'Código de barras',
+    'log.web.badge': 'Web',
+    'log.web.section': 'Da web',
+    'log.web.searching': 'A pesquisar na web…',
+    'log.web.offline': 'Web indisponível — apenas os seus produtos são mostrados.',
+    'log.openfoodfacts.attribution': 'Dados de Open Food Facts',
+    'log.empty.title': 'Comece a pesquisar',
+    'log.empty.body': 'Digite um nome de produto para pesquisar na sua biblioteca e em 2,8 M de produtos na web.',
+    'log.empty.meals': 'Ainda sem refeições — crie a sua primeira receita.',
+    'log.toast.fav.added': 'Adicionado aos favoritos',
+    'log.toast.fav.removed': 'Removido dos favoritos',
   },
 
   /* ─────────── POLSKI ─────────── */
@@ -2991,8 +3110,25 @@ export const TRANSLATIONS = {
     'portion.pint': "pinta",
     'portion.fles.500': "butelka 0,5l",
 
-
-
-
+    // log library (Module A2)
+    'log.searchproducts': 'Szukaj produktów',
+    'log.filter.favorites': 'Ulubione',
+    'log.filter.all': 'Wszystkie produkty',
+    'log.filter.meals': 'Posiłki',
+    'log.filter.aiscans': 'Skany AI',
+    'log.action.aiscan': 'Skan AI',
+    'log.action.aiscan.soon': 'Skan AI — wkrótce',
+    'log.action.search': 'Szukaj',
+    'log.action.barcode': 'Kod kreskowy',
+    'log.web.badge': 'Web',
+    'log.web.section': 'Z sieci',
+    'log.web.searching': 'Wyszukiwanie w sieci…',
+    'log.web.offline': 'Brak połączenia — pokazujemy tylko twoje produkty.',
+    'log.openfoodfacts.attribution': 'Dane z Open Food Facts',
+    'log.empty.title': 'Zacznij wyszukiwanie',
+    'log.empty.body': 'Wpisz nazwę produktu, aby przeszukać twoją bibliotekę i 2,8 M produktów w sieci.',
+    'log.empty.meals': 'Brak posiłków — utwórz swój pierwszy przepis.',
+    'log.toast.fav.added': 'Dodano do ulubionych',
+    'log.toast.fav.removed': 'Usunięto z ulubionych',
   },
 };

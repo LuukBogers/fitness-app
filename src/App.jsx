@@ -157,6 +157,18 @@ export default function App() {
         setProfile(data || null);
         setPhase('onboarding');
       } else {
+        // Migration: ensure every product has `favorite` field (default false).
+        // Runs once per profile load; no-op if already migrated.
+        const prods = Array.isArray(data.data?.products) ? data.data.products : [];
+        const needsMigration = prods.some(p => p.favorite === undefined);
+        if (needsMigration) {
+          const migrated = prods.map(p => ({ ...p, favorite: p.favorite === true }));
+          const mergedData = { ...(data.data || {}), products: migrated };
+          await supabase.from('profiles')
+            .update({ data: mergedData, updated_at: new Date().toISOString() })
+            .eq('id', session.user.id);
+          data.data = mergedData;
+        }
         setProfile(data);
         // Restore language from profile if set
         if (data.data?.language) {

@@ -33,6 +33,9 @@ export const Icon = ({ name, size = 20, color = 'currentColor', stroke = 1.8 }) 
     egg: <path d="M12 2c-4 0-7 5-7 10s3 10 7 10 7-5 7-10-3-10-7-10z"/>,
     drop: <path d="M12 2.5c-3 4-7 8-7 12a7 7 0 0 0 14 0c0-4-4-8-7-12z"/>,
     apple: <><path d="M12 5c-3-2-7 0-7 5 0 6 3 11 7 11s7-5 7-11c0-5-4-7-7-5z"/><path d="M12 5c0-2 1-3 2-3"/></>,
+    search: <><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>,
+    camera: <><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></>,
+    heart: <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round">
