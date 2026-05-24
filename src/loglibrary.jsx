@@ -49,13 +49,17 @@ function cacheSet(query, data) {
   } catch (e) {}
 }
 
-// Map an OFF search hit (Search-a-licious or v2) → product-shape
-function offToProduct(p) {
+// Map an OFF search hit (Search-a-licious or v2) → product-shape.
+// Search-a-licious may wrap docs in { _source: {...} } (Elasticsearch style)
+// or return them flat. Handle both.
+function offToProduct(raw) {
+  const p = raw && raw._source ? raw._source : raw || {};
   const n = p.nutriments || {};
   let kcal = n['energy-kcal_100g'];
   if (kcal == null && n['energy_100g']) kcal = n['energy_100g'] / 4.184;
-  const id = 'off:' + (p.code || (p._id || p.id || ''));
-  const name = p.product_name_nl || p.product_name || p.product_name_en || p.generic_name || 'Unknown product';
+  if (kcal == null) kcal = p['energy-kcal_100g'] || 0;
+  const id = 'off:' + (p.code || raw?._id || p._id || p.id || '');
+  const name = p.product_name_nl || p.product_name || p.product_name_en || p.generic_name || (p.product_name_localized && (p.product_name_localized.nl || p.product_name_localized.en)) || 'Unknown product';
   // Parse quantity ("500 g", "1.5 L", "330ml") → default portion suggestion
   let defaultPortion = null;
   if (p.quantity) {
@@ -182,20 +186,29 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
     debounceRef.current = setTimeout(async () => {
       const seq = ++fetchSeq.current;
 
-      // Search-a-licious (replaces the broken cgi/search.pl which returns 503 since April 2026)
+      // Search-a-licious (replaces the broken cgi/search.pl which returns 503 since April 2026).
+      // Official spec: GET /search, params q + page_size + langs (array, repeated).
       const offPromise = (async () => {
         try {
-          const params = new URLSearchParams({
-            q,
-            page_size: '15',
-            langs: (lang || 'nl') + ',en',
-            fields: 'code,product_name,product_name_en,product_name_nl,generic_name,brands,image_front_small_url,image_small_url,image_url,nutriments,quantity',
-          });
-          const res = await fetch(`${SEARCHALICIOUS}?${params.toString()}`);
-          if (!res.ok) throw new Error('off');
+          const params = new URLSearchParams();
+          params.append('q', q);
+          params.append('page_size', '15');
+          params.append('langs', lang || 'nl');
+          if ((lang || 'nl') !== 'en') params.append('langs', 'en');
+          const url = `${SEARCHALICIOUS}?${params.toString()}`;
+          const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+          if (!res.ok) {
+            console.warn('[search-a-licious]', res.status, res.statusText, url);
+            return [];
+          }
           const data = await res.json();
-          return (data.hits || data.products || []).map(offToProduct);
-        } catch (e) { return []; }
+          const items = data.hits || data.products || [];
+          console.log('[search-a-licious] hits=', items.length, 'for q=', q);
+          return items.map(offToProduct);
+        } catch (e) {
+          console.warn('[search-a-licious] error:', e?.message || e);
+          return [];
+        }
       })();
 
       // USDA FoodData Central — translate NL term → EN if possible, else send raw
@@ -210,10 +223,18 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
             api_key: USDA_KEY,
           });
           const res = await fetch(`${USDA_API}?${params.toString()}`);
-          if (!res.ok) throw new Error('usda');
+          if (!res.ok) {
+            console.warn('[usda]', res.status, res.statusText);
+            return [];
+          }
           const data = await res.json();
-          return (data.foods || []).map(usdaToProduct);
-        } catch (e) { return []; }
+          const foods = data.foods || [];
+          console.log('[usda] foods=', foods.length, 'for q=', q, '(en:', enQ, ')');
+          return foods.map(usdaToProduct);
+        } catch (e) {
+          console.warn('[usda] error:', e?.message || e);
+          return [];
+        }
       })();
 
       try {
