@@ -3,6 +3,35 @@ import { t, useT, useApp, useLang } from './lib';
 import { Icon, Btn } from './shared';
 import { Toast } from './modals';
 import { searchLocalFoods, NL_EN_FOOD } from './local_foods';
+import { OFF_NL } from './local_off_nl';
+
+// Substring search over the bulk-fetched top-NL OpenFoodFacts dataset.
+// Compact schema {c,n,b,k,p,h,f,i} → standard product shape.
+function searchOffNl(query, limit = 8) {
+  const q = query.toLowerCase().trim();
+  if (!q || q.length < 2) return [];
+  const hits = [];
+  for (const item of OFF_NL) {
+    const nameMatch = (item.n || '').toLowerCase().includes(q);
+    const brandMatch = (item.b || '').toLowerCase().includes(q);
+    if (nameMatch || brandMatch) {
+      hits.push({
+        id: 'offnl:' + item.c,
+        name: item.n,
+        brand: item.b || '',
+        kcal: item.k,
+        p: item.p,
+        c: item.h,
+        f: item.f,
+        image: item.i ? 'https://images.openfoodfacts.org' + item.i : null,
+        source: 'off_nl',
+        barcode: item.c,
+      });
+      if (hits.length >= limit) break;
+    }
+  }
+  return hits;
+}
 
 /* ═══════════════════════════ MODULE A2: LOG LIBRARY ═══════════════════════════
  * Multi-source food search:
@@ -272,18 +301,36 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
     return searchLocalFoods(q, 8).filter(f => !localNames.has(f.name.toLowerCase()));
   }, [query, filter, localHits]);
 
-  // Dedupe web hits against local + NEVO
+  // Top-2000 NL OpenFoodFacts (instant, baked into bundle at build time)
+  const offNlHits = useMemo(() => {
+    if (filter === 'favorites' || filter === 'meals' || filter === 'aiscans') return [];
+    const q = query.trim();
+    if (!q) return [];
+    const seenKeys = new Set([
+      ...localHits.map(p => (p.name + '|' + (p.brand || '')).toLowerCase()),
+      ...localFoodHits.map(p => p.name.toLowerCase()),
+    ]);
+    return searchOffNl(q, 10).filter(p =>
+      !seenKeys.has((p.name + '|' + p.brand).toLowerCase()) &&
+      !seenKeys.has(p.name.toLowerCase())
+    );
+  }, [query, filter, localHits, localFoodHits]);
+
+  // Dedupe web hits against local + NEVO + OFF_NL bulk
   const webHitsDedupe = useMemo(() => {
     const seen = new Set([
       ...localHits.map(p => (p.name + '|' + (p.brand || '')).toLowerCase()),
       ...localFoodHits.map(p => p.name.toLowerCase()),
+      ...offNlHits.map(p => (p.name + '|' + (p.brand || '')).toLowerCase()),
+      ...offNlHits.map(p => p.barcode).filter(Boolean),
     ]);
     return webHits.filter(p => {
       const key1 = (p.name + '|' + (p.brand || '')).toLowerCase();
       const key2 = p.name.toLowerCase();
-      return !seen.has(key1) && !seen.has(key2);
+      const key3 = p.barcode || '';
+      return !seen.has(key1) && !seen.has(key2) && !seen.has(key3);
     });
-  }, [webHits, localHits, localFoodHits]);
+  }, [webHits, localHits, localFoodHits, offNlHits]);
 
   const toggleFavorite = async (productId, e) => {
     e.stopPropagation();
@@ -382,6 +429,18 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
             )}
             {localFoodHits.map(p => (
               <ProductRow key={p.id} product={p} onTap={() => handleProductTap(p)} isNevo />
+            ))}
+          </>
+        )}
+
+        {/* OFF_NL bulk top-2000 Nederlandse producten (baked at build time) */}
+        {filter !== 'meals' && offNlHits.length > 0 && (
+          <>
+            <div style={{ fontSize: 10.5, color: t.muted, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '12px 4px 8px' }}>
+              {T('log.offnl.section')}
+            </div>
+            {offNlHits.map(p => (
+              <ProductRow key={p.id} product={p} onTap={() => handleProductTap(p)} isOffNl />
             ))}
           </>
         )}
@@ -504,7 +563,7 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
 }
 
 /* ─────────────────────── ProductRow ─────────────────────── */
-function ProductRow({ product, onTap, onFav, onActions, isWeb, isNevo }) {
+function ProductRow({ product, onTap, onFav, onActions, isWeb, isNevo, isOffNl }) {
   const T = useT();
   const isFav = product.favorite === true;
   return (
@@ -541,6 +600,13 @@ function ProductRow({ product, onTap, onFav, onActions, isWeb, isNevo }) {
               letterSpacing: '0.05em', flexShrink: 0, border: `1px solid ${t.greenBorder}`,
             }}>NEVO</span>
           )}
+          {isOffNl && (
+            <span style={{
+              fontSize: 9, color: '#F97316', fontWeight: 700,
+              background: 'rgba(249,115,22,0.12)', padding: '2px 6px', borderRadius: 5,
+              letterSpacing: '0.05em', flexShrink: 0, border: '1px solid rgba(249,115,22,0.35)',
+            }}>NL</span>
+          )}
         </div>
         <div style={{ fontSize: 11.5, color: product.kcal > 0 ? t.muted : t.orange, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {product.kcal > 0
@@ -548,7 +614,7 @@ function ProductRow({ product, onTap, onFav, onActions, isWeb, isNevo }) {
             : `${T('log.nokcal')}${product.brand ? ` · ${product.brand}` : ''}`}
         </div>
       </div>
-      {!isWeb && !isNevo && onFav && (
+      {!isWeb && !isNevo && !isOffNl && onFav && (
         <div onClick={onFav} style={{
           width: 32, height: 36, borderRadius: 10,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -558,7 +624,7 @@ function ProductRow({ product, onTap, onFav, onActions, isWeb, isNevo }) {
           {isFav ? '♥' : '♡'}
         </div>
       )}
-      {!isWeb && !isNevo && onActions && (
+      {!isWeb && !isNevo && !isOffNl && onActions && (
         <div onClick={onActions} style={{
           width: 28, height: 36, borderRadius: 10,
           display: 'flex', alignItems: 'center', justifyContent: 'center',

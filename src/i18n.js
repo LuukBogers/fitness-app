@@ -453,6 +453,7 @@ export const TRANSLATIONS = {
     // additional v3 keys
     'day.macros.eaten': '{g}g eaten',
     'log.nevo.section': 'Basis foods (NEVO)',
+    'log.offnl.section': 'Populaire NL producten',
   },
 
   /* ─────────── NEDERLANDS ─────────── */
@@ -872,6 +873,7 @@ export const TRANSLATIONS = {
     // additional v3 keys
     'day.macros.eaten': '{g}g gegeten',
     'log.nevo.section': 'Basis-voeding (NEVO)',
+    'log.offnl.section': 'Popular NL products',
   },
 
   /* ─────────── DEUTSCH ─────────── */
@@ -1291,6 +1293,7 @@ export const TRANSLATIONS = {
     // additional v3 keys
     'day.macros.eaten': '{g}g gegessen',
     'log.nevo.section': 'Grundnahrungsmittel',
+    'log.offnl.section': 'Beliebte NL-Produkte',
   },
 
   /* ─────────── FRANÇAIS ─────────── */
@@ -1710,6 +1713,7 @@ export const TRANSLATIONS = {
     // additional v3 keys
     'day.macros.eaten': '{g}g consommés',
     'log.nevo.section': 'Aliments de base',
+    'log.offnl.section': 'Produits NL populaires',
   },
 
   /* ─────────── ESPAÑOL ─────────── */
@@ -2129,6 +2133,7 @@ export const TRANSLATIONS = {
     // additional v3 keys
     'day.macros.eaten': '{g}g consumidos',
     'log.nevo.section': 'Alimentos básicos',
+    'log.offnl.section': 'Productos NL populares',
   },
 
   /* ─────────── ITALIANO ─────────── */
@@ -2548,6 +2553,7 @@ export const TRANSLATIONS = {
     // additional v3 keys
     'day.macros.eaten': '{g}g consumati',
     'log.nevo.section': 'Alimenti di base',
+    'log.offnl.section': 'Prodotti NL popolari',
   },
 
   /* ─────────── PORTUGUÊS ─────────── */
@@ -2967,6 +2973,7 @@ export const TRANSLATIONS = {
     // additional v3 keys
     'day.macros.eaten': '{g}g consumidos',
     'log.nevo.section': 'Alimentos básicos',
+    'log.offnl.section': 'Produtos NL populares',
   },
 
   /* ─────────── POLSKI ─────────── */
@@ -3386,5 +3393,6 @@ export const TRANSLATIONS = {
     // additional v3 keys
     'day.macros.eaten': '{g}g zjedzone',
     'log.nevo.section': 'Produkty podstawowe',
+    'log.offnl.section': 'Popularne produkty NL',
   },
 };
