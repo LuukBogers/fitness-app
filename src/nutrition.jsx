@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { t, STATUS, WEEK, SLOTS, useApp, useT, useLang, todayIdx, weekDates, todayKey, monthName, monthShort, weekDayShort, slotKey, fmtKey, dayStatus } from './lib';
-import { Icon, Card, Label, Btn, Chip, Modal } from './shared';
+import { Icon, Card, Label, Btn, Chip, Modal, Field } from './shared';
 import { CreateProductModal, CreateRecipeModal, CreateConceptModal, ProductActionsModal, EditPhotoModal, Toast } from './modals';
 import { ProductDetailModal } from './logflow';
 import { LogLibrary } from './loglibrary';
@@ -52,6 +52,11 @@ export function Nutrition() {
   const [conceptActions, setConceptActions] = useState(null); // concept whose menu is open
   // Confirm-delete dialog (shared)
   const [confirmDelete, setConfirmDelete] = useState(null); // { kind: 'recipe'|'concept', item }
+  // Planning slot-item actions (⋯ on items in day-overview)
+  const [planningItemActions, setPlanningItemActions] = useState(null); // { slot, idx, item }
+  const [editingPlanningItem, setEditingPlanningItem] = useState(null); // { slot, idx, item }
+  // Groceries skip-list per week (items hidden this week)
+  const [groceriesItemActions, setGroceriesItemActions] = useState(null); // { key, item }
 
   // Selected day key
   const selDate = (() => { const dt = new Date(); dt.setDate(dt.getDate() - ti + selectedDay); return fmtKey(dt); })();
@@ -235,6 +240,74 @@ export function Nutrition() {
     setTimeout(() => setToast(''), 1600);
   };
 
+  // — PLANNING ITEM helpers (⋯ on slot items in day-overview) —
+  const recalcSlotTotals = (slotItems) => {
+    const eaten = slotItems.filter(it => it.eaten !== false);
+    return {
+      kcal: eaten.reduce((s, it) => s + (it.kcal || 0), 0),
+      p:    eaten.reduce((s, it) => s + (it.p || 0), 0),
+      c:    eaten.reduce((s, it) => s + (it.c || 0), 0),
+      f:    eaten.reduce((s, it) => s + (it.f || 0), 0),
+      eaten: eaten.length > 0,
+    };
+  };
+  const updatePlanningItem = async (slot, itemIdx, newGrams) => {
+    // Per-item recompute: kcal/macros scale with grams ratio vs the originally-logged grams
+    // We use stored "kcal per logged unit" — if it.grams==0, fall back to existing kcal
+    const dayMeals = meals[selDate] || SLOTS.map(s => ({ slot: s, items: [], itemsFull: [], kcal: 0, p:0, c:0, f:0, locked: false, eaten: false }));
+    const ensured = SLOTS.map(s => dayMeals.find(m => m.slot === s) || { slot: s, items: [], itemsFull: [], kcal: 0, p:0, c:0, f:0, locked: false, eaten: false });
+    const updated = ensured.map(m => {
+      if (m.slot !== slot) return m;
+      const newItems = (m.itemsFull || []).map((it, i) => {
+        if (i !== itemIdx) return it;
+        const oldG = parseFloat(it.grams) || 100;
+        const newG = parseFloat(newGrams) || 100;
+        const ratio = newG / oldG;
+        return {
+          ...it,
+          grams: newG,
+          kcal: (it.kcal || 0) * ratio,
+          p: (it.p || 0) * ratio,
+          c: (it.c || 0) * ratio,
+          f: (it.f || 0) * ratio,
+        };
+      });
+      return { ...m, itemsFull: newItems, items: newItems.map(it => it.name), ...recalcSlotTotals(newItems) };
+    });
+    await saveProfileData({ meals: { ...meals, [selDate]: updated } });
+  };
+  const deletePlanningItem = async (slot, itemIdx) => {
+    const dayMeals = meals[selDate] || SLOTS.map(s => ({ slot: s, items: [], itemsFull: [], kcal: 0, p:0, c:0, f:0, locked: false, eaten: false }));
+    const ensured = SLOTS.map(s => dayMeals.find(m => m.slot === s) || { slot: s, items: [], itemsFull: [], kcal: 0, p:0, c:0, f:0, locked: false, eaten: false });
+    const updated = ensured.map(m => {
+      if (m.slot !== slot) return m;
+      const newItems = (m.itemsFull || []).filter((_, i) => i !== itemIdx);
+      return { ...m, itemsFull: newItems, items: newItems.map(it => it.name), ...recalcSlotTotals(newItems) };
+    });
+    await saveProfileData({ meals: { ...meals, [selDate]: updated } });
+  };
+
+  // — GROCERY SKIP-LIST helpers (per-week skip for items "already in house") —
+  const weekKey = (() => { const monday = dates[0]; return fmtKey(monday); })();
+  const grocerySkips = profile?.data?.grocerySkips || {};
+  const skippedKeys = new Set(grocerySkips[weekKey] || []);
+  const groceryItemKey = (it) => `${it.name}|${it.store || ''}`;
+  const skipGroceryItem = async (it) => {
+    const key = groceryItemKey(it);
+    const current = grocerySkips[weekKey] || [];
+    if (current.includes(key)) return;
+    const newSkips = { ...grocerySkips, [weekKey]: [...current, key] };
+    await saveProfileData({ grocerySkips: newSkips });
+    setToast(T('grocery.skipped', { name: it.name }));
+    setTimeout(() => setToast(''), 1800);
+  };
+  const unskipGroceryItem = async (it) => {
+    const key = groceryItemKey(it);
+    const current = grocerySkips[weekKey] || [];
+    const newSkips = { ...grocerySkips, [weekKey]: current.filter(k => k !== key) };
+    await saveProfileData({ grocerySkips: newSkips });
+  };
+
   const tabs = [
     { k: 'week', l: T('nutr.tab.planning') },
     { k: 'recipes', l: T('nutr.tab.recipes') },
@@ -411,6 +484,10 @@ export function Nutrition() {
                               }}>
                                 {isEaten && <Icon name="check" size={12} color="#0A0A0B" stroke={3} />}
                               </div>
+                              <div onClick={() => setPlanningItemActions({ slot: m.slot, idx, item: it })} style={{
+                                width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                cursor: 'pointer', color: t.soft, fontSize: 16, flexShrink: 0, letterSpacing: '0.1em',
+                              }}>⋯</div>
                             </div>
                           );
                         })}
@@ -509,38 +586,59 @@ export function Nutrition() {
               </div>
             ) : grocMode === 'smart' ? (
               <>
-                {Object.entries(groceriesByShelf).map(([cat, items]) => items.length === 0 ? null : (
-                  <Card key={cat} style={{ padding: 14 }}>
-                    <Label color={cat === 'fresh' ? t.green : cat === 'refrigerated' ? t.protein : t.muted}>
-                      {cat === 'shelf' ? T('nutr.shelfstable') : cat === 'refrigerated' ? T('nutr.refrigerated') : T('nutr.fresh')}
-                    </Label>
-                    {items.map((it, i) => (
-                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: i < items.length - 1 ? `1px solid ${t.border}` : 'none' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{ width: 18, height: 18, borderRadius: 6, border: `1.5px solid ${t.border}` }} />
-                          <div>
-                            <div style={{ fontSize: 14, color: t.text }}>{it.name}</div>
-                            <div style={{ fontSize: 11, color: t.muted }}>{it.store}</div>
+                {Object.entries(groceriesByShelf).map(([cat, allItems]) => {
+                  const items = allItems.filter(it => !skippedKeys.has(groceryItemKey(it)));
+                  if (items.length === 0) return null;
+                  return (
+                    <Card key={cat} style={{ padding: 14 }}>
+                      <Label color={cat === 'fresh' ? t.green : cat === 'refrigerated' ? t.protein : t.muted}>
+                        {cat === 'shelf' ? T('nutr.shelfstable') : cat === 'refrigerated' ? T('nutr.refrigerated') : T('nutr.fresh')}
+                      </Label>
+                      {items.map((it, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: i < items.length - 1 ? `1px solid ${t.border}` : 'none' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                            <div style={{ width: 18, height: 18, borderRadius: 6, border: `1.5px solid ${t.border}`, flexShrink: 0 }} />
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: 14, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</div>
+                              <div style={{ fontSize: 11, color: t.muted }}>{it.store}</div>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: t.soft }}>{it.amt}</div>
+                            <div onClick={() => setGroceriesItemActions({ key: groceryItemKey(it), item: it })} style={{
+                              width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              cursor: 'pointer', color: t.soft, fontSize: 16, letterSpacing: '0.1em', marginLeft: 4,
+                            }}>⋯</div>
                           </div>
                         </div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: t.soft }}>{it.amt}</div>
-                      </div>
-                    ))}
-                  </Card>
-                ))}
+                      ))}
+                    </Card>
+                  );
+                })}
+                {skippedKeys.size > 0 && (
+                  <div style={{ fontSize: 11, color: t.muted, textAlign: 'center', marginTop: 8 }}>
+                    {T('grocery.skippedhint', { count: skippedKeys.size })}
+                  </div>
+                )}
               </>
             ) : (
               <Card style={{ padding: 14 }}>
-                {Object.values(groceriesByShelf).flat().map((it, i, arr) => (
+                {Object.values(groceriesByShelf).flat().filter(it => !skippedKeys.has(groceryItemKey(it))).map((it, i, arr) => (
                   <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: i < arr.length - 1 ? `1px solid ${t.border}` : 'none' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ width: 18, height: 18, borderRadius: 6, border: `1.5px solid ${t.border}` }} />
-                      <div>
-                        <div style={{ fontSize: 14, color: t.text }}>{it.name}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                      <div style={{ width: 18, height: 18, borderRadius: 6, border: `1.5px solid ${t.border}`, flexShrink: 0 }} />
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 14, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</div>
                         <div style={{ fontSize: 11, color: t.muted }}>{it.store}</div>
                       </div>
                     </div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: t.soft }}>{it.amt}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: t.soft }}>{it.amt}</div>
+                      <div onClick={() => setGroceriesItemActions({ key: groceryItemKey(it), item: it })} style={{
+                        width: 28, height: 28, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        cursor: 'pointer', color: t.soft, fontSize: 16, letterSpacing: '0.1em', marginLeft: 4,
+                      }}>⋯</div>
+                    </div>
                   </div>
                 ))}
               </Card>
@@ -753,6 +851,47 @@ export function Nutrition() {
         <Btn full variant="outline" onClick={() => setConfirmDelete(null)}>{T('common.cancel')}</Btn>
       </Modal>
 
+      {/* PLANNING SLOT-ITEM actions menu (⋯) */}
+      <Modal visible={!!planningItemActions} onClose={() => setPlanningItemActions(null)} title={planningItemActions?.item?.name || ''}>
+        <Btn full variant="ghost" style={{ marginBottom: 8 }} onClick={() => {
+          const a = planningItemActions; setPlanningItemActions(null); setEditingPlanningItem(a);
+        }}>{T('common.edit')} ({T('modal.edit.grams').toLowerCase()})</Btn>
+        <Btn full variant="outline" style={{ color: '#F87171', borderColor: 'rgba(248,113,113,0.3)' }} onClick={async () => {
+          const a = planningItemActions; setPlanningItemActions(null);
+          if (a) await deletePlanningItem(a.slot, a.idx);
+        }}>{T('common.delete')}</Btn>
+      </Modal>
+
+      {/* PLANNING ITEM edit modal — adjust grams */}
+      <Modal visible={!!editingPlanningItem} onClose={() => setEditingPlanningItem(null)} title={editingPlanningItem?.item?.name || ''}>
+        {editingPlanningItem && (() => {
+          const it = editingPlanningItem.item;
+          return (
+            <PlanningGramEditor
+              initialGrams={parseFloat(it.grams) || 100}
+              currentKcal={it.kcal || 0}
+              onSave={async (newGrams) => {
+                const a = editingPlanningItem;
+                setEditingPlanningItem(null);
+                await updatePlanningItem(a.slot, a.idx, newGrams);
+              }}
+              onCancel={() => setEditingPlanningItem(null)}
+              T={T}
+            />
+          );
+        })()}
+      </Modal>
+
+      {/* GROCERIES item actions (⋯) */}
+      <Modal visible={!!groceriesItemActions} onClose={() => setGroceriesItemActions(null)} title={groceriesItemActions?.item?.name || ''}>
+        <div style={{ fontSize: 12, color: t.muted, marginBottom: 14, lineHeight: 1.5 }}>{T('grocery.skiphint')}</div>
+        <Btn full variant="ghost" style={{ marginBottom: 8 }} onClick={async () => {
+          const a = groceriesItemActions; setGroceriesItemActions(null);
+          if (a) await skipGroceryItem(a.item);
+        }}>{T('grocery.skipthisweek')}</Btn>
+        <Btn full variant="outline" onClick={() => setGroceriesItemActions(null)}>{T('common.cancel')}</Btn>
+      </Modal>
+
       {/* Toast */}
       <Toast message={toast} visible={!!toast} />
     </div>
@@ -787,5 +926,27 @@ function MacroRing({ percent = 0, color = '#22C55E', size = 68, value, noTarget 
         )}
       </div>
     </div>
+  );
+}
+
+/* ─────────────────────── PlanningGramEditor ─────────────────────── */
+function PlanningGramEditor({ initialGrams, currentKcal, onSave, onCancel, T }) {
+  const [g, setG] = useState(String(initialGrams));
+  const oldG = parseFloat(initialGrams) || 100;
+  const newG = parseFloat(g) || 0;
+  const ratio = oldG > 0 ? newG / oldG : 0;
+  const newKcal = Math.round((currentKcal || 0) * ratio);
+  return (
+    <>
+      <div style={{ padding: 12, background: t.card3, borderRadius: 12, marginBottom: 14, border: `1px solid ${t.border}` }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ fontSize: 11, color: t.muted }}>{T('common.newtotal')}</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: t.green }}>{newKcal} kcal</div>
+        </div>
+      </div>
+      <Field label={T('modal.edit.grams')} value={g} onChange={v => setG(v.replace(',', '.'))} placeholder="100" type="number" unit="g" />
+      <Btn full onClick={() => onSave(newG)} style={{ marginTop: 8 }}>{T('common.save')}</Btn>
+      <Btn full variant="outline" onClick={onCancel} style={{ marginTop: 8 }}>{T('common.cancel')}</Btn>
+    </>
   );
 }

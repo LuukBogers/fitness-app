@@ -64,7 +64,7 @@ export const PhotoPicker = ({ value, onChange, accent = 'green' }) => {
 export function CreateProductModal({ visible, onClose, onSave, prefill, editing }) {
   const T = useT();
   const [form, setForm] = useState({
-    name: '', brand: '', store: 'AH', shelf: 'shelf',
+    name: '', brand: '', store: '', shelf: '',
     kcal: '', p: '', c: '', f: '', image: null,
     portionName: '', portionSize: '100', portionLiquid: false,
   });
@@ -103,8 +103,8 @@ export function CreateProductModal({ visible, onClose, onSave, prefill, editing 
     setForm({
       name: editing?.name || prefill?.name || '',
       brand: editing?.brand || prefill?.brand || '',
-      store: editing?.store || prefill?.store || 'AH',
-      shelf: editing?.shelf || prefill?.shelf || 'shelf',
+      store: editing?.store || prefill?.store || '',
+      shelf: editing?.shelf || prefill?.shelf || '',
       kcal: editing?.kcal ?? prefill?.kcal ?? '',
       p: editing?.p ?? prefill?.p ?? '',
       c: editing?.c ?? prefill?.c ?? '',
@@ -155,8 +155,10 @@ export function CreateProductModal({ visible, onClose, onSave, prefill, editing 
       <PhotoPicker value={form.image} onChange={v => upd('image', v)} />
       <Field label={T('modal.field.name')} value={form.name} onChange={v => upd('name', v)} placeholder={T('modal.ph.productname')} />
       <Field label={T('modal.field.brand')} value={form.brand} onChange={v => upd('brand', v)} placeholder={T('modal.ph.brandname')} />
-      <Select label={T('modal.field.store')} value={form.store} onChange={v => upd('store', v)} options={STORE_OPTS} />
-      <Select label={T('modal.field.shelf')} value={form.shelf} onChange={v => upd('shelf', v)} options={SHELF_OPTS} />
+      <Select label={T('modal.field.store')} value={form.store} onChange={v => upd('store', v)}
+        options={[{ v: '', l: T('common.nopreference') }, ...STORE_OPTS.map(s => ({ v: s, l: s }))]} />
+      <Select label={T('modal.field.shelf')} value={form.shelf} onChange={v => upd('shelf', v)}
+        options={[{ v: '', l: T('common.nopreference') }, ...SHELF_OPTS]} />
 
       <div style={{ fontSize: 12, color: t.soft, fontWeight: 600, marginTop: 8, marginBottom: 6 }}>{T('common.per100g')}</div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
