@@ -8,6 +8,7 @@ import { Nutrition } from './nutrition';
 import { Workouts } from './workouts';
 import { Settings } from './settings';
 import { BottomNav } from './nav';
+import { DiagnosePage } from './diagnose';
 
 /* ═══════════════════════════ SWIPE-TO-CHANGE-TAB ═══════════════════════════
  * Horizontal swipe between Home / Nutrition / Workouts / Settings.
@@ -65,7 +66,19 @@ function SwipeTabs({ tab, setTab, children }) {
 }
 
 /* ═══════════════════════════ MAIN APP ═══════════════════════════ */
-export default function App() {
+// Outer wrapper: handles #diagnose hash route before mounting the main app
+export default function AppRoot() {
+  const [hash, setHash] = useState(() => (typeof window !== 'undefined' ? window.location.hash : ''));
+  useEffect(() => {
+    const onHash = () => setHash(window.location.hash);
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+  if (hash === '#diagnose') return <DiagnosePage />;
+  return <App />;
+}
+
+function App() {
   const [phase, setPhase] = useState('loading'); // loading | config | auth | onboarding | main
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
