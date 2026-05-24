@@ -1,6 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { t, newId, useT, resizeImage, slotKey, SLOTS, WEEK, CAT_OPTS, SHELF_OPTS, STORE_OPTS } from './lib';
 import { Icon, Btn, Modal, Field, Select } from './shared';
+import { LOCAL_FOODS } from './local_foods';
+import { OFF_NL } from './local_off_nl';
 
 /* ═══════════════════════════ PHOTO PICKER ═══════════════════════════ */
 export const PhotoPicker = ({ value, onChange, accent = 'green' }) => {
@@ -230,7 +232,7 @@ export function EditPhotoModal({ visible, onClose, currentImage, onSave }) {
 /* ═══════════════════════════ CREATE RECIPE MODAL ═══════════════════════════ */
 export function CreateRecipeModal({ visible, onClose, onSave, products }) {
   const T = useT();
-  const [form, setForm] = useState({ name: '', cat: 'Breakfast', image: null, items: [] }); // items: [{productId, grams}]
+  const [form, setForm] = useState({ name: '', cat: 'Breakfast', image: null, items: [] }); // items: snapshot {productId, name, kcal, p, c, f, image, source, grams}
   const [showPicker, setShowPicker] = useState(false);
   const [search, setSearch] = useState('');
   const upd = (k, v) => setForm(p => ({ ...p, [k]: v }));
@@ -239,15 +241,50 @@ export function CreateRecipeModal({ visible, onClose, onSave, products }) {
     if (visible) setForm({ name: '', cat: 'Breakfast', image: null, items: [] });
   }, [visible]);
 
+  // Combined searchable pool: own products + NEVO basis-foods + OFF_NL bulk
+  // Each entry normalized to {id, name, brand, kcal, p, c, f, image, _src}
+  const allSearchable = useMemo(() => {
+    const own = (products || []).map(p => ({ ...p, _src: 'own' }));
+    const nevo = LOCAL_FOODS.filter(f => (f.kcal || 0) > 0).map(f => ({
+      id: f.id, name: f.name, brand: '', kcal: f.kcal, p: f.p, c: f.c, f: f.f, image: null, _src: 'nevo'
+    }));
+    const off = OFF_NL.map(it => ({
+      id: 'offnl:' + it.c, name: it.n, brand: it.b || '',
+      kcal: it.k, p: it.p, c: it.h, f: it.f,
+      image: it.i ? 'https://images.openfoodfacts.org' + it.i : null,
+      _src: 'offnl',
+    }));
+    return [...own, ...nevo, ...off];
+  }, [products]);
+
+  // Totals: use embedded snapshot data directly, fallback to product lookup for legacy items
   const totals = form.items.reduce((acc, it) => {
-    const p = products.find(x => x.id === it.productId);
-    if (!p) return acc;
     const r = (parseFloat(it.grams) || 0) / 100;
-    return { kcal: acc.kcal + p.kcal * r, p: acc.p + p.p * r, c: acc.c + p.c * r, f: acc.f + p.f * r };
+    let kcal = it.kcal, prot = it.p, carb = it.c, fat = it.f;
+    if (kcal == null) {
+      const p = products.find(x => x.id === it.productId);
+      if (!p) return acc;
+      kcal = p.kcal; prot = p.p; carb = p.c; fat = p.f;
+    }
+    return { kcal: acc.kcal + (kcal||0) * r, p: acc.p + (prot||0) * r, c: acc.c + (carb||0) * r, f: acc.f + (fat||0) * r };
   }, { kcal: 0, p: 0, c: 0, f: 0 });
 
   const addItem = (p) => {
-    setForm(prev => ({ ...prev, items: [...prev.items, { productId: p.id, grams: '100' }] }));
+    setForm(prev => ({
+      ...prev,
+      items: [...prev.items, {
+        productId: p.id,
+        name: p.name,
+        brand: p.brand || '',
+        kcal: p.kcal || 0,
+        p: p.p || 0,
+        c: p.c || 0,
+        f: p.f || 0,
+        image: p.image || null,
+        source: p._src,
+        grams: '100',
+      }]
+    }));
     setShowPicker(false); setSearch('');
   };
   const updItem = (idx, grams) => setForm(p => ({ ...p, items: p.items.map((it, i) => i === idx ? { ...it, grams } : it) }));
@@ -262,7 +299,18 @@ export function CreateRecipeModal({ visible, onClose, onSave, products }) {
       name: form.name.trim(),
       cat: form.cat,
       image: form.image,
-      items: form.items.map(it => ({ productId: it.productId, grams: parseFloat(it.grams) || 0 })),
+      items: form.items.map(it => ({
+        productId: it.productId,
+        name: it.name,
+        brand: it.brand || '',
+        kcal: it.kcal || 0,
+        p: it.p || 0,
+        c: it.c || 0,
+        f: it.f || 0,
+        image: it.image || null,
+        source: it.source,
+        grams: parseFloat(it.grams) || 0,
+      })),
       kcal: Math.round(totals.kcal),
       p: Math.round(totals.p),
       c: Math.round(totals.c),
@@ -271,7 +319,15 @@ export function CreateRecipeModal({ visible, onClose, onSave, products }) {
     });
   };
 
-  const filtered = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
+  // Filter combined pool by name OR brand
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    if (!q) return allSearchable.slice(0, 30);
+    return allSearchable.filter(p =>
+      (p.name || '').toLowerCase().includes(q) ||
+      (p.brand || '').toLowerCase().includes(q)
+    ).slice(0, 60);
+  }, [search, allSearchable]);
 
   return (
     <>
@@ -290,18 +346,22 @@ export function CreateRecipeModal({ visible, onClose, onSave, products }) {
         ) : (
           <div style={{ marginBottom: 10 }}>
             {form.items.map((it, i) => {
-              const p = products.find(x => x.id === it.productId);
-              if (!p) return null;
+              // Use snapshot data directly (new format), fallback to product lookup (legacy)
+              const fallback = it.kcal == null ? products.find(x => x.id === it.productId) : null;
+              const name = it.name || fallback?.name;
+              const image = it.image || fallback?.image;
+              const kcal = it.kcal != null ? it.kcal : fallback?.kcal;
+              if (!name) return null;
               const r = (parseFloat(it.grams) || 0) / 100;
               return (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 10, background: t.card2, borderRadius: 12, marginBottom: 6, border: `1px solid ${t.border}` }}>
-                  {p.image
-                    ? <img src={p.image} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover' }} />
+                  {image
+                    ? <img src={image} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover', background: '#fff' }} />
                     : <div style={{ width: 36, height: 36, borderRadius: 8, background: t.card3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📦</div>
                   }
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, color: t.text, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
-                    <div style={{ fontSize: 10, color: t.muted }}>{Math.round(p.kcal * r)} kcal</div>
+                    <div style={{ fontSize: 13, color: t.text, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                    <div style={{ fontSize: 10, color: t.muted }}>{Math.round((kcal || 0) * r)} kcal</div>
                   </div>
                   <input type="number" value={it.grams} onChange={e => updItem(i, e.target.value)} placeholder="100" style={{
                     width: 60, padding: '8px 6px', borderRadius: 8, border: `1px solid ${t.border}`,
@@ -339,43 +399,45 @@ export function CreateRecipeModal({ visible, onClose, onSave, products }) {
         <Btn full variant="outline" onClick={onClose} style={{ marginTop: 8 }}>{T('common.cancel')}</Btn>
       </Modal>
 
-      {/* Product picker sub-modal */}
+      {/* Product picker sub-modal — searches own products + NEVO + OFF_NL bulk */}
       <Modal visible={showPicker} onClose={() => setShowPicker(false)} title={T('modal.pickingredient')}>
-        {products.length === 0 ? (
-          <div style={{ padding: 24, textAlign: 'center' }}>
-            <div style={{ fontSize: 13, color: t.muted, marginBottom: 8 }}>{T('modal.noproductsadded')}</div>
-            <div style={{ fontSize: 11, color: t.dim, marginBottom: 14 }}>{T('modal.noproductsaddedbody')}</div>
-            <Btn full variant="outline" onClick={() => setShowPicker(false)}>{T('common.back')}</Btn>
+        <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder={T('modal.ph.searchproducts')} style={{
+          width: '100%', padding: '12px 14px', borderRadius: 12,
+          border: `1px solid ${t.border}`, fontSize: 14, fontFamily: 'inherit',
+          color: t.text, background: t.card2, boxSizing: 'border-box', outline: 'none', marginBottom: 12,
+        }} autoFocus />
+        {filtered.length === 0 ? (
+          <div style={{ padding: 28, textAlign: 'center', fontSize: 13, color: t.muted }}>
+            {search ? T('modal.nomatches') : T('modal.noingredients')}
           </div>
-        ) : (
-          <>
-            <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder={T('modal.ph.searchproducts')} style={{
-              width: '100%', padding: '12px 14px', borderRadius: 12,
-              border: `1px solid ${t.border}`, fontSize: 14, fontFamily: 'inherit',
-              color: t.text, background: t.card2, boxSizing: 'border-box', outline: 'none', marginBottom: 12,
-            }} />
-            {filtered.length === 0 ? (
-              <div style={{ padding: 18, textAlign: 'center', fontSize: 13, color: t.muted }}>{T('modal.nomatches')}</div>
-            ) : (
-              filtered.map(p => (
-                <div key={p.id} onClick={() => addItem(p)} style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12,
-                  background: t.card2, marginBottom: 6, cursor: 'pointer', border: `1px solid ${t.border}`,
-                }}>
-                  {p.image
-                    ? <img src={p.image} alt="" style={{ width: 40, height: 40, borderRadius: 9, objectFit: 'cover' }} />
-                    : <div style={{ width: 40, height: 40, borderRadius: 9, background: t.card3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📦</div>
-                  }
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, color: t.text, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
-                    <div style={{ fontSize: 11, color: t.muted }}>{p.kcal} kcal · {p.p}P / {p.c}C / {p.f}F per 100g</div>
-                  </div>
-                  <Icon name="plus" size={16} color={t.green} />
+        ) : filtered.map(p => (
+          <div key={p.id + ':' + p._src} onClick={() => addItem(p)} style={{
+            display: 'flex', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12,
+            background: t.card2, marginBottom: 6, cursor: 'pointer', border: `1px solid ${t.border}`,
+          }}>
+            {p.image
+              ? <img src={p.image} alt="" style={{ width: 40, height: 40, borderRadius: 9, objectFit: 'cover', background: '#fff' }} />
+              : <div style={{ width: 40, height: 40, borderRadius: 9, background: p._src === 'nevo' ? t.greenBg : t.card3, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {p._src === 'nevo' ? '🥗' : '📦'}
                 </div>
-              ))
-            )}
-          </>
-        )}
+            }
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                <div style={{ fontSize: 13.5, color: t.text, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{p.name}</div>
+                {p._src === 'nevo' && (
+                  <span style={{ fontSize: 9, color: t.green, fontWeight: 700, background: t.greenBg, padding: '2px 5px', borderRadius: 4, flexShrink: 0, border: `1px solid ${t.greenBorder}` }}>NEVO</span>
+                )}
+                {p._src === 'offnl' && (
+                  <span style={{ fontSize: 9, color: '#F97316', fontWeight: 700, background: 'rgba(249,115,22,0.12)', padding: '2px 5px', borderRadius: 4, flexShrink: 0, border: '1px solid rgba(249,115,22,0.35)' }}>NL</span>
+                )}
+              </div>
+              <div style={{ fontSize: 11, color: t.muted }}>
+                {p.brand ? `${p.brand} · ` : ''}{p.kcal} kcal · {p.p}P / {p.c}C / {p.f}F per 100g
+              </div>
+            </div>
+            <Icon name="plus" size={16} color={t.green} />
+          </div>
+        ))}
       </Modal>
     </>
   );
