@@ -510,10 +510,22 @@ export function Nutrition() {
 
         {sub === 'concepts' && (
           <>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-              <Btn small full variant="ghost" onClick={() => setConceptType('day')}>{T('nutr.adddayconcept')}</Btn>
-              <Btn small full variant="ghost" onClick={() => setConceptType('week')}>{T('nutr.addweekconcept')}</Btn>
-            </div>
+            {(() => {
+              const dayConcepts = concepts.filter(c => c.type === 'day');
+              const canMakeWeek = dayConcepts.length > 0;
+              return (
+                <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+                  <Btn small full variant="ghost" onClick={() => setConceptType('day')}>{T('nutr.adddayconcept')}</Btn>
+                  <Btn small full variant="ghost"
+                    onClick={() => {
+                      if (canMakeWeek) setConceptType('week');
+                      else { setToast(T('modal.needdayconcept')); setTimeout(() => setToast(''), 2200); }
+                    }}
+                    style={{ opacity: canMakeWeek ? 1 : 0.4 }}
+                  >{T('nutr.addweekconcept')}</Btn>
+                </div>
+              );
+            })()}
             {concepts.length === 0 ? (
               <div style={{ padding: 40, textAlign: 'center', borderRadius: 16, background: t.card, border: `1px dashed ${t.border}` }}>
                 <div style={{ fontSize: 32, marginBottom: 10 }}>📋</div>
@@ -584,7 +596,7 @@ export function Nutrition() {
       {/* Create flows */}
       <CreateProductModal visible={showCreateProduct} onClose={() => { setShowCreateProduct(false); setProductPrefill(null); }} onSave={saveProduct} prefill={productPrefill} />
       <CreateRecipeModal visible={showCreateRecipe} onClose={() => setShowCreateRecipe(false)} onSave={saveRecipe} products={products} />
-      <CreateConceptModal visible={conceptType !== null} onClose={() => setConceptType(null)} onSave={saveConcept} type={conceptType} recipes={recipes} />
+      <CreateConceptModal visible={conceptType !== null} onClose={() => setConceptType(null)} onSave={saveConcept} type={conceptType} recipes={recipes} products={products} dayConcepts={concepts.filter(c => c.type === 'day')} />
 
       {/* Barcode scanner */}
       <BarcodeScanner visible={showScanner} onClose={() => setShowScanner(false)} onResult={handleScanResult} />
