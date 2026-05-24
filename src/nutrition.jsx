@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { t, STATUS, WEEK, SLOTS, useApp, todayIdx, weekDates, todayKey, monthName, fmtKey, dayStatus } from './lib';
+import { t, STATUS, WEEK, SLOTS, useApp, useT, todayIdx, weekDates, todayKey, monthName, fmtKey, dayStatus } from './lib';
 import { Icon, Card, Label, Btn, Chip, Modal } from './shared';
 import { CreateProductModal, CreateRecipeModal, CreateConceptModal, Toast } from './modals';
 import { BarcodeScanner, ScannedProductModal } from './barcode';
 
 /* ═══════════════════════════ NUTRITION ═══════════════════════════ */
 export function Nutrition() {
+  const T = useT();
   const { profile, saveProfileData } = useApp();
   const d = profile?.data || {};
   const products = Array.isArray(d.products) ? d.products : [];
@@ -80,7 +81,7 @@ export function Nutrition() {
         eaten: true,
       } : m);
       await saveProfileData({ meals: { ...meals, [tKey]: updated } });
-      setToast(`Logged ${p.totalKcal} kcal · ${p.name}`);
+      setToast(T('scan.toast.logged', { kcal: p.totalKcal, name: p.name }));
     } else if (p.action === 'save') {
       setProductPrefill({
         name: p.name, brand: p.brand || '', store: 'AH', shelf: 'shelf',
@@ -90,7 +91,7 @@ export function Nutrition() {
     } else if (p.action === 'addManual') {
       setProductPrefill(null);
       setShowCreateProduct(true);
-      setToast(`Add product manually with barcode ${p.barcode}`);
+      setToast(T('scan.toast.addmanual', { barcode: p.barcode }));
     }
     setScannedCode(null);
     setTimeout(() => setToast(''), 2800);
@@ -100,7 +101,7 @@ export function Nutrition() {
     const newList = [...products, newProduct];
     await saveProfileData({ products: newList });
     setShowCreateProduct(false); setProductPrefill(null);
-    setToast(`Saved "${newProduct.name}"`);
+    setToast(T('scan.toast.saved', { name: newProduct.name }));
     setTimeout(() => setToast(''), 2200);
   };
 
@@ -108,7 +109,7 @@ export function Nutrition() {
     const newList = [...recipes, newRecipe];
     await saveProfileData({ recipes: newList });
     setShowCreateRecipe(false);
-    setToast(`Recipe "${newRecipe.name}" saved`);
+    setToast(T('scan.toast.recipesaved', { name: newRecipe.name }));
     setTimeout(() => setToast(''), 2200);
   };
 
@@ -116,16 +117,16 @@ export function Nutrition() {
     const newList = [...concepts, newConcept];
     await saveProfileData({ concepts: newList });
     setConceptType(null);
-    setToast(`Concept "${newConcept.name}" saved`);
+    setToast(T('scan.toast.conceptsaved', { name: newConcept.name }));
     setTimeout(() => setToast(''), 2200);
   };
 
   const tabs = [
-    { k: 'week', l: 'Planning' },
-    { k: 'recipes', l: 'Recipes' },
-    { k: 'products', l: 'Products' },
-    { k: 'groceries', l: 'Groceries' },
-    { k: 'concepts', l: 'Concepts' },
+    { k: 'week', l: T('nutr.tab.planning') },
+    { k: 'recipes', l: T('nutr.tab.recipes') },
+    { k: 'products', l: T('nutr.tab.products') },
+    { k: 'groceries', l: T('nutr.tab.groceries') },
+    { k: 'concepts', l: T('nutr.tab.concepts') },
   ];
 
   // + button context-aware: opens correct create flow per sub-tab
@@ -141,8 +142,8 @@ export function Nutrition() {
       <div style={{ padding: '20px 16px 0' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div>
-            <Label color={t.green}>Nutrition</Label>
-            <div style={{ fontSize: 24, fontWeight: 800, color: t.text, letterSpacing: '-0.02em' }}>This week</div>
+            <Label color={t.green}>{T('nutr.title')}</Label>
+            <div style={{ fontSize: 24, fontWeight: 800, color: t.text, letterSpacing: '-0.02em' }}>{T('nutr.thisweek')}</div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <div onClick={() => setShowScanner(true)} style={{ width: 40, height: 40, borderRadius: 12, background: t.card2, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${t.border}`, cursor: 'pointer' }}>
@@ -188,7 +189,7 @@ export function Nutrition() {
                 })}
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 14, paddingTop: 12, borderTop: `1px solid ${t.border}`, fontSize: 11, color: t.muted }}>
-                <div>Target {calories || '—'} kcal</div>
+                <div>{T('nutr.target')} {calories || '—'} kcal</div>
                 <div style={{ display: 'flex', gap: 10, fontSize: 10 }}>
                   {['green','yellow','orange','red'].map(s => (
                     <div key={s} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
@@ -224,10 +225,10 @@ export function Nutrition() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{m.slot}</div>
-                        {m.eaten && <span style={{ fontSize: 9, color: t.green, fontWeight: 700, background: t.greenBg, padding: '2px 6px', borderRadius: 5, letterSpacing: '0.05em' }}>EATEN</span>}
+                        {m.eaten && <span style={{ fontSize: 9, color: t.green, fontWeight: 700, background: t.greenBg, padding: '2px 6px', borderRadius: 5, letterSpacing: '0.05em' }}>{T('common.eaten')}</span>}
                       </div>
                       <div style={{ fontSize: 12, color: t.soft, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {(m.items||[]).length ? (m.items||[]).join(' · ') : 'No meal planned'}
+                        {(m.items||[]).length ? (m.items||[]).join(' · ') : T('nutr.nomealplanned')}
                       </div>
                     </div>
                   </div>
@@ -240,12 +241,12 @@ export function Nutrition() {
 
         {sub === 'recipes' && (
           <>
-            <Btn full variant="ghost" style={{ marginBottom: 14 }} onClick={() => setShowCreateRecipe(true)}>+ Create recipe</Btn>
+            <Btn full variant="ghost" style={{ marginBottom: 14 }} onClick={() => setShowCreateRecipe(true)}>{T('nutr.createrecipe')}</Btn>
             {recipes.length === 0 ? (
               <div style={{ padding: 40, textAlign: 'center', borderRadius: 16, background: t.card, border: `1px dashed ${t.border}` }}>
                 <div style={{ fontSize: 32, marginBottom: 10 }}>🍽️</div>
-                <div style={{ fontSize: 14, color: t.text, fontWeight: 600, marginBottom: 6 }}>No recipes yet</div>
-                <div style={{ fontSize: 12, color: t.muted, lineHeight: 1.5 }}>Build recipes from your products.<br/>Auto-calculates calories and macros.</div>
+                <div style={{ fontSize: 14, color: t.text, fontWeight: 600, marginBottom: 6 }}>{T('nutr.norecipes')}</div>
+                <div style={{ fontSize: 12, color: t.muted, lineHeight: 1.5 }}>{T('nutr.norecipesbody')}</div>
               </div>
             ) : recipes.map(r => (
               <Card key={r.id} style={{ padding: 14 }}>
@@ -258,7 +259,7 @@ export function Nutrition() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                       <div>
                         <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{r.name}</div>
-                        <div style={{ fontSize: 11, color: t.muted, fontWeight: 600, letterSpacing: '0.05em', marginTop: 2 }}>{(r.cat||'').toUpperCase()} · {(r.items||[]).length} products</div>
+                        <div style={{ fontSize: 11, color: t.muted, fontWeight: 600, letterSpacing: '0.05em', marginTop: 2 }}>{(r.cat||'').toUpperCase()} · {(r.items||[]).length} {T('nutr.products')}</div>
                       </div>
                       <div style={{ fontSize: 16, fontWeight: 800, color: t.green }}>{r.kcal}<span style={{ fontSize: 10, color: t.muted, marginLeft: 2 }}>kcal</span></div>
                     </div>
@@ -276,12 +277,12 @@ export function Nutrition() {
 
         {sub === 'products' && (
           <>
-            <Btn full variant="ghost" style={{ marginBottom: 14 }} onClick={() => { setProductPrefill(null); setShowCreateProduct(true); }}>+ Add product</Btn>
+            <Btn full variant="ghost" style={{ marginBottom: 14 }} onClick={() => { setProductPrefill(null); setShowCreateProduct(true); }}>{T('nutr.addproduct')}</Btn>
             {products.length === 0 ? (
               <div style={{ padding: 40, textAlign: 'center', borderRadius: 16, background: t.card, border: `1px dashed ${t.border}` }}>
                 <div style={{ fontSize: 32, marginBottom: 10 }}>📦</div>
-                <div style={{ fontSize: 14, color: t.text, fontWeight: 600, marginBottom: 6 }}>No products yet</div>
-                <div style={{ fontSize: 12, color: t.muted, lineHeight: 1.5 }}>Add products manually or scan a barcode.<br/>Products are your building blocks for recipes.</div>
+                <div style={{ fontSize: 14, color: t.text, fontWeight: 600, marginBottom: 6 }}>{T('nutr.noproducts')}</div>
+                <div style={{ fontSize: 12, color: t.muted, lineHeight: 1.5 }}>{T('nutr.noproductsbody')}</div>
               </div>
             ) : products.map(p => (
               <Card key={p.id} style={{ padding: 14 }}>
@@ -297,7 +298,7 @@ export function Nutrition() {
                           <div style={{ fontSize: 15, fontWeight: 700, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
                           <span style={{ fontSize: 9, color: t.muted, fontWeight: 700, background: t.card2, padding: '2px 6px', borderRadius: 5, letterSpacing: '0.05em', border: `1px solid ${t.border}`, textTransform: 'uppercase', flexShrink: 0 }}>{p.shelf}</span>
                         </div>
-                        <div style={{ fontSize: 11.5, color: t.muted }}>per 100g · {p.store}{p.brand ? ` · ${p.brand}` : ''}</div>
+                        <div style={{ fontSize: 11.5, color: t.muted }}>{T('common.per100g')} · {p.store}{p.brand ? ` · ${p.brand}` : ''}</div>
                       </div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: t.text, flexShrink: 0, marginLeft: 8 }}>{p.kcal}<span style={{ fontSize: 10, color: t.muted, marginLeft: 2 }}>kcal</span></div>
                     </div>
@@ -316,21 +317,21 @@ export function Nutrition() {
         {sub === 'groceries' && (
           <>
             <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-              <Chip active={grocMode === 'simple'} onClick={() => setGrocMode('simple')}>Simple</Chip>
-              <Chip active={grocMode === 'smart'} onClick={() => setGrocMode('smart')}>Smart (by shelf)</Chip>
+              <Chip active={grocMode === 'simple'} onClick={() => setGrocMode('simple')}>{T('nutr.simple')}</Chip>
+              <Chip active={grocMode === 'smart'} onClick={() => setGrocMode('smart')}>{T('nutr.smart')}</Chip>
             </div>
             {!hasGroceries ? (
               <div style={{ padding: 40, textAlign: 'center', borderRadius: 16, background: t.card, border: `1px dashed ${t.border}` }}>
                 <div style={{ fontSize: 32, marginBottom: 10 }}>🛒</div>
-                <div style={{ fontSize: 14, color: t.text, fontWeight: 600, marginBottom: 6 }}>Empty grocery list</div>
-                <div style={{ fontSize: 12, color: t.muted, lineHeight: 1.5 }}>Plan meals in the Planning tab.<br/>Groceries appear automatically.</div>
+                <div style={{ fontSize: 14, color: t.text, fontWeight: 600, marginBottom: 6 }}>{T('nutr.emptygroceries')}</div>
+                <div style={{ fontSize: 12, color: t.muted, lineHeight: 1.5 }}>{T('nutr.emptygroceriesbody')}</div>
               </div>
             ) : grocMode === 'smart' ? (
               <>
                 {Object.entries(groceriesByShelf).map(([cat, items]) => items.length === 0 ? null : (
                   <Card key={cat} style={{ padding: 14 }}>
                     <Label color={cat === 'fresh' ? t.green : cat === 'refrigerated' ? t.protein : t.muted}>
-                      {cat === 'shelf' ? '🥫 Shelf stable' : cat === 'refrigerated' ? '❄️ Refrigerated' : '🥬 Fresh'}
+                      {cat === 'shelf' ? T('nutr.shelfstable') : cat === 'refrigerated' ? T('nutr.refrigerated') : T('nutr.fresh')}
                     </Label>
                     {items.map((it, i) => (
                       <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: i < items.length - 1 ? `1px solid ${t.border}` : 'none' }}>
@@ -369,14 +370,14 @@ export function Nutrition() {
         {sub === 'concepts' && (
           <>
             <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-              <Btn small full variant="ghost" onClick={() => setConceptType('day')}>+ Day concept</Btn>
-              <Btn small full variant="ghost" onClick={() => setConceptType('week')}>+ Week concept</Btn>
+              <Btn small full variant="ghost" onClick={() => setConceptType('day')}>{T('nutr.adddayconcept')}</Btn>
+              <Btn small full variant="ghost" onClick={() => setConceptType('week')}>{T('nutr.addweekconcept')}</Btn>
             </div>
             {concepts.length === 0 ? (
               <div style={{ padding: 40, textAlign: 'center', borderRadius: 16, background: t.card, border: `1px dashed ${t.border}` }}>
                 <div style={{ fontSize: 32, marginBottom: 10 }}>📋</div>
-                <div style={{ fontSize: 14, color: t.text, fontWeight: 600, marginBottom: 6 }}>No concepts yet</div>
-                <div style={{ fontSize: 12, color: t.muted, lineHeight: 1.5 }}>Save reusable meal plans.<br/>A day concept = 6 meals. A week concept = 7 days.</div>
+                <div style={{ fontSize: 14, color: t.text, fontWeight: 600, marginBottom: 6 }}>{T('nutr.noconcepts')}</div>
+                <div style={{ fontSize: 12, color: t.muted, lineHeight: 1.5 }}>{T('nutr.noconceptsbody')}</div>
               </div>
             ) : concepts.map((c) => (
               <Card key={c.id} style={{ padding: 14 }}>
@@ -402,18 +403,18 @@ export function Nutrition() {
 
       {/* Meal options */}
       <Modal visible={showMealOptions !== null} onClose={() => setShowMealOptions(null)} title={showMealOptions !== null ? slotMeals[showMealOptions].slot : ''}>
-        <Btn full variant="ghost" style={{ marginBottom: 8 }}>Choose recipe</Btn>
-        <Btn full variant="ghost" style={{ marginBottom: 8 }}>Scan product</Btn>
-        <Btn full variant="ghost" style={{ marginBottom: 8 }}>{showMealOptions !== null && slotMeals[showMealOptions].locked ? '🔓 Unlock meal' : '🔒 Lock meal'}</Btn>
-        <Btn full variant="outline">{showMealOptions !== null && slotMeals[showMealOptions].eaten ? 'Mark as not eaten' : 'Mark as eaten'}</Btn>
+        <Btn full variant="ghost" style={{ marginBottom: 8 }}>{T('nutr.choosereciple')}</Btn>
+        <Btn full variant="ghost" style={{ marginBottom: 8 }}>{T('nutr.scanproduct')}</Btn>
+        <Btn full variant="ghost" style={{ marginBottom: 8 }}>{showMealOptions !== null && slotMeals[showMealOptions].locked ? T('nutr.unlockmeal') : T('nutr.lockmeal')}</Btn>
+        <Btn full variant="outline">{showMealOptions !== null && slotMeals[showMealOptions].eaten ? T('nutr.marknoteaten') : T('nutr.markeaten')}</Btn>
       </Modal>
 
       {/* Locked deviation */}
-      <Modal visible={showLockedDeviate} onClose={() => setShowLockedDeviate(false)} title="Deviating from plan">
-        <div style={{ fontSize: 14, color: t.soft, marginBottom: 18, lineHeight: 1.5 }}>You are deviating from your planned meal. What would you like to do?</div>
-        <Btn full style={{ marginBottom: 8 }} onClick={() => setShowLockedDeviate(false)}>Keep plan</Btn>
-        <Btn full variant="outline" style={{ marginBottom: 8 }} onClick={() => setShowLockedDeviate(false)}>Remove plan</Btn>
-        <Btn full variant="ghost" onClick={() => setShowLockedDeviate(false)}>Remind me later</Btn>
+      <Modal visible={showLockedDeviate} onClose={() => setShowLockedDeviate(false)} title={T('nutr.deviating')}>
+        <div style={{ fontSize: 14, color: t.soft, marginBottom: 18, lineHeight: 1.5 }}>{T('nutr.deviatingbody')}</div>
+        <Btn full style={{ marginBottom: 8 }} onClick={() => setShowLockedDeviate(false)}>{T('nutr.keepplan')}</Btn>
+        <Btn full variant="outline" style={{ marginBottom: 8 }} onClick={() => setShowLockedDeviate(false)}>{T('nutr.removeplan')}</Btn>
+        <Btn full variant="ghost" onClick={() => setShowLockedDeviate(false)}>{T('nutr.remindlater')}</Btn>
       </Modal>
 
       {/* Create flows */}

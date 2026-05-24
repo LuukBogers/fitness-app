@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { t } from './lib';
-import { Icon, Btn, Modal, Field } from './shared';
+import { t, useT } from './lib';
+import { Icon, Btn, Modal, Field, Label } from './shared';
 
 /* ═══════════════════════════ BARCODE SCANNER ═══════════════════════════ */
 // Loads ZXing-js dynamically (no npm install needed). Works iOS Safari + Android Chrome.
@@ -20,6 +20,7 @@ const loadZXing = () => {
 };
 
 export function BarcodeScanner({ visible, onClose, onResult }) {
+  const T = useT();
   const videoRef = useRef(null);
   const controlsRef = useRef(null);
   const [status, setStatus] = useState('init'); // init | loading | scanning | denied | error
@@ -83,8 +84,8 @@ export function BarcodeScanner({ visible, onClose, onResult }) {
       {/* Top bar */}
       <div style={{ position: 'relative', zIndex: 3, padding: '16px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(180deg, rgba(0,0,0,0.65), transparent)' }}>
         <div>
-          <div style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>Scan barcode</div>
-          <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11, marginTop: 2 }}>EAN · UPC · Code128</div>
+          <div style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>{T('scan.title')}</div>
+          <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11, marginTop: 2 }}>{T('scan.formats')}</div>
         </div>
         <div onClick={onClose} style={{ width: 38, height: 38, borderRadius: 19, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.15)' }}>
           <Icon name="x" size={18} color="#fff" />
@@ -115,39 +116,39 @@ export function BarcodeScanner({ visible, onClose, onResult }) {
         {status === 'loading' && (
           <div style={{ textAlign: 'center', color: '#fff', fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
             <div style={{ width: 16, height: 16, borderRadius: 8, border: `2px solid rgba(255,255,255,0.3)`, borderTopColor: '#fff', animation: 'spin 0.8s linear infinite' }} />
-            Loading scanner...
+            {T('scan.loading')}
           </div>
         )}
         {status === 'scanning' && !showManual && (
           <>
-            <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.9)', fontSize: 13, marginBottom: 14 }}>Point camera at the barcode</div>
+            <div style={{ textAlign: 'center', color: 'rgba(255,255,255,0.9)', fontSize: 13, marginBottom: 14 }}>{T('scan.point')}</div>
             <div onClick={() => setShowManual(true)} style={{ textAlign: 'center', color: t.green, fontSize: 13, fontWeight: 600, cursor: 'pointer', padding: '8px 14px' }}>
-              Enter barcode manually
+              {T('scan.enterManual')}
             </div>
           </>
         )}
         {showManual && (
           <div style={{ background: 'rgba(0,0,0,0.7)', borderRadius: 14, padding: 14, border: '1px solid rgba(255,255,255,0.15)' }}>
-            <div style={{ color: '#fff', fontSize: 13, marginBottom: 8, fontWeight: 600 }}>Enter barcode</div>
+            <div style={{ color: '#fff', fontSize: 13, marginBottom: 8, fontWeight: 600 }}>{T('scan.enterbarcode')}</div>
             <div style={{ display: 'flex', gap: 8 }}>
               <input
                 type="text" inputMode="numeric" value={manual} onChange={e => setManual(e.target.value.replace(/\D/g, ''))}
-                placeholder="e.g. 3017620422003" autoFocus
+                placeholder={T('scan.ph.barcode')} autoFocus
                 style={{ flex: 1, padding: '11px 12px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.2)', fontSize: 14, color: '#fff', background: 'rgba(255,255,255,0.08)', outline: 'none', fontFamily: 'monospace' }}
               />
-              <Btn small onClick={() => { if (manual.length >= 6) { onResult(manual); setShowManual(false); } }}>Go</Btn>
+              <Btn small onClick={() => { if (manual.length >= 6) { onResult(manual); setShowManual(false); } }}>{T('scan.go')}</Btn>
             </div>
           </div>
         )}
         {status === 'denied' && (
           <div style={{ textAlign: 'center', color: '#FCA5A5', fontSize: 13, padding: '12px 14px', background: 'rgba(239,68,68,0.2)', borderRadius: 12, border: '1px solid rgba(239,68,68,0.3)', lineHeight: 1.5 }}>
-            Camera access denied. Enable camera in your browser/iOS settings, then reopen the scanner.
+            {T('scan.denied')}
           </div>
         )}
         {status === 'error' && (
           <div style={{ textAlign: 'center', color: '#FCA5A5', fontSize: 13, padding: '12px 14px', background: 'rgba(239,68,68,0.15)', borderRadius: 12, lineHeight: 1.5 }}>
-            {errMsg || 'Scanner error. Tap manual entry below.'}
-            <div onClick={() => setShowManual(true)} style={{ color: '#fff', marginTop: 8, fontWeight: 600, cursor: 'pointer' }}>Enter manually →</div>
+            {errMsg || T('scan.errfallback')}
+            <div onClick={() => setShowManual(true)} style={{ color: '#fff', marginTop: 8, fontWeight: 600, cursor: 'pointer' }}>{T('scan.entermanualarrow')}</div>
           </div>
         )}
       </div>
@@ -181,6 +182,7 @@ async function lookupBarcode(barcode) {
 }
 
 export function ScannedProductModal({ barcode, onClose, onSave }) {
+  const T = useT();
   const visible = barcode !== null && barcode !== undefined;
   const [loading, setLoading] = useState(false);
   const [product, setProduct] = useState(null);
@@ -204,11 +206,11 @@ export function ScannedProductModal({ barcode, onClose, onSave }) {
   const tF = product ? Math.round((product.fat * grams) / 10) / 10 : 0;
 
   return (
-    <Modal visible={visible} onClose={onClose} title={loading ? "Looking up..." : product ? "Product found" : "Not found"}>
+    <Modal visible={visible} onClose={onClose} title={loading ? T('scan.lookup') : product ? T('scan.productfound') : T('scan.notfound')}>
       {loading && (
         <div style={{ padding: '32px 0', textAlign: 'center' }}>
           <div style={{ width: 32, height: 32, borderRadius: 16, border: `3px solid ${t.border}`, borderTopColor: t.green, margin: '0 auto', animation: 'spin 0.8s linear infinite' }} />
-          <div style={{ marginTop: 16, fontSize: 13, color: t.soft }}>Barcode</div>
+          <div style={{ marginTop: 16, fontSize: 13, color: t.soft }}>{T('scan.barcode')}</div>
           <div style={{ fontSize: 14, color: t.text, fontFamily: 'monospace', marginTop: 2 }}>{barcode}</div>
         </div>
       )}
@@ -217,11 +219,11 @@ export function ScannedProductModal({ barcode, onClose, onSave }) {
         <>
           <div style={{ padding: '24px 0', textAlign: 'center' }}>
             <div style={{ fontSize: 40, marginBottom: 10 }}>🔍</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: t.text, marginBottom: 6 }}>Product not in database</div>
-            <div style={{ fontSize: 12.5, color: t.soft }}>Barcode <span style={{ fontFamily: 'monospace', color: t.text }}>{barcode}</span> is unknown in Open Food Facts.</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: t.text, marginBottom: 6 }}>{T('scan.notindb')}</div>
+            <div style={{ fontSize: 12.5, color: t.soft }}>{T('scan.notindbbody', { barcode })}</div>
           </div>
-          <Btn full style={{ marginBottom: 8 }} onClick={() => { onSave({ barcode, manual: true, action: 'addManual' }); onClose(); }}>+ Add this product manually</Btn>
-          <Btn full variant="outline" onClick={onClose}>Cancel</Btn>
+          <Btn full style={{ marginBottom: 8 }} onClick={() => { onSave({ barcode, manual: true, action: 'addManual' }); onClose(); }}>{T('scan.addmanually')}</Btn>
+          <Btn full variant="outline" onClick={onClose}>{T('common.cancel')}</Btn>
         </>
       )}
 
@@ -242,7 +244,7 @@ export function ScannedProductModal({ barcode, onClose, onSave }) {
           </div>
 
           {/* Per 100g */}
-          <Label>Nutrition per 100g</Label>
+          <Label>{T('scan.nutr100g')}</Label>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 18 }}>
             {[
               { l: 'kcal', v: product.kcal, c: t.green },
@@ -258,7 +260,7 @@ export function ScannedProductModal({ barcode, onClose, onSave }) {
           </div>
 
           {/* Quantity */}
-          <Label>How much did you eat?</Label>
+          <Label>{T('scan.howmuch')}</Label>
           <div style={{ display: 'flex', gap: 8, alignItems: 'stretch', marginBottom: 14 }}>
             <div onClick={() => setGrams(Math.max(0, grams - 10))} style={{ width: 44, background: t.card2, borderRadius: 12, border: `1px solid ${t.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: t.text, fontSize: 18, fontWeight: 700 }}>−</div>
             <div style={{ flex: 1, position: 'relative' }}>
@@ -276,7 +278,7 @@ export function ScannedProductModal({ barcode, onClose, onSave }) {
           {/* Total */}
           <div style={{ background: t.greenBg, borderRadius: 16, padding: 16, marginBottom: 16, border: `1px solid ${t.greenBorder}` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
-              <Label color={t.green} style={{ marginBottom: 0 }}>You'll log</Label>
+              <Label color={t.green} style={{ marginBottom: 0 }}>{T('scan.youlllog')}</Label>
               <div><span style={{ fontSize: 26, fontWeight: 800, color: t.green, letterSpacing: '-0.02em' }}>{tKcal}</span><span style={{ fontSize: 11, color: t.soft, marginLeft: 4 }}>kcal</span></div>
             </div>
             <div style={{ display: 'flex', gap: 16, fontSize: 12.5 }}>
@@ -286,8 +288,8 @@ export function ScannedProductModal({ barcode, onClose, onSave }) {
             </div>
           </div>
 
-          <Btn full style={{ marginBottom: 8 }} onClick={() => { onSave({ ...product, grams, totalKcal: tKcal, totalP: tP, totalC: tC, totalF: tF, action: 'log' }); onClose(); }}>Log to today</Btn>
-          <Btn full variant="ghost" onClick={() => { onSave({ ...product, action: 'save' }); onClose(); }}>+ Save to my products</Btn>
+          <Btn full style={{ marginBottom: 8 }} onClick={() => { onSave({ ...product, grams, totalKcal: tKcal, totalP: tP, totalC: tC, totalF: tF, action: 'log' }); onClose(); }}>{T('scan.logtoday')}</Btn>
+          <Btn full variant="ghost" onClick={() => { onSave({ ...product, action: 'save' }); onClose(); }}>{T('scan.savetoproducts')}</Btn>
         </>
       )}
     </Modal>

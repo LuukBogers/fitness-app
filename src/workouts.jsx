@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { t, WEEK, useApp, todayIdx, weekDates, todayKey, monthName, fmtKey } from './lib';
+import { t, WEEK, useApp, useT, todayIdx, weekDates, todayKey, monthName, fmtKey } from './lib';
 import { Icon, Card, Label, Btn, Chip, Modal } from './shared';
 import { Toast } from './modals';
 import { EXMAP_LEN } from './home';
 
 /* ═══════════════════════════ WORKOUTS ═══════════════════════════ */
 export function Workouts() {
+  const T = useT();
   const { profile, saveProfileData } = useApp();
   const d = profile?.data || {};
   const workouts = Array.isArray(d.workouts) ? d.workouts : [];
@@ -39,17 +40,17 @@ export function Workouts() {
       <div style={{ padding: '20px 16px 0' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div>
-            <Label color={t.orange}>Workouts</Label>
-            <div style={{ fontSize: 24, fontWeight: 800, color: t.text, letterSpacing: '-0.02em' }}>Train smart</div>
+            <Label color={t.orange}>{T('wo.title')}</Label>
+            <div style={{ fontSize: 24, fontWeight: 800, color: t.text, letterSpacing: '-0.02em' }}>{T('wo.trainsmart')}</div>
           </div>
-          <div onClick={() => { setView('templates'); setToast('Tap + Create template to add a workout'); setTimeout(()=>setToast(''), 2400); }} style={{ width: 40, height: 40, borderRadius: 12, background: t.orangeBg, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${t.orangeBorder}`, cursor: 'pointer' }}>
+          <div onClick={() => { setView('templates'); setToast(T('wo.taptocreate')); setTimeout(()=>setToast(''), 2400); }} style={{ width: 40, height: 40, borderRadius: 12, background: t.orangeBg, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${t.orangeBorder}`, cursor: 'pointer' }}>
             <Icon name="plus" size={20} color={t.orange} />
           </div>
         </div>
 
         <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-          <Chip active={view === 'week'} onClick={() => setView('week')} accent="orange">Week</Chip>
-          <Chip active={view === 'templates'} onClick={() => setView('templates')} accent="orange">Templates</Chip>
+          <Chip active={view === 'week'} onClick={() => setView('week')} accent="orange">{T('wo.tab.week')}</Chip>
+          <Chip active={view === 'templates'} onClick={() => setView('templates')} accent="orange">{T('wo.tab.templates')}</Chip>
         </div>
       </div>
 
@@ -57,7 +58,7 @@ export function Workouts() {
         {view === 'week' && (
           <>
             <Card style={{ padding: 14 }}>
-              <Label color={t.orange}>Planning mode</Label>
+              <Label color={t.orange}>{T('wo.planningmode')}</Label>
               <div style={{ display: 'flex', gap: 8 }}>
                 <div onClick={() => setMode('fixed')} style={{
                   flex: 1, padding: 12, borderRadius: 12, cursor: 'pointer', textAlign: 'center',
@@ -66,8 +67,8 @@ export function Workouts() {
                   border: `1px solid ${mode === 'fixed' ? t.orange : t.border}`,
                   fontWeight: 600, fontSize: 13,
                 }}>
-                  <div>Fixed</div>
-                  <div style={{ fontSize: 10, opacity: 0.8, marginTop: 2 }}>auto train/rest macros</div>
+                  <div>{T('wo.fixed')}</div>
+                  <div style={{ fontSize: 10, opacity: 0.8, marginTop: 2 }}>{T('wo.fixedsub')}</div>
                 </div>
                 <div onClick={() => setMode('flexible')} style={{
                   flex: 1, padding: 12, borderRadius: 12, cursor: 'pointer', textAlign: 'center',
@@ -76,8 +77,8 @@ export function Workouts() {
                   border: `1px solid ${mode === 'flexible' ? t.orange : t.border}`,
                   fontWeight: 600, fontSize: 13,
                 }}>
-                  <div>Flexible</div>
-                  <div style={{ fontSize: 10, opacity: 0.8, marginTop: 2 }}>manual day type</div>
+                  <div>{T('wo.flexible')}</div>
+                  <div style={{ fontSize: 10, opacity: 0.8, marginTop: 2 }}>{T('wo.flexiblesub')}</div>
                 </div>
               </div>
             </Card>
@@ -85,8 +86,8 @@ export function Workouts() {
             {Object.keys(workoutPlan).length === 0 && workouts.length === 0 && (
               <div style={{ padding: 30, marginTop: 12, textAlign: 'center', borderRadius: 16, background: t.card, border: `1px dashed ${t.border}` }}>
                 <div style={{ fontSize: 32, marginBottom: 10 }}>💪</div>
-                <div style={{ fontSize: 14, color: t.text, fontWeight: 600, marginBottom: 6 }}>No workouts yet</div>
-                <div style={{ fontSize: 12, color: t.muted, lineHeight: 1.5 }}>Go to Templates → Create template.<br/>Then assign workouts to days.</div>
+                <div style={{ fontSize: 14, color: t.text, fontWeight: 600, marginBottom: 6 }}>{T('wo.noworkouts')}</div>
+                <div style={{ fontSize: 12, color: t.muted, lineHeight: 1.5 }}>{T('wo.noworkoutsbody')}</div>
               </div>
             )}
 
@@ -112,12 +113,12 @@ export function Workouts() {
                       </div>
                       <div style={{ flex: 1 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{w || 'Rest day'}</div>
+                          <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{w || T('wo.restday')}</div>
                           {done && <Icon name="check" size={14} color={t.green} stroke={3} />}
-                          {isToday && <span style={{ fontSize: 9, color: t.orange, fontWeight: 700, background: t.orangeBg, padding: '2px 6px', borderRadius: 5, letterSpacing: '0.05em' }}>TODAY</span>}
+                          {isToday && <span style={{ fontSize: 9, color: t.orange, fontWeight: 700, background: t.orangeBg, padding: '2px 6px', borderRadius: 5, letterSpacing: '0.05em' }}>{T('common.today')}</span>}
                         </div>
                         <div style={{ fontSize: 12, color: t.soft, marginTop: 2 }}>
-                          {done ? '✓ Completed' : w ? `${EXMAP_LEN(workouts, w)} exercises` : 'Recovery & mobility'}
+                          {done ? T('wo.completed') : w ? `${EXMAP_LEN(workouts, w)} ${T('wo.exercises')}` : T('wo.recovery')}
                         </div>
                       </div>
                       <Icon name="chevR" size={16} color={t.muted} />
@@ -131,12 +132,12 @@ export function Workouts() {
 
         {view === 'templates' && (
           <>
-            <Btn full variant="ghost" accent="orange" style={{ marginBottom: 14 }} onClick={() => { setToast('Workout template builder — coming next iteration'); setTimeout(()=>setToast(''), 2400); }}>+ Create template</Btn>
+            <Btn full variant="ghost" accent="orange" style={{ marginBottom: 14 }} onClick={() => { setToast(T('wo.builderTodo')); setTimeout(()=>setToast(''), 2400); }}>{T('wo.createtemplate')}</Btn>
             {workouts.length === 0 ? (
               <div style={{ padding: 40, textAlign: 'center', borderRadius: 16, background: t.card, border: `1px dashed ${t.border}` }}>
                 <div style={{ fontSize: 32, marginBottom: 10 }}>🏋️</div>
-                <div style={{ fontSize: 14, color: t.text, fontWeight: 600, marginBottom: 6 }}>No templates yet</div>
-                <div style={{ fontSize: 12, color: t.muted, lineHeight: 1.5 }}>A template is a reusable workout<br/>(e.g. "Back", "Legs").</div>
+                <div style={{ fontSize: 14, color: t.text, fontWeight: 600, marginBottom: 6 }}>{T('wo.notemplates')}</div>
+                <div style={{ fontSize: 12, color: t.muted, lineHeight: 1.5 }}>{T('wo.notemplatesbody')}</div>
               </div>
             ) : workouts.map((w, i) => (
               <Card key={i} onClick={() => setShowTpl(i)} style={{ padding: 14 }}>
@@ -147,7 +148,7 @@ export function Workouts() {
                     </div>
                     <div>
                       <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{w.name}</div>
-                      <div style={{ fontSize: 12, color: t.soft }}>{(w.exercises||[]).length} exercises</div>
+                      <div style={{ fontSize: 12, color: t.soft }}>{(w.exercises||[]).length} {T('wo.exercises')}</div>
                     </div>
                   </div>
                   <Icon name="chevR" size={16} color={t.muted} />
@@ -165,16 +166,16 @@ export function Workouts() {
           return (
             <>
               <div style={{ background: t.card2, borderRadius: 14, padding: 14, marginBottom: 14, border: `1px solid ${t.border}` }}>
-                <Label color={t.orange}>Workout</Label>
+                <Label color={t.orange}>{T('wo.workout')}</Label>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: t.text }}>{w || 'Rest day'}</div>
-                  {done && <span style={{ fontSize: 11, color: t.green, fontWeight: 700, background: t.greenBg, padding: '4px 10px', borderRadius: 8 }}>✓ DONE</span>}
+                  <div style={{ fontSize: 18, fontWeight: 700, color: t.text }}>{w || T('wo.restday')}</div>
+                  {done && <span style={{ fontSize: 11, color: t.green, fontWeight: 700, background: t.greenBg, padding: '4px 10px', borderRadius: 8 }}>✓ {T('common.done')}</span>}
                 </div>
               </div>
 
               {w && workouts.find(x => x.name === w) && (
                 <div style={{ marginBottom: 16 }}>
-                  <Label>Exercises</Label>
+                  <Label>{T('wo.exerciseslabel')}</Label>
                   {workouts.find(x => x.name === w).exercises.map((ex, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: `1px solid ${t.border}` }}>
                       <div style={{ width: 24, height: 24, borderRadius: 6, background: t.orangeBg, color: t.orange, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>{i + 1}</div>
@@ -186,11 +187,11 @@ export function Workouts() {
 
               {w && (
                 <Btn full accent="orange" style={{ marginBottom: 8 }} onClick={toggleDone}>
-                  {done ? 'Mark as not completed' : '✓ Mark as completed'}
+                  {done ? T('wo.marknotdone') : T('wo.markdone')}
                 </Btn>
               )}
               {!w && (
-                <Btn full variant="outline" onClick={() => setShowDayDetail(false)}>Close</Btn>
+                <Btn full variant="outline" onClick={() => setShowDayDetail(false)}>{T('wo.close')}</Btn>
               )}
             </>
           );

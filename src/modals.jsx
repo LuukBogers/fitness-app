@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { t, newId, resizeImage, SLOTS, WEEK, CAT_OPTS, SHELF_OPTS, STORE_OPTS } from './lib';
+import { t, newId, useT, resizeImage, SLOTS, WEEK, CAT_OPTS, SHELF_OPTS, STORE_OPTS } from './lib';
 import { Icon, Btn, Modal, Field, Select } from './shared';
 
 /* ═══════════════════════════ PHOTO PICKER ═══════════════════════════ */
 export const PhotoPicker = ({ value, onChange, accent = 'green' }) => {
+  const T = useT();
   const inputRef = useRef();
   const acc = accent === 'orange' ? t.orange : t.green;
   const accBg = accent === 'orange' ? t.orangeBg : t.greenBg;
@@ -21,7 +22,7 @@ export const PhotoPicker = ({ value, onChange, accent = 'green' }) => {
 
   return (
     <div style={{ marginBottom: 14 }}>
-      <div style={{ fontSize: 12, color: t.soft, fontWeight: 600, marginBottom: 6 }}>Photo (optional)</div>
+      <div style={{ fontSize: 12, color: t.soft, fontWeight: 600, marginBottom: 6 }}>{T('modal.photooptional')}</div>
       <input ref={inputRef} type="file" accept="image/*" capture="environment" onChange={handleFile} style={{ display: 'none' }} />
       {value ? (
         <div style={{ position: 'relative', borderRadius: 14, overflow: 'hidden', border: `1px solid ${t.border}` }}>
@@ -37,7 +38,7 @@ export const PhotoPicker = ({ value, onChange, accent = 'green' }) => {
             position: 'absolute', bottom: 10, right: 10, padding: '6px 12px', borderRadius: 10,
             background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)',
             fontSize: 12, color: '#fff', fontWeight: 600, cursor: 'pointer',
-          }}>Replace</div>
+          }}>{T('common.replace')}</div>
         </div>
       ) : (
         <div onClick={() => inputRef.current?.click()} style={{
@@ -45,8 +46,8 @@ export const PhotoPicker = ({ value, onChange, accent = 'green' }) => {
           display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: 'pointer',
         }}>
           <Icon name="photo" size={28} color={acc} />
-          <div style={{ fontSize: 13, color: acc, fontWeight: 600 }}>Tap to add photo</div>
-          <div style={{ fontSize: 11, color: t.muted }}>Camera or library · auto-resized</div>
+          <div style={{ fontSize: 13, color: acc, fontWeight: 600 }}>{T('modal.taptoaddphoto')}</div>
+          <div style={{ fontSize: 11, color: t.muted }}>{T('modal.photohint')}</div>
         </div>
       )}
     </div>
@@ -55,6 +56,7 @@ export const PhotoPicker = ({ value, onChange, accent = 'green' }) => {
 
 /* ═══════════════════════════ CREATE PRODUCT MODAL ═══════════════════════════ */
 export function CreateProductModal({ visible, onClose, onSave, prefill }) {
+  const T = useT();
   const [form, setForm] = useState({
     name: '', brand: '', store: 'AH', shelf: 'shelf',
     kcal: '', p: '', c: '', f: '', image: null,
@@ -93,29 +95,30 @@ export function CreateProductModal({ visible, onClose, onSave, prefill }) {
   };
 
   return (
-    <Modal visible={visible} onClose={onClose} title="Add product">
+    <Modal visible={visible} onClose={onClose} title={T('modal.addproduct')}>
       <PhotoPicker value={form.image} onChange={v => upd('image', v)} />
-      <Field label="Name" value={form.name} onChange={v => upd('name', v)} placeholder="bv. Magere kwark" />
-      <Field label="Brand (optional)" value={form.brand} onChange={v => upd('brand', v)} placeholder="bv. AH Basic" />
-      <Select label="Store" value={form.store} onChange={v => upd('store', v)} options={STORE_OPTS} />
-      <Select label="Shelf type" value={form.shelf} onChange={v => upd('shelf', v)} options={SHELF_OPTS} />
+      <Field label={T('modal.field.name')} value={form.name} onChange={v => upd('name', v)} placeholder={T('modal.ph.productname')} />
+      <Field label={T('modal.field.brand')} value={form.brand} onChange={v => upd('brand', v)} placeholder={T('modal.ph.brandname')} />
+      <Select label={T('modal.field.store')} value={form.store} onChange={v => upd('store', v)} options={STORE_OPTS} />
+      <Select label={T('modal.field.shelf')} value={form.shelf} onChange={v => upd('shelf', v)} options={SHELF_OPTS} />
 
-      <div style={{ fontSize: 12, color: t.soft, fontWeight: 600, marginTop: 8, marginBottom: 6 }}>Per 100g</div>
+      <div style={{ fontSize: 12, color: t.soft, fontWeight: 600, marginTop: 8, marginBottom: 6 }}>{T('common.per100g')}</div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        <Field label="Calories" value={form.kcal} onChange={v => upd('kcal', v)} type="number" placeholder="0" unit="kcal" />
-        <Field label="Protein" value={form.p} onChange={v => upd('p', v)} type="number" placeholder="0" unit="g" />
-        <Field label="Carbs" value={form.c} onChange={v => upd('c', v)} type="number" placeholder="0" unit="g" />
-        <Field label="Fat" value={form.f} onChange={v => upd('f', v)} type="number" placeholder="0" unit="g" />
+        <Field label={T('macros.calories')} value={form.kcal} onChange={v => upd('kcal', v)} type="number" placeholder="0" unit="kcal" />
+        <Field label={T('macros.protein')} value={form.p} onChange={v => upd('p', v)} type="number" placeholder="0" unit="g" />
+        <Field label={T('macros.carbs')} value={form.c} onChange={v => upd('c', v)} type="number" placeholder="0" unit="g" />
+        <Field label={T('macros.fat')} value={form.f} onChange={v => upd('f', v)} type="number" placeholder="0" unit="g" />
       </div>
 
-      <Btn full onClick={save} style={{ marginTop: 8, opacity: canSave ? 1 : 0.4, pointerEvents: canSave ? 'auto' : 'none' }}>Save product</Btn>
-      <Btn full variant="outline" onClick={onClose} style={{ marginTop: 8 }}>Cancel</Btn>
+      <Btn full onClick={save} style={{ marginTop: 8, opacity: canSave ? 1 : 0.4, pointerEvents: canSave ? 'auto' : 'none' }}>{T('modal.saveproduct')}</Btn>
+      <Btn full variant="outline" onClick={onClose} style={{ marginTop: 8 }}>{T('common.cancel')}</Btn>
     </Modal>
   );
 }
 
 /* ═══════════════════════════ CREATE RECIPE MODAL ═══════════════════════════ */
 export function CreateRecipeModal({ visible, onClose, onSave, products }) {
+  const T = useT();
   const [form, setForm] = useState({ name: '', cat: 'Breakfast', image: null, items: [] }); // items: [{productId, grams}]
   const [showPicker, setShowPicker] = useState(false);
   const [search, setSearch] = useState('');
@@ -161,17 +164,17 @@ export function CreateRecipeModal({ visible, onClose, onSave, products }) {
 
   return (
     <>
-      <Modal visible={visible && !showPicker} onClose={onClose} title="Create recipe">
+      <Modal visible={visible && !showPicker} onClose={onClose} title={T('modal.createrecipe')}>
         <PhotoPicker value={form.image} onChange={v => upd('image', v)} />
-        <Field label="Name" value={form.name} onChange={v => upd('name', v)} placeholder="bv. Protein oats" />
-        <Select label="Category" value={form.cat} onChange={v => upd('cat', v)} options={CAT_OPTS} />
+        <Field label={T('modal.field.name')} value={form.name} onChange={v => upd('name', v)} placeholder={T('modal.ph.recipename')} />
+        <Select label={T('modal.field.category')} value={form.cat} onChange={v => upd('cat', v)} options={CAT_OPTS} />
 
-        <div style={{ fontSize: 12, color: t.soft, fontWeight: 600, marginTop: 8, marginBottom: 8 }}>Ingredients ({form.items.length})</div>
+        <div style={{ fontSize: 12, color: t.soft, fontWeight: 600, marginTop: 8, marginBottom: 8 }}>{T('modal.ingredients')} ({form.items.length})</div>
 
         {form.items.length === 0 ? (
           <div style={{ padding: 18, borderRadius: 14, background: t.card2, border: `1px dashed ${t.border}`, textAlign: 'center', marginBottom: 10 }}>
-            <div style={{ fontSize: 13, color: t.muted, marginBottom: 8 }}>No ingredients yet</div>
-            <div style={{ fontSize: 11, color: t.dim }}>Add products from your library</div>
+            <div style={{ fontSize: 13, color: t.muted, marginBottom: 8 }}>{T('modal.noingredients')}</div>
+            <div style={{ fontSize: 11, color: t.dim }}>{T('modal.noingredientsbody')}</div>
           </div>
         ) : (
           <div style={{ marginBottom: 10 }}>
@@ -204,13 +207,13 @@ export function CreateRecipeModal({ visible, onClose, onSave, products }) {
         )}
 
         <Btn full variant="ghost" small onClick={() => setShowPicker(true)} style={{ marginBottom: 14 }}>
-          {products.length === 0 ? '+ Add a product first (Products tab)' : '+ Add ingredient'}
+          {products.length === 0 ? T('modal.addproductfirst') : T('modal.addingredient')}
         </Btn>
 
         {form.items.length > 0 && (
           <div style={{ background: t.greenBg, borderRadius: 14, padding: 12, marginBottom: 14, border: `1px solid ${t.greenBorder}` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <span style={{ fontSize: 12, color: t.green, fontWeight: 700 }}>TOTAL</span>
+              <span style={{ fontSize: 12, color: t.green, fontWeight: 700 }}>{T('common.total')}</span>
               <span style={{ fontSize: 18, fontWeight: 800, color: t.green }}>{Math.round(totals.kcal)} kcal</span>
             </div>
             <div style={{ display: 'flex', gap: 12, fontSize: 11.5 }}>
@@ -221,27 +224,27 @@ export function CreateRecipeModal({ visible, onClose, onSave, products }) {
           </div>
         )}
 
-        <Btn full onClick={save} style={{ opacity: canSave ? 1 : 0.4, pointerEvents: canSave ? 'auto' : 'none' }}>Save recipe</Btn>
-        <Btn full variant="outline" onClick={onClose} style={{ marginTop: 8 }}>Cancel</Btn>
+        <Btn full onClick={save} style={{ opacity: canSave ? 1 : 0.4, pointerEvents: canSave ? 'auto' : 'none' }}>{T('modal.saverecipe')}</Btn>
+        <Btn full variant="outline" onClick={onClose} style={{ marginTop: 8 }}>{T('common.cancel')}</Btn>
       </Modal>
 
       {/* Product picker sub-modal */}
-      <Modal visible={showPicker} onClose={() => setShowPicker(false)} title="Pick ingredient">
+      <Modal visible={showPicker} onClose={() => setShowPicker(false)} title={T('modal.pickingredient')}>
         {products.length === 0 ? (
           <div style={{ padding: 24, textAlign: 'center' }}>
-            <div style={{ fontSize: 13, color: t.muted, marginBottom: 8 }}>You haven't added any products yet</div>
-            <div style={{ fontSize: 11, color: t.dim, marginBottom: 14 }}>Add products in the Products tab first.</div>
-            <Btn full variant="outline" onClick={() => setShowPicker(false)}>Back</Btn>
+            <div style={{ fontSize: 13, color: t.muted, marginBottom: 8 }}>{T('modal.noproductsadded')}</div>
+            <div style={{ fontSize: 11, color: t.dim, marginBottom: 14 }}>{T('modal.noproductsaddedbody')}</div>
+            <Btn full variant="outline" onClick={() => setShowPicker(false)}>{T('common.back')}</Btn>
           </div>
         ) : (
           <>
-            <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search products..." style={{
+            <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder={T('modal.ph.searchproducts')} style={{
               width: '100%', padding: '12px 14px', borderRadius: 12,
               border: `1px solid ${t.border}`, fontSize: 14, fontFamily: 'inherit',
               color: t.text, background: t.card2, boxSizing: 'border-box', outline: 'none', marginBottom: 12,
             }} />
             {filtered.length === 0 ? (
-              <div style={{ padding: 18, textAlign: 'center', fontSize: 13, color: t.muted }}>No matches</div>
+              <div style={{ padding: 18, textAlign: 'center', fontSize: 13, color: t.muted }}>{T('modal.nomatches')}</div>
             ) : (
               filtered.map(p => (
                 <div key={p.id} onClick={() => addItem(p)} style={{
@@ -269,6 +272,7 @@ export function CreateRecipeModal({ visible, onClose, onSave, products }) {
 
 /* ═══════════════════════════ CREATE CONCEPT MODAL ═══════════════════════════ */
 export function CreateConceptModal({ visible, onClose, onSave, type, recipes }) {
+  const T = useT();
   // type: 'day' or 'week'
   const [name, setName] = useState('');
   const [image, setImage] = useState(null);
@@ -319,19 +323,19 @@ export function CreateConceptModal({ visible, onClose, onSave, type, recipes }) 
 
   return (
     <>
-      <Modal visible={visible && !showPicker} onClose={onClose} title={type === 'day' ? 'Create day concept' : 'Create week concept'}>
+      <Modal visible={visible && !showPicker} onClose={onClose} title={type === 'day' ? T('modal.createdayconcept') : T('modal.createweekconcept')}>
         <PhotoPicker value={image} onChange={setImage} />
-        <Field label="Name" value={name} onChange={setName} placeholder={type === 'day' ? 'bv. Training day 2650' : 'bv. Cut week'} />
+        <Field label={T('modal.field.name')} value={name} onChange={setName} placeholder={type === 'day' ? T('modal.ph.dayconceptname') : T('modal.ph.weekconceptname')} />
 
         {recipes.length === 0 && (
           <div style={{ padding: 14, borderRadius: 12, background: t.card2, border: `1px dashed ${t.border}`, marginBottom: 14 }}>
-            <div style={{ fontSize: 12, color: t.muted, textAlign: 'center' }}>You need recipes first.<br/>Go to Recipes tab → Create recipe.</div>
+            <div style={{ fontSize: 12, color: t.muted, textAlign: 'center' }}>{T('modal.needrecipes')}<br/>{T('modal.needrecipesbody')}</div>
           </div>
         )}
 
         {type === 'day' ? (
           <>
-            <div style={{ fontSize: 12, color: t.soft, fontWeight: 600, marginBottom: 8 }}>Meals</div>
+            <div style={{ fontSize: 12, color: t.soft, fontWeight: 600, marginBottom: 8 }}>{T('modal.meals')}</div>
             {SLOTS.map(slot => {
               const rid = dayMeals[slot];
               const r = recipes.find(x => x.id === rid);
@@ -343,7 +347,7 @@ export function CreateConceptModal({ visible, onClose, onSave, type, recipes }) 
                 }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontSize: 13, color: t.text, fontWeight: 600 }}>{slot}</div>
-                    <div style={{ fontSize: 11, color: r ? t.green : t.muted, marginTop: 2 }}>{r ? `${r.name} · ${r.kcal} kcal` : 'Tap to pick recipe'}</div>
+                    <div style={{ fontSize: 11, color: r ? t.green : t.muted, marginTop: 2 }}>{r ? `${r.name} · ${r.kcal} kcal` : T('modal.taptopickrecipe')}</div>
                   </div>
                   <Icon name={r ? 'check' : 'plus'} size={16} color={r ? t.green : t.muted} />
                 </div>
@@ -352,7 +356,7 @@ export function CreateConceptModal({ visible, onClose, onSave, type, recipes }) 
           </>
         ) : (
           <>
-            <div style={{ fontSize: 12, color: t.soft, fontWeight: 600, marginBottom: 8 }}>Days</div>
+            <div style={{ fontSize: 12, color: t.soft, fontWeight: 600, marginBottom: 8 }}>{T('modal.days')}</div>
             {WEEK.map(day => {
               const dayK = dayKcal(weekDays[day]);
               const count = Object.keys(weekDays[day] || {}).length;
@@ -360,7 +364,7 @@ export function CreateConceptModal({ visible, onClose, onSave, type, recipes }) 
                 <div key={day} style={{ padding: 10, borderRadius: 12, background: t.card2, marginBottom: 6, border: `1px solid ${t.border}` }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: count > 0 ? 8 : 0 }}>
                     <div style={{ fontSize: 13, color: t.text, fontWeight: 700 }}>{day}</div>
-                    <div style={{ fontSize: 11, color: t.muted }}>{count > 0 ? `${count} meals · ${dayK} kcal` : 'No meals'}</div>
+                    <div style={{ fontSize: 11, color: t.muted }}>{count > 0 ? T('modal.mealscount', { count, kcal: dayK }) : T('modal.nomeals')}</div>
                   </div>
                   <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                     {SLOTS.map(slot => {
@@ -385,18 +389,18 @@ export function CreateConceptModal({ visible, onClose, onSave, type, recipes }) 
         {totalKcal > 0 && (
           <div style={{ background: t.greenBg, borderRadius: 14, padding: 12, marginTop: 10, marginBottom: 14, border: `1px solid ${t.greenBorder}` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 12, color: t.green, fontWeight: 700 }}>{type === 'day' ? 'DAY TOTAL' : 'AVG/DAY'}</span>
+              <span style={{ fontSize: 12, color: t.green, fontWeight: 700 }}>{type === 'day' ? T('common.daytotal') : T('common.avgday')}</span>
               <span style={{ fontSize: 18, fontWeight: 800, color: t.green }}>{type === 'day' ? Math.round(totalKcal) : Math.round(totalKcal/7)} kcal</span>
             </div>
           </div>
         )}
 
-        <Btn full onClick={save} style={{ marginTop: 8, opacity: canSave ? 1 : 0.4, pointerEvents: canSave ? 'auto' : 'none' }}>Save concept</Btn>
-        <Btn full variant="outline" onClick={onClose} style={{ marginTop: 8 }}>Cancel</Btn>
+        <Btn full onClick={save} style={{ marginTop: 8, opacity: canSave ? 1 : 0.4, pointerEvents: canSave ? 'auto' : 'none' }}>{T('modal.saveconcept')}</Btn>
+        <Btn full variant="outline" onClick={onClose} style={{ marginTop: 8 }}>{T('common.cancel')}</Btn>
       </Modal>
 
       {/* Recipe picker */}
-      <Modal visible={!!showPicker} onClose={() => setShowPicker(null)} title={`Pick recipe for ${showPicker?.slot || ''}`}>
+      <Modal visible={!!showPicker} onClose={() => setShowPicker(null)} title={T('modal.pickrecipefor', { slot: showPicker?.slot || '' })}>
         {recipes.map(r => (
           <div key={r.id} onClick={() => pickRecipe(r)} style={{
             display: 'flex', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12,

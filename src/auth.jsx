@@ -1,48 +1,25 @@
 import { useState } from "react";
-import { t, supabase } from './lib';
-import { Btn, Field, Icon } from './shared';
+import { t, supabase, useT } from './lib';
+import { Btn, Field, Icon, Card, Label } from './shared';
 
 /* ═══════════════════════════ LOADING / CONFIG / AUTH SCREENS ═══════════════════════════ */
 export function LoadingScreen() {
+  const T = useT();
   return (
     <div style={{ background: t.bg, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 14 }}>
       <div style={{ width: 36, height: 36, borderRadius: 18, border: `3px solid ${t.border}`, borderTopColor: t.green, animation: 'spin 0.8s linear infinite' }} />
-      <div style={{ fontSize: 12, color: t.muted, letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 600 }}>Loading</div>
+      <div style={{ fontSize: 12, color: t.muted, letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 600 }}>{T('auth.loading')}</div>
     </div>
   );
 }
 
 export function ConfigError() {
+  const T = useT();
   return (
     <div style={{ background: t.bg, height: '100%', padding: '40px 24px', overflowY: 'auto' }}>
       <div style={{ fontSize: 40, marginBottom: 12 }}>⚙️</div>
-      <div style={{ fontSize: 22, fontWeight: 800, color: t.text, marginBottom: 8, letterSpacing: '-0.02em' }}>Setup needed</div>
-      <div style={{ fontSize: 14, color: t.soft, marginBottom: 22, lineHeight: 1.5 }}>Connect your Supabase project to enable accounts, login and data persistence.</div>
-
-      <Card style={{ background: t.greenBg, border: `1px solid ${t.greenBorder}`, padding: 16 }}>
-        <Label color={t.green}>1 · Create Supabase project</Label>
-        <div style={{ fontSize: 13, color: t.soft, lineHeight: 1.5, marginBottom: 10 }}>Go to <span style={{ color: t.green, fontWeight: 600 }}>supabase.com</span> → "New project" (free).</div>
-        <Label color={t.green}>2 · Copy URL + anon key</Label>
-        <div style={{ fontSize: 13, color: t.soft, lineHeight: 1.5, marginBottom: 10 }}>Dashboard → Settings → API → copy <strong>Project URL</strong> and <strong>anon public key</strong>.</div>
-        <Label color={t.green}>3 · Paste into FitnessApp.jsx</Label>
-        <div style={{ fontSize: 13, color: t.soft, lineHeight: 1.5, marginBottom: 12 }}>Lines 5-6 — replace the placeholder values.</div>
-
-        <div style={{ background: t.card2, borderRadius: 10, padding: 12, fontFamily: 'monospace', fontSize: 11.5, color: t.text, border: `1px solid ${t.border}`, lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
-{`const SUPABASE_URL = "https://abc...supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGc...";`}
-        </div>
-      </Card>
-
-      <Card style={{ padding: 16 }}>
-        <Label>4 · Run SQL schema</Label>
-        <div style={{ fontSize: 13, color: t.soft, lineHeight: 1.5, marginBottom: 10 }}>Dashboard → SQL Editor → paste the schema (see chat) → Run.</div>
-        <Label>5 · Enable providers</Label>
-        <div style={{ fontSize: 13, color: t.soft, lineHeight: 1.5 }}>Authentication → Providers → enable Email + Google (OAuth setup steps in chat).</div>
-      </Card>
-
-      <div style={{ fontSize: 11, color: t.muted, textAlign: 'center', marginTop: 18, lineHeight: 1.6 }}>
-        After saving the file, this screen will be replaced by the Welcome screen automatically.
-      </div>
+      <div style={{ fontSize: 22, fontWeight: 800, color: t.text, marginBottom: 8, letterSpacing: '-0.02em' }}>{T('auth.setupneeded')}</div>
+      <div style={{ fontSize: 14, color: t.soft, marginBottom: 22, lineHeight: 1.5 }}>{T('auth.setupbody')}</div>
     </div>
   );
 }
@@ -57,6 +34,7 @@ const GoogleLogo = () => (
 );
 
 export function AuthFlow() {
+  const T = useT();
   const [view, setView] = useState('welcome'); // welcome | email | otp
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -70,11 +48,10 @@ export function AuthFlow() {
       options: { redirectTo: window.location.origin },
     });
     if (error) { setError(error.message); setLoading(false); }
-    // else: browser redirects to Google
   };
 
   const sendCode = async () => {
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setError('Please enter a valid email address.'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setError(T('auth.invalidemail')); return; }
     setLoading(true); setError('');
     const { error } = await supabase.auth.signInWithOtp({
       email,
@@ -86,11 +63,10 @@ export function AuthFlow() {
   };
 
   const verifyCode = async () => {
-    if (code.replace(/\D/g, '').length !== 6) { setError('Enter the 6-digit code from your email.'); return; }
+    if (code.replace(/\D/g, '').length !== 6) { setError(T('auth.invalidcode')); return; }
     setLoading(true); setError('');
     const { error } = await supabase.auth.verifyOtp({ email, token: code, type: 'email' });
     if (error) { setError(error.message); setLoading(false); }
-    // onAuthStateChange in App handles success
   };
 
   if (view === 'welcome') return (
@@ -108,8 +84,8 @@ export function AuthFlow() {
         }}>
           <Icon name="flame" size={38} color="#0A0A0B" stroke={2.2} />
         </div>
-        <div style={{ fontSize: 34, fontWeight: 800, color: t.text, letterSpacing: '-0.03em', marginBottom: 10 }}>Welcome</div>
-        <div style={{ fontSize: 15, color: t.soft, textAlign: 'center', lineHeight: 1.5, maxWidth: 280 }}>Your structured coach for nutrition and training.</div>
+        <div style={{ fontSize: 34, fontWeight: 800, color: t.text, letterSpacing: '-0.03em', marginBottom: 10 }}>{T('auth.welcome')}</div>
+        <div style={{ fontSize: 15, color: t.soft, textAlign: 'center', lineHeight: 1.5, maxWidth: 280 }}>{T('auth.subtitle')}</div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, position: 'relative' }}>
@@ -119,21 +95,21 @@ export function AuthFlow() {
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
           fontFamily: 'inherit', opacity: loading ? 0.6 : 1,
         }}>
-          <GoogleLogo /> Continue with Google
+          <GoogleLogo /> {T('auth.continueGoogle')}
         </button>
         <button onClick={() => { setView('email'); setError(''); }} disabled={loading} style={{
           background: t.green, color: '#0A0A0B', border: 'none', borderRadius: 14,
           padding: '14px 20px', fontSize: 15, fontWeight: 600, cursor: 'pointer',
           fontFamily: 'inherit', opacity: loading ? 0.6 : 1,
         }}>
-          Continue with Email
+          {T('auth.continueEmail')}
         </button>
 
         {error && <div style={{ fontSize: 12, color: '#FCA5A5', textAlign: 'center', padding: '8px 12px', background: 'rgba(239,68,68,0.1)', borderRadius: 10 }}>{error}</div>}
 
         <div style={{ fontSize: 11, color: t.muted, textAlign: 'center', marginTop: 14, lineHeight: 1.6 }}>
-          🔒 Privacy-first. Your data stays yours.<br />
-          By continuing you agree to our Terms.
+          {T('auth.privacynote')}<br />
+          {T('auth.terms')}
         </div>
       </div>
     </div>
@@ -143,18 +119,18 @@ export function AuthFlow() {
     <div style={{ background: t.bg, height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ padding: '20px 20px 0' }}>
         <div onClick={() => { setView('welcome'); setError(''); }} style={{ display: 'flex', alignItems: 'center', gap: 6, color: t.soft, cursor: 'pointer', padding: 4, marginLeft: -4 }}>
-          <Icon name="chevL" size={20} /> <span style={{ fontSize: 14 }}>Back</span>
+          <Icon name="chevL" size={20} /> <span style={{ fontSize: 14 }}>{T('common.back')}</span>
         </div>
       </div>
 
       <div style={{ flex: 1, padding: '32px 24px', overflowY: 'auto' }}>
-        <div style={{ fontSize: 26, fontWeight: 800, color: t.text, letterSpacing: '-0.02em', marginBottom: 8 }}>What's your email?</div>
-        <div style={{ fontSize: 14, color: t.soft, marginBottom: 28, lineHeight: 1.5 }}>We'll send you a 6-digit code. No password needed.</div>
+        <div style={{ fontSize: 26, fontWeight: 800, color: t.text, letterSpacing: '-0.02em', marginBottom: 8 }}>{T('auth.emailtitle')}</div>
+        <div style={{ fontSize: 14, color: t.soft, marginBottom: 28, lineHeight: 1.5 }}>{T('auth.emailsub')}</div>
 
         <input
           type="email" inputMode="email" autoCapitalize="none" autoComplete="email"
           value={email} onChange={e => { setEmail(e.target.value); setError(''); }}
-          placeholder="you@example.com" autoFocus
+          placeholder={T('auth.emailph')} autoFocus
           style={{ width: '100%', padding: '15px 16px', borderRadius: 14, border: `1px solid ${t.border}`, fontSize: 16, color: t.text, background: t.card2, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 14 }}
         />
         {error && <div style={{ fontSize: 12.5, color: '#FCA5A5', padding: '10px 12px', background: 'rgba(239,68,68,0.1)', borderRadius: 10, marginBottom: 14 }}>{error}</div>}
@@ -162,7 +138,7 @@ export function AuthFlow() {
 
       <div style={{ padding: '16px 20px', borderTop: `1px solid ${t.border}` }}>
         <Btn full onClick={sendCode} style={{ opacity: loading ? 0.6 : 1 }}>
-          {loading ? 'Sending...' : 'Send code →'}
+          {loading ? T('auth.sending') : T('auth.sendcode')}
         </Btn>
       </div>
     </div>
@@ -173,13 +149,13 @@ export function AuthFlow() {
     <div style={{ background: t.bg, height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ padding: '20px 20px 0' }}>
         <div onClick={() => { setView('email'); setError(''); setCode(''); }} style={{ display: 'flex', alignItems: 'center', gap: 6, color: t.soft, cursor: 'pointer', padding: 4, marginLeft: -4 }}>
-          <Icon name="chevL" size={20} /> <span style={{ fontSize: 14 }}>Back</span>
+          <Icon name="chevL" size={20} /> <span style={{ fontSize: 14 }}>{T('common.back')}</span>
         </div>
       </div>
 
       <div style={{ flex: 1, padding: '32px 24px', overflowY: 'auto' }}>
-        <div style={{ fontSize: 26, fontWeight: 800, color: t.text, letterSpacing: '-0.02em', marginBottom: 8 }}>Check your email</div>
-        <div style={{ fontSize: 14, color: t.soft, marginBottom: 6, lineHeight: 1.5 }}>We sent a 6-digit code to</div>
+        <div style={{ fontSize: 26, fontWeight: 800, color: t.text, letterSpacing: '-0.02em', marginBottom: 8 }}>{T('auth.checkemailtitle')}</div>
+        <div style={{ fontSize: 14, color: t.soft, marginBottom: 6, lineHeight: 1.5 }}>{T('auth.codesent')}</div>
         <div style={{ fontSize: 14, color: t.green, fontWeight: 600, marginBottom: 28 }}>{email}</div>
 
         <input
@@ -191,13 +167,13 @@ export function AuthFlow() {
         {error && <div style={{ fontSize: 12.5, color: '#FCA5A5', padding: '10px 12px', background: 'rgba(239,68,68,0.1)', borderRadius: 10, marginBottom: 14 }}>{error}</div>}
 
         <div onClick={sendCode} style={{ fontSize: 13, color: t.green, fontWeight: 600, cursor: 'pointer', textAlign: 'center', padding: 8 }}>
-          Didn't get it? Resend code
+          {T('auth.resend')}
         </div>
       </div>
 
       <div style={{ padding: '16px 20px', borderTop: `1px solid ${t.border}` }}>
         <Btn full onClick={verifyCode} style={{ opacity: loading ? 0.6 : 1 }}>
-          {loading ? 'Verifying...' : 'Verify & continue →'}
+          {loading ? T('auth.verifying') : T('auth.verify')}
         </Btn>
       </div>
     </div>
