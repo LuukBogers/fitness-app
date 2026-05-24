@@ -100,8 +100,28 @@ export const weekDates = () => {
   });
 };
 
-export const monthName = () => new Date().toLocaleDateString('en-US', { month: 'long' });
-export const dayLabel = () => new Date().toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase() + ' · ' + new Date().getDate() + ' ' + new Date().toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
+// Map app lang code → BCP47 locale for Intl/toLocaleDateString
+export const localeFromLang = (lang) => ({
+  nl:'nl-NL', en:'en-US', de:'de-DE', fr:'fr-FR',
+  es:'es-ES', it:'it-IT', pt:'pt-PT', pl:'pl-PL',
+}[lang] || 'en-US');
+
+export const monthName = (lang = 'en') => new Date().toLocaleDateString(localeFromLang(lang), { month: 'long' });
+export const monthShort = (lang = 'en', date) => (date || new Date()).toLocaleDateString(localeFromLang(lang), { month: 'short' });
+export const dayLabel = (lang = 'en') => {
+  const loc = localeFromLang(lang);
+  const now = new Date();
+  return now.toLocaleDateString(loc, { weekday: 'long' }).toUpperCase() + ' · ' + now.getDate() + ' ' + now.toLocaleDateString(loc, { month: 'short' }).toUpperCase();
+};
+// Localized 3-letter weekday for day index (0=Mon..6=Sun) relative to today
+export const weekDayShort = (lang = 'en', dayIdx = 0) => {
+  const loc = localeFromLang(lang);
+  const ti = todayIdx();
+  const d = new Date(); d.setDate(d.getDate() - ti + dayIdx);
+  return d.toLocaleDateString(loc, { weekday: 'short' }).toUpperCase();
+};
+// Convert SLOT internal key ('Snack after breakfast') → i18n key ('slot.Snack_after_breakfast')
+export const slotKey = (slot) => 'slot.' + String(slot || '').replace(/\s/g, '_');
 export const fmtKey = (date) => date.toISOString().slice(0, 10);
 
 // Resize image via canvas → JPEG base64 (max 400px, ~30-60KB)

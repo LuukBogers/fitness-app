@@ -1,9 +1,10 @@
-import { t, WEEK, useApp, useT, todayIdx, weekDates, todayKey, dayLabel, fmtKey } from './lib';
+import { t, WEEK, useApp, useT, useLang, todayIdx, weekDates, todayKey, dayLabel, weekDayShort, fmtKey } from './lib';
 import { Icon, Card, Label, ProgressBar, Ring } from './shared';
 
 /* ═══════════════════════════ HOME ═══════════════════════════ */
 export function Home({ onOpenCheckIn }) {
   const T = useT();
+  const { lang } = useLang();
   const { profile, session } = useApp();
   const d = profile?.data || {};
   const userName = profile?.name || session?.user?.user_metadata?.full_name || session?.user?.email?.split('@')[0] || 'You';
@@ -65,7 +66,7 @@ export function Home({ onOpenCheckIn }) {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
         <div>
-          <div style={{ fontSize: 13, color: t.muted, fontWeight: 600, letterSpacing: '0.05em', marginBottom: 2 }}>{dayLabel()}</div>
+          <div style={{ fontSize: 13, color: t.muted, fontWeight: 600, letterSpacing: '0.05em', marginBottom: 2 }}>{dayLabel(lang)}</div>
           <div style={{ fontSize: 26, fontWeight: 800, color: t.text, letterSpacing: '-0.02em' }}>{T('home.greeting')}, {userName}</div>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -95,7 +96,7 @@ export function Home({ onOpenCheckIn }) {
             const done = checkedThisWeek[i];
             return (
               <div key={day} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-                <div style={{ fontSize: 9, color: isToday ? t.green : t.muted, fontWeight: 700, letterSpacing: '0.05em' }}>{day.toUpperCase()}</div>
+                <div style={{ fontSize: 9, color: isToday ? t.green : t.muted, fontWeight: 700, letterSpacing: '0.05em' }}>{weekDayShort(lang, i)}</div>
                 <div style={{
                   width: 34, height: 34, borderRadius: 17,
                   background: isToday ? t.green : done ? t.greenBg : t.card2,

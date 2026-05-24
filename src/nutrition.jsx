@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { t, STATUS, WEEK, SLOTS, useApp, useT, todayIdx, weekDates, todayKey, monthName, fmtKey, dayStatus } from './lib';
+import { t, STATUS, WEEK, SLOTS, useApp, useT, useLang, todayIdx, weekDates, todayKey, monthName, monthShort, weekDayShort, slotKey, fmtKey, dayStatus } from './lib';
 import { Icon, Card, Label, Btn, Chip, Modal } from './shared';
 import { CreateProductModal, CreateRecipeModal, CreateConceptModal, Toast } from './modals';
 import { BarcodeScanner, ScannedProductModal } from './barcode';
@@ -7,6 +7,7 @@ import { BarcodeScanner, ScannedProductModal } from './barcode';
 /* ═══════════════════════════ NUTRITION ═══════════════════════════ */
 export function Nutrition() {
   const T = useT();
+  const { lang } = useLang();
   const { profile, saveProfileData } = useApp();
   const d = profile?.data || {};
   const products = Array.isArray(d.products) ? d.products : [];
@@ -181,7 +182,7 @@ export function Nutrition() {
                       background: isSel ? t.card3 : 'transparent',
                       border: `1px solid ${isSel ? t.border : 'transparent'}`,
                     }}>
-                      <div style={{ fontSize: 9, color: t.muted, fontWeight: 700, letterSpacing: '0.05em' }}>{day.toUpperCase()}</div>
+                      <div style={{ fontSize: 9, color: t.muted, fontWeight: 700, letterSpacing: '0.05em' }}>{weekDayShort(lang, i)}</div>
                       <div style={{ fontSize: 14, color: t.text, fontWeight: 700 }}>{dates[i]}</div>
                       <div style={{ width: 24, height: 4, borderRadius: 2, background: sc.dot, opacity: dayStatuses[i] === 'gray' ? 0.4 : 1 }} />
                     </div>
@@ -202,7 +203,7 @@ export function Nutrition() {
             </Card>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '20px 4px 12px' }}>
-              <div style={{ fontSize: 17, fontWeight: 700, color: t.text }}>{selDayName}, {dates[selectedDay]} {monthName().slice(0,3)}</div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: t.text }}>{weekDayShort(lang, selectedDay).charAt(0) + weekDayShort(lang, selectedDay).slice(1).toLowerCase()}, {dates[selectedDay]} {monthShort(lang)}</div>
               <div style={{ fontSize: 12, color: t.soft }}>{slotMeals.reduce((s,m)=>s+(m.eaten?m.kcal:0),0)} / {calories || '—'} kcal</div>
             </div>
 
@@ -224,7 +225,7 @@ export function Nutrition() {
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{m.slot}</div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{T(slotKey(m.slot))}</div>
                         {m.eaten && <span style={{ fontSize: 9, color: t.green, fontWeight: 700, background: t.greenBg, padding: '2px 6px', borderRadius: 5, letterSpacing: '0.05em' }}>{T('common.eaten')}</span>}
                       </div>
                       <div style={{ fontSize: 12, color: t.soft, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -402,7 +403,7 @@ export function Nutrition() {
       </div>
 
       {/* Meal options */}
-      <Modal visible={showMealOptions !== null} onClose={() => setShowMealOptions(null)} title={showMealOptions !== null ? slotMeals[showMealOptions].slot : ''}>
+      <Modal visible={showMealOptions !== null} onClose={() => setShowMealOptions(null)} title={showMealOptions !== null ? T(slotKey(slotMeals[showMealOptions].slot)) : ''}>
         <Btn full variant="ghost" style={{ marginBottom: 8 }}>{T('nutr.choosereciple')}</Btn>
         <Btn full variant="ghost" style={{ marginBottom: 8 }}>{T('nutr.scanproduct')}</Btn>
         <Btn full variant="ghost" style={{ marginBottom: 8 }}>{showMealOptions !== null && slotMeals[showMealOptions].locked ? T('nutr.unlockmeal') : T('nutr.lockmeal')}</Btn>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { t, newId, useT, resizeImage, SLOTS, WEEK, CAT_OPTS, SHELF_OPTS, STORE_OPTS } from './lib';
+import { t, newId, useT, resizeImage, slotKey, SLOTS, WEEK, CAT_OPTS, SHELF_OPTS, STORE_OPTS } from './lib';
 import { Icon, Btn, Modal, Field, Select } from './shared';
 
 /* ═══════════════════════════ PHOTO PICKER ═══════════════════════════ */
@@ -346,7 +346,7 @@ export function CreateConceptModal({ visible, onClose, onSave, type, recipes }) 
                   border: `1px solid ${r ? t.greenBorder : t.border}`, opacity: recipes.length > 0 ? 1 : 0.4,
                 }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, color: t.text, fontWeight: 600 }}>{slot}</div>
+                    <div style={{ fontSize: 13, color: t.text, fontWeight: 600 }}>{T(slotKey(slot))}</div>
                     <div style={{ fontSize: 11, color: r ? t.green : t.muted, marginTop: 2 }}>{r ? `${r.name} · ${r.kcal} kcal` : T('modal.taptopickrecipe')}</div>
                   </div>
                   <Icon name={r ? 'check' : 'plus'} size={16} color={r ? t.green : t.muted} />
@@ -376,7 +376,7 @@ export function CreateConceptModal({ visible, onClose, onSave, type, recipes }) 
                           background: r ? t.greenBg : t.card3, color: r ? t.green : t.muted,
                           border: `1px solid ${r ? t.greenBorder : t.border}`,
                           cursor: recipes.length > 0 ? 'pointer' : 'default',
-                        }}>{slot.replace('Snack after ', 'S-').slice(0, 8)}{r ? ' ✓' : ''}</div>
+                        }}>{T(slotKey(slot)).slice(0, 8)}{r ? ' ✓' : ''}</div>
                       );
                     })}
                   </div>
@@ -400,7 +400,7 @@ export function CreateConceptModal({ visible, onClose, onSave, type, recipes }) 
       </Modal>
 
       {/* Recipe picker */}
-      <Modal visible={!!showPicker} onClose={() => setShowPicker(null)} title={T('modal.pickrecipefor', { slot: showPicker?.slot || '' })}>
+      <Modal visible={!!showPicker} onClose={() => setShowPicker(null)} title={T('modal.pickrecipefor', { slot: showPicker?.slot ? T(slotKey(showPicker.slot)) : '' })}>
         {recipes.map(r => (
           <div key={r.id} onClick={() => pickRecipe(r)} style={{
             display: 'flex', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12,

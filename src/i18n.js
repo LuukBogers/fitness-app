@@ -353,6 +353,13 @@ export const TRANSLATIONS = {
     'shelf.shelf': "Shelf stable",
     'shelf.refrigerated': "Refrigerated",
     'shelf.fresh': "Fresh",
+    'slot.Breakfast': "Breakfast",
+    'slot.Snack_after_breakfast': "Snack 1",
+    'slot.Lunch': "Lunch",
+    'slot.Snack_after_lunch': "Snack 2",
+    'slot.Dinner': "Dinner",
+    'slot.Snack_after_dinner': "Snack 3",
+
 
   },
 
@@ -672,7 +679,14 @@ export const TRANSLATIONS = {
     "recipe.cat.other": "Overig",
     "shelf.shelf": "Houdbaar",
     "shelf.refrigerated": "Gekoeld",
-    "shelf.fresh": "Vers"
+    "shelf.fresh": "Vers",
+    'slot.Breakfast': "Ontbijt",
+    'slot.Snack_after_breakfast': "Tussendoor 1",
+    'slot.Lunch': "Lunch",
+    'slot.Snack_after_lunch': "Tussendoor 2",
+    'slot.Dinner': "Diner",
+    'slot.Snack_after_dinner': "Tussendoor 3",
+
 
   },
 
@@ -992,7 +1006,14 @@ export const TRANSLATIONS = {
     "recipe.cat.other": "Sonstiges",
     "shelf.shelf": "Haltbar",
     "shelf.refrigerated": "Gekühlt",
-    "shelf.fresh": "Frisch"
+    "shelf.fresh": "Frisch",
+    'slot.Breakfast': "Frühstück",
+    'slot.Snack_after_breakfast': "Snack 1",
+    'slot.Lunch': "Mittagessen",
+    'slot.Snack_after_lunch': "Snack 2",
+    'slot.Dinner': "Abendessen",
+    'slot.Snack_after_dinner': "Snack 3",
+
 
   },
 
@@ -1312,7 +1333,14 @@ export const TRANSLATIONS = {
     "recipe.cat.other": "Autre",
     "shelf.shelf": "Étagère",
     "shelf.refrigerated": "Réfrigéré",
-    "shelf.fresh": "Frais"
+    "shelf.fresh": "Frais",
+    'slot.Breakfast': "Petit-déjeuner",
+    'slot.Snack_after_breakfast': "Collation 1",
+    'slot.Lunch': "Déjeuner",
+    'slot.Snack_after_lunch': "Collation 2",
+    'slot.Dinner': "Dîner",
+    'slot.Snack_after_dinner': "Collation 3",
+
 
   },
 
@@ -1632,7 +1660,14 @@ export const TRANSLATIONS = {
     "recipe.cat.other": "Otros",
     "shelf.shelf": "Despensa",
     "shelf.refrigerated": "Refrigerado",
-    "shelf.fresh": "Fresco"
+    "shelf.fresh": "Fresco",
+    'slot.Breakfast': "Desayuno",
+    'slot.Snack_after_breakfast': "Snack 1",
+    'slot.Lunch': "Almuerzo",
+    'slot.Snack_after_lunch': "Snack 2",
+    'slot.Dinner': "Cena",
+    'slot.Snack_after_dinner': "Snack 3",
+
 
   },
 
@@ -1952,7 +1987,14 @@ export const TRANSLATIONS = {
     "recipe.cat.other": "Altro",
     "shelf.shelf": "Dispensa",
     "shelf.refrigerated": "Refrigerato",
-    "shelf.fresh": "Fresco"
+    "shelf.fresh": "Fresco",
+    'slot.Breakfast': "Colazione",
+    'slot.Snack_after_breakfast': "Spuntino 1",
+    'slot.Lunch': "Pranzo",
+    'slot.Snack_after_lunch': "Spuntino 2",
+    'slot.Dinner': "Cena",
+    'slot.Snack_after_dinner': "Spuntino 3",
+
 
   },
 
@@ -2272,7 +2314,14 @@ export const TRANSLATIONS = {
     "recipe.cat.other": "Outro",
     "shelf.shelf": "Despensa",
     "shelf.refrigerated": "Refrigerado",
-    "shelf.fresh": "Fresco"
+    "shelf.fresh": "Fresco",
+    'slot.Breakfast': "Pequeno-almoço",
+    'slot.Snack_after_breakfast': "Snack 1",
+    'slot.Lunch': "Almoço",
+    'slot.Snack_after_lunch': "Snack 2",
+    'slot.Dinner': "Jantar",
+    'slot.Snack_after_dinner': "Snack 3",
+
 
   },
 
@@ -2592,7 +2641,14 @@ export const TRANSLATIONS = {
     "recipe.cat.other": "Inne",
     "shelf.shelf": "Spiżarnia",
     "shelf.refrigerated": "Chłodzone",
-    "shelf.fresh": "Świeże"
+    "shelf.fresh": "Świeże",
+    'slot.Breakfast': "Śniadanie",
+    'slot.Snack_after_breakfast': "Przekąska 1",
+    'slot.Lunch': "Lunch",
+    'slot.Snack_after_lunch': "Przekąska 2",
+    'slot.Dinner': "Kolacja",
+    'slot.Snack_after_dinner': "Przekąska 3",
+
 
   },
 };

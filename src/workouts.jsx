@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { t, WEEK, useApp, useT, todayIdx, weekDates, todayKey, monthName, fmtKey } from './lib';
+import { t, WEEK, useApp, useT, useLang, todayIdx, weekDates, todayKey, monthName, monthShort, weekDayShort, fmtKey } from './lib';
 import { Icon, Card, Label, Btn, Chip, Modal } from './shared';
 import { Toast } from './modals';
 import { EXMAP_LEN } from './home';
@@ -7,6 +7,7 @@ import { EXMAP_LEN } from './home';
 /* ═══════════════════════════ WORKOUTS ═══════════════════════════ */
 export function Workouts() {
   const T = useT();
+  const { lang } = useLang();
   const { profile, saveProfileData } = useApp();
   const d = profile?.data || {};
   const workouts = Array.isArray(d.workouts) ? d.workouts : [];
@@ -108,7 +109,7 @@ export function Workouts() {
                         border: `1px solid ${done ? t.greenBorder : w ? t.orangeBorder : t.border}`,
                         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                       }}>
-                        <div style={{ fontSize: 9, color: done ? t.green : w ? t.orange : t.muted, fontWeight: 700 }}>{day.slice(0,3).toUpperCase()}</div>
+                        <div style={{ fontSize: 9, color: done ? t.green : w ? t.orange : t.muted, fontWeight: 700 }}>{weekDayShort(lang, i)}</div>
                         <div style={{ fontSize: 14, color: t.text, fontWeight: 700, marginTop: -1 }}>{dates[i]}</div>
                       </div>
                       <div style={{ flex: 1 }}>
@@ -159,7 +160,7 @@ export function Workouts() {
         )}
       </div>
 
-      <Modal visible={showDayDetail} onClose={() => setShowDayDetail(false)} title={`${selDayName}, ${dates[selectedDay]} ${monthName().slice(0,3)}`} accent="orange">
+      <Modal visible={showDayDetail} onClose={() => setShowDayDetail(false)} title={`${weekDayShort(lang, selectedDay).charAt(0) + weekDayShort(lang, selectedDay).slice(1).toLowerCase()}, ${dates[selectedDay]} ${monthShort(lang)}`} accent="orange">
         {(() => {
           const w = workoutPlan[selDayName];
           const done = workoutLog[selDateKey]?.completed || false;

@@ -28,9 +28,28 @@ export function BarcodeScanner({ visible, onClose, onResult }) {
   const [manual, setManual] = useState('');
   const [showManual, setShowManual] = useState(false);
 
+  // Hard-stop the active camera stream + ZXing controls.
+  // Without this, on some browsers the <video> element keeps its (now-frozen)
+  // last frame or shows a default blue background, leaving the UI stuck.
+  const stopStream = () => {
+    try { controlsRef.current?.stop(); } catch(e) {}
+    controlsRef.current = null;
+    try {
+      const v = videoRef.current;
+      if (v) {
+        const s = v.srcObject;
+        if (s && s.getTracks) s.getTracks().forEach(tr => { try { tr.stop(); } catch(e) {} });
+        v.srcObject = null;
+        v.pause?.();
+        v.removeAttribute('src');
+        v.load?.();
+      }
+    } catch(e) {}
+  };
+
   useEffect(() => {
     if (!visible) {
-      if (controlsRef.current) { try { controlsRef.current.stop(); } catch(e) {} controlsRef.current = null; }
+      stopStream();
       setStatus('init'); setErrMsg(''); setShowManual(false); setManual('');
       return;
     }
@@ -50,13 +69,14 @@ export function BarcodeScanner({ visible, onClose, onResult }) {
           constraints,
           videoRef.current,
           (result, err, ctrls) => {
-            if (cancelled) { ctrls?.stop(); return; }
+            if (cancelled) { try { ctrls?.stop(); } catch(e) {} return; }
             if (result) {
               const code = result.getText();
               try { navigator.vibrate?.(80); } catch(e) {}
-              ctrls?.stop();
-              controlsRef.current = null;
-              onResult(code);
+              // Stop EVERYTHING before bubbling up so the modal opens on a clean screen
+              stopStream();
+              // Defer to next tick so React unmounts the video before parent flips state
+              setTimeout(() => { try { onResult(code); } catch(e) {} }, 0);
             }
           }
         );
@@ -71,7 +91,7 @@ export function BarcodeScanner({ visible, onClose, onResult }) {
 
     return () => {
       cancelled = true;
-      if (controlsRef.current) { try { controlsRef.current.stop(); } catch(e) {} controlsRef.current = null; }
+      stopStream();
     };
   }, [visible, onResult]);
 
