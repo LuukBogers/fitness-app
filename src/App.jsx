@@ -85,6 +85,7 @@ function App() {
   const [profile, setProfile] = useState(null);
   const [tab, setTab] = useState('home');
   const [showCheckIn, setShowCheckIn] = useState(false);
+  const [autoStartWorkout, setAutoStartWorkout] = useState(false);
   // Language: start with localStorage → browser detect → en
   const [lang, setLangState] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -367,9 +368,9 @@ function App() {
             {phase === 'main' && (
               <SwipeTabs tab={tab} setTab={setTab}>
                 <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
-                  {tab === 'home' && <Home onOpenCheckIn={() => setShowCheckIn(true)} />}
+                  {tab === 'home' && <Home onOpenCheckIn={() => setShowCheckIn(true)} onStartTodayWorkout={() => { setTab('workouts'); setAutoStartWorkout(true); }} />}
                   {tab === 'nutrition' && <Nutrition />}
-                  {tab === 'workouts' && <Workouts />}
+                  {tab === 'workouts' && <Workouts autoStart={autoStartWorkout} onConsumedAutoStart={() => setAutoStartWorkout(false)} />}
                   {tab === 'settings' && <Settings />}
                 </div>
                 <BottomNav tab={tab} setTab={setTab} />

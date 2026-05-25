@@ -4,7 +4,7 @@ import { Icon, Card, Label, ProgressBar, Ring } from './shared';
 import { HomeBell, NotificationsModal, CheckinHistoryModal } from './notifications';
 
 /* ═══════════════════════════ HOME ═══════════════════════════ */
-export function Home({ onOpenCheckIn }) {
+export function Home({ onOpenCheckIn, onStartTodayWorkout }) {
   const T = useT();
   const { lang } = useLang();
   const { profile, session } = useApp();
@@ -162,7 +162,7 @@ export function Home({ onOpenCheckIn }) {
       </Card>
 
       {/* Block 3: Workout Status */}
-      <Card style={{ position: 'relative', overflow: 'hidden' }}>
+      <Card onClick={todayWorkout && !todayDone ? onStartTodayWorkout : undefined} style={{ position: 'relative', overflow: 'hidden', cursor: todayWorkout && !todayDone ? 'pointer' : 'default' }}>
         <div style={{ position: 'absolute', top: -50, right: -40, width: 160, height: 160, background: `radial-gradient(circle, rgba(249,115,22,0.12), transparent 70%)`, pointerEvents: 'none' }} />
         <div style={{ position: 'relative' }}>
         <Label color={t.orange}>{T('home.todaysworkout')}</Label>
