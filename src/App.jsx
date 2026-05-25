@@ -199,6 +199,18 @@ function App() {
             .eq('id', session.user.id);
           data.data = mergedData;
         }
+
+        // Backfill: if onboarded but calories=0 (legacy users), recompute via Mifflin-St Jeor
+        if (data.data && !data.data.calories && (data.data.age || data.data.weight)) {
+          const m = computePlan(data.data);
+          if (m) {
+            const newData = { ...(data.data || {}), ...m };
+            await supabase.from('profiles')
+              .update({ data: newData, updated_at: new Date().toISOString() })
+              .eq('id', session.user.id);
+            data.data = newData;
+          }
+        }
         setProfile(data);
         // Restore language from profile if set
         if (data.data?.language) {
@@ -222,30 +234,57 @@ function App() {
     })();
   }, [lang, session, profile?.id]);
 
-  const completeOnboarding = async (onboardingData) => {
-    const age = parseInt(onboardingData.age) || 28;
-    const h = parseInt(onboardingData.height) || 175;
-    const w = parseFloat(onboardingData.weight) || 75;
-    const bmr = onboardingData.gender === 'female'
+  // Mifflin-St Jeor + deficit/surplus → returns {calories, protein, carbs, fat} or null if no data
+  const computePlan = (d) => {
+    if (!d) return null;
+    const age = parseInt(d.age) || 0;
+    const h = parseInt(d.height) || 0;
+    const w = parseFloat(d.weight) || 0;
+    if (!w || !h || !age) return null;
+    const bmr = d.gender === 'female'
       ? Math.round(10 * w + 6.25 * h - 5 * age - 161)
       : Math.round(10 * w + 6.25 * h - 5 * age + 5);
-    const mult = { Low: 1.2, Average: 1.375, High: 1.55, 'Very high': 1.725 }[onboardingData.activity] || 1.375;
+    const mult = { Low: 1.4, Average: 1.55, High: 1.7, 'Very high': 1.8 }[d.activity] || 1.55;
     const maint = Math.round(bmr * mult);
-    const deficit = onboardingData.goal === 'Cutting' ? 500 : onboardingData.goal === 'Fat loss' ? 300 : 0;
-    const calories = maint - deficit;
-    const protein = Math.round(w * (onboardingData.goalDetail === 'Mini cut' ? 2.5 : onboardingData.goal === 'Cutting' ? 2.4 : 2.2));
+    const deficit = d.goal === 'Cutting' ? -500
+                  : d.goal === 'Fat loss' ? -300
+                  : d.goal === 'Lean bulk' ? +200
+                  : d.goal === 'Bulk' ? +500
+                  : 0;
+    const calories = Math.max(1200, maint + deficit);
+    const protein = Math.round(w * (d.goalDetail === 'Mini cut' ? 2.5 : d.goal === 'Cutting' ? 2.4 : 2.2));
     const fat = Math.round(w * 0.7);
     const carbs = Math.max(0, Math.round((calories - protein * 4 - fat * 9) / 4));
+    return { calories, protein, carbs, fat, bmr, maint };
+  };
 
+  const completeOnboarding = async (onboardingData) => {
+    const plan = computePlan(onboardingData) || { calories: 2000, protein: 150, carbs: 200, fat: 60 };
+
+    const existing = profile?.data || {};
     const fullData = {
+      // Preserve existing logs/library when re-running onboarding
+      streak: existing.streak || 0,
+      weights: existing.weights || (onboardingData.weight ? [{ date: todayKey(), weight: parseFloat(onboardingData.weight) }] : []),
+      checkIns: existing.checkIns || {},
+      meals: existing.meals || {},
+      products: existing.products || [],
+      recipes: existing.recipes || [],
+      concepts: existing.concepts || [],
+      workouts: existing.workouts || [],
+      workoutPlan: existing.workoutPlan || {},
+      workoutLog: existing.workoutLog || {},
+      grocerySkips: existing.grocerySkips || {},
+      // Save the "automatic plan" snapshot so Return-to-automatic can restore it
+      autoPlan: { ...plan },
+      manualOverride: false,
+      // Spread onboarding form data + computed plan on top
       ...onboardingData,
       language: lang,
-      calories, protein, carbs, fat,
-      streak: 0,
-      weights: w ? [{ date: todayKey(), weight: w }] : [],
-      checkIns: {}, meals: {},
-      products: [], recipes: [], concepts: [],
-      workouts: [], workoutPlan: {}, workoutLog: {},
+      calories: plan.calories,
+      protein: plan.protein,
+      carbs: plan.carbs,
+      fat: plan.fat,
     };
 
     const update = {
@@ -303,7 +342,7 @@ function App() {
     }}>
       <div style={phoneStyle}>
         <LangContext.Provider value={{ lang, setLang }}>
-          <AppContext.Provider value={{ session, profile, signOut, saveProfileData }}>
+          <AppContext.Provider value={{ session, profile, signOut, saveProfileData, restartOnboarding: () => setPhase('onboarding') }}>
             {phase === 'loading' && <LoadingScreen />}
             {phase === 'config' && <ConfigError />}
             {phase === 'auth' && <AuthFlow />}
