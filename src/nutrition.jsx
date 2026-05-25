@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { t, STATUS, WEEK, SLOTS, useApp, useT, useLang, todayIdx, weekDates, todayKey, monthName, monthShort, weekDayShort, slotKey, fmtKey, dayStatus } from './lib';
-import { Icon, Card, Label, Btn, Chip, Modal, Field } from './shared';
+import { Icon, Card, Label, Btn, Chip, Modal, Field, Ring } from './shared';
 import { CreateProductModal, CreateRecipeModal, CreateConceptModal, ProductActionsModal, EditPhotoModal, Toast } from './modals';
 import { ProductDetailModal } from './logflow';
 import { LogLibrary } from './loglibrary';
@@ -441,25 +441,11 @@ export function Nutrition() {
                   { label: T('macros.carbs'),   color: t.carbs,   target: d.carbs   || 0, value: eatenTotals.c, icon: 'wheat' },
                   { label: T('macros.protein'), color: t.protein, target: d.protein || 0, value: eatenTotals.p, icon: 'egg' },
                   { label: T('macros.fat'),     color: t.fat,     target: d.fat     || 0, value: eatenTotals.f, icon: 'drop' },
-                ].map(macro => {
-                  const noTarget = !macro.target;
-                  const ratio = noTarget ? 0 : macro.value / macro.target;
-                  const pct = Math.round(ratio * 100);
-                  const diff = Math.round(macro.value - macro.target);
-                  return (
-                    <div key={macro.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                      <div style={{ fontSize: 10.5, color: macro.color, fontWeight: 700, marginBottom: 8, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{macro.label}</div>
-                      <MacroRing percent={pct} color={macro.color} size={68} value={Math.round(macro.value)} noTarget={noTarget} />
-                      <div style={{ fontSize: 11, color: noTarget ? t.muted : (ratio > 1 ? t.warning : t.muted), fontWeight: 700, marginTop: 8 }}>
-                        {noTarget
-                          ? T('day.macros.eaten', { g: Math.round(macro.value) })
-                          : ratio > 1
-                            ? T('day.macros.over', { g: Math.abs(diff) })
-                            : T('day.macros.left', { g: Math.max(0, -diff) })}
-                      </div>
-                    </div>
-                  );
-                })}
+                ].map(macro => (
+                  <div key={macro.label} style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+                    <Ring value={Math.round(macro.value)} max={macro.target || 1} color={macro.color} label={macro.label} size={68} />
+                  </div>
+                ))}
               </div>
             </Card>
 

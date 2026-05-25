@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { t, WEEK, useApp, useT, useLang, todayIdx, weekDates, todayKey, dayLabel, weekDayShort, fmtKey } from './lib';
-import { Icon, Card, Label, ProgressBar, Ring } from './shared';
+import { Icon, Card, Label, ProgressBar, Ring, MacroRing } from './shared';
 import { HomeBell, NotificationsModal, CheckinHistoryModal } from './notifications';
 
 /* ═══════════════════════════ HOME ═══════════════════════════ */
@@ -182,9 +182,29 @@ export function Home({ onOpenCheckIn, onStartTodayWorkout }) {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 20, paddingTop: 18, borderTop: `1px solid ${t.border}`, position: 'relative' }}>
-          <Ring value={Math.round(eatenP)} max={protein || 1} color={t.protein} label={T('macros.protein')} />
-          <Ring value={Math.round(eatenC)} max={carbs || 1} color={t.carbs} label={T('macros.carbs')} />
-          <Ring value={Math.round(eatenF)} max={fat || 1} color={t.fat} label={T('macros.fat')} />
+          {[
+            { label: T('macros.carbs'),   color: t.carbs,   target: carbs   || 0, value: eatenC },
+            { label: T('macros.protein'), color: t.protein, target: protein || 0, value: eatenP },
+            { label: T('macros.fat'),     color: t.fat,     target: fat     || 0, value: eatenF },
+          ].map(macro => {
+            const noTarget = !macro.target;
+            const ratio = noTarget ? 0 : macro.value / macro.target;
+            const pct = Math.round(ratio * 100);
+            const diff = Math.round(macro.value - macro.target);
+            return (
+              <div key={macro.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div style={{ fontSize: 10.5, color: macro.color, fontWeight: 700, marginBottom: 8, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{macro.label}</div>
+                <MacroRing percent={pct} color={macro.color} size={68} value={Math.round(macro.value)} noTarget={noTarget} />
+                <div style={{ fontSize: 11, color: noTarget ? t.muted : (ratio > 1 ? t.warning : t.muted), fontWeight: 700, marginTop: 8 }}>
+                  {noTarget
+                    ? T('day.macros.eaten', { g: Math.round(macro.value) })
+                    : ratio > 1
+                      ? T('day.macros.over', { g: Math.abs(diff) })
+                      : T('day.macros.left', { g: Math.max(0, -diff) })}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </Card>
 

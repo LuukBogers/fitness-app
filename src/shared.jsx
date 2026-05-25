@@ -143,6 +143,36 @@ export const Ring = ({ value, max, color, label, size = 64 }) => {
   );
 };
 
+export const MacroRing = ({ percent = 0, color = '#22C55E', size = 68, value, noTarget }) => {
+  const stroke = 6;
+  const radius = (size - stroke) / 2;
+  const C = 2 * Math.PI * radius;
+  const clamped = Math.min(Math.max(percent, 0), 150);
+  const dash = (Math.min(clamped, 100) / 100) * C;
+  const showOver = clamped > 100;
+  return (
+    <div style={{ position: 'relative', width: size, height: size }}>
+      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={size/2} cy={size/2} r={radius} stroke="rgba(255,255,255,0.08)" strokeWidth={stroke} fill="none" />
+        {!noTarget && (
+          <circle cx={size/2} cy={size/2} r={radius} stroke={color} strokeWidth={stroke} fill="none"
+            strokeDasharray={`${dash} ${C}`} strokeLinecap="round" />
+        )}
+      </svg>
+      <div style={{
+        position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: size * 0.26, fontWeight: 800, color: showOver ? '#FFB84D' : color, letterSpacing: '-0.02em',
+      }}>
+        {noTarget ? (
+          <>{value || 0}<span style={{ fontSize: '0.55em', marginLeft: 1 }}>g</span></>
+        ) : (
+          <>{Math.round(percent)}<span style={{ fontSize: '0.55em', marginLeft: 1 }}>%</span></>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export const Modal = ({ visible, onClose, title, children, accent = 'green' }) => {
   if (!visible) return null;
   return (
