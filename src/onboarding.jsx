@@ -23,7 +23,7 @@ export function Onboarding({ onComplete }) {
     activity: '', strength: '', cardio: '',
     goal: '', goalDetail: '', macroStructure: '',
     trainingStructure: 'fixed', // default to recommended
-    weekSchedule: { Mon: 'Back', Tue: 'Chest', Wed: 'Rest', Thu: 'Legs', Fri: 'Rest', Sat: 'Upper', Sun: 'Rest' },
+    workoutPlan: { Mon: 'Back', Tue: 'Chest', Wed: 'Rest', Thu: 'Legs', Fri: 'Rest', Sat: 'Upper', Sun: 'Rest' },
     notif: { weigh: true, checkin: true, photoSat: true, photoSun: true },
   });
   const up = (k, v) => setD(p => ({ ...p, [k]: v }));
@@ -272,7 +272,7 @@ export function Onboarding({ onComplete }) {
               <div style={{ fontSize: 11, color: t.muted, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 10 }}>{T('onb.training.example')}</div>
               {WEEK.map(day => {
                 const dayKey = `onb.day.${day}`;
-                const v = d.weekSchedule?.[day] || 'Rest';
+                const v = d.workoutPlan?.[day] || 'Rest';
                 return (
                   <div key={day} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', fontSize: 13, color: t.soft }}>
                     <span>{T(dayKey)}</span>

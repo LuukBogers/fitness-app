@@ -214,6 +214,16 @@ function App() {
           }
         }
 
+        // Migration: legacy weekSchedule field → canonical workoutPlan
+        // (early settings/onboarding versions wrote weekSchedule, but Workouts + Home read workoutPlan)
+        if (data.data?.weekSchedule && (!data.data?.workoutPlan || Object.keys(data.data.workoutPlan).length === 0)) {
+          const newData = { ...(data.data || {}), workoutPlan: data.data.weekSchedule, weekSchedule: null };
+          await supabase.from('profiles')
+            .update({ data: newData, updated_at: new Date().toISOString() })
+            .eq('id', session.user.id);
+          data.data = newData;
+        }
+
         // Run coach evaluator on every profile load (cheap, idempotent via mergeNotifications)
         try {
           const fresh = evaluateCoachTriggers(data.data || {});

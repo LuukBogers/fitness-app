@@ -40,6 +40,33 @@ export function Home({ onOpenCheckIn, onStartTodayWorkout }) {
   const todayWorkout = workoutPlan[todayDayName] || null;
   const todayDone = workoutLog[tKey]?.completed || false;
 
+  // "Your next workout" — if today is rest or done, look forward up to 7 days
+  const findNextWorkout = () => {
+    for (let offset = 0; offset < 7; offset++) {
+      const i = (ti + offset) % 7;
+      const w = workoutPlan[WEEK[i]];
+      if (!w || w === 'Rest') continue;
+      const dt = new Date(); dt.setDate(dt.getDate() + offset);
+      const dk = fmtKey(dt);
+      const done = workoutLog[dk]?.completed || false;
+      if (offset === 0 && done) continue; // today's already done, look further
+      return { name: w, dayIdx: i, offset, done };
+    }
+    return null;
+  };
+  const nextWorkout = findNextWorkout();
+  const planDayCount = Object.values(workoutPlan).filter(v => v && v !== 'Rest').length;
+  const userFullName = profile?.name || userName;
+  const planLabel = planDayCount > 0 ? `${userFullName} — ${planDayCount} ${T('home.daysweek')}` : null;
+
+  // Localize workout name for display
+  const localizeWoName = (name) => {
+    if (!name || name === 'Rest') return T('wo.restday');
+    const key = `set.wo.${name.toLowerCase()}`;
+    const tr = T(key);
+    return tr && tr !== key ? tr : name;
+  };
+
   // Check-in done check
   const checkedThisWeek = WEEK.map((_, i) => {
     const dt = new Date(); dt.setDate(dt.getDate() - ti + i);
@@ -161,42 +188,61 @@ export function Home({ onOpenCheckIn, onStartTodayWorkout }) {
         </div>
       </Card>
 
-      {/* Block 3: Workout Status */}
-      <Card onClick={todayWorkout && !todayDone ? onStartTodayWorkout : undefined} style={{ position: 'relative', overflow: 'hidden', cursor: todayWorkout && !todayDone ? 'pointer' : 'default' }}>
-        <div style={{ position: 'absolute', top: -50, right: -40, width: 160, height: 160, background: `radial-gradient(circle, rgba(249,115,22,0.12), transparent 70%)`, pointerEvents: 'none' }} />
-        <div style={{ position: 'relative' }}>
-        <Label color={t.orange}>{T('home.todaysworkout')}</Label>
-        {todayWorkout ? (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div style={{
-                width: 48, height: 48, borderRadius: 14,
-                background: todayDone ? t.metalGreen : t.metalOrange,
-                boxShadow: todayDone ? `0 0 18px rgba(34,197,94,0.4)` : `0 0 18px rgba(249,115,22,0.4)`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                border: `1px solid ${todayDone ? t.greenBorder : t.orangeBorder}`,
-              }}>
-                <Icon name={todayDone ? "check" : "workout"} size={22} color="#0A0A0B" stroke={2.6} />
+      {/* Block 3: Your Next Workout (premium prominent card) */}
+      {nextWorkout ? (
+        <>
+          <div style={{ fontSize: 14.5, fontWeight: 700, color: t.text, padding: '4px 4px 10px', marginTop: 6, letterSpacing: '-0.01em' }}>
+            {T('home.nextworkout')}
+          </div>
+          <Card onClick={onStartTodayWorkout} style={{
+            padding: 18, position: 'relative', overflow: 'hidden', cursor: 'pointer',
+            background: `linear-gradient(135deg, ${t.card} 0%, ${t.card2} 100%)`,
+            boxShadow: `0 8px 28px rgba(0,0,0,0.45), 0 0 0 1px ${t.borderStrong} inset, ${t.innerHi}`,
+          }}>
+            <div style={{ position: 'absolute', top: -60, right: -40, width: 180, height: 180, background: `radial-gradient(circle, rgba(255,59,92,0.15), transparent 70%)`, pointerEvents: 'none' }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {planLabel && (
+                  <div style={{ fontSize: 11, fontWeight: 700, color: t.muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
+                    {planLabel}
+                  </div>
+                )}
+                <div style={{ fontSize: 30, fontWeight: 800, color: t.text, letterSpacing: '-0.025em', lineHeight: 1.1 }}>
+                  {localizeWoName(nextWorkout.name)}
+                </div>
+                {nextWorkout.offset > 0 && (
+                  <div style={{ fontSize: 12, color: t.soft, marginTop: 4 }}>
+                    {nextWorkout.offset === 1 ? T('home.tomorrow') : T('home.indays', { days: nextWorkout.offset })}
+                  </div>
+                )}
+                {nextWorkout.offset === 0 && todayDone && (
+                  <div style={{ fontSize: 12, color: t.green, marginTop: 4, fontWeight: 700 }}>
+                    ✓ {T('home.completed')}
+                  </div>
+                )}
               </div>
-              <div>
-                <div style={{ fontSize: 17, fontWeight: 800, color: t.text }}>{todayWorkout}</div>
-                <div style={{ fontSize: 12.5, color: t.soft }}>{todayDone ? '✓ ' + T('home.completed') : T('home.taptostart')}</div>
+              <div style={{ width: 44, height: 44, borderRadius: 14, background: t.metalOrange, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 0 18px rgba(255,59,92,0.45), ${t.innerHi}`, flexShrink: 0 }}>
+                <Icon name="chevR" size={20} color="#FFF" stroke={2.6} />
               </div>
             </div>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          </Card>
+        </>
+      ) : (
+        /* Rest day — no upcoming workout */
+        <Card style={{ position: 'relative', overflow: 'hidden' }}>
+          <div style={{ position: 'absolute', top: -50, right: -40, width: 160, height: 160, background: `radial-gradient(circle, rgba(249,115,22,0.12), transparent 70%)`, pointerEvents: 'none' }} />
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 14 }}>
             <div style={{ width: 48, height: 48, borderRadius: 14, background: t.glass, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${t.border}` }}>
               <Icon name="rest" size={22} color={t.muted} />
             </div>
             <div>
+              <Label color={t.orange} style={{ marginBottom: 4 }}>{T('home.todaysworkout')}</Label>
               <div style={{ fontSize: 17, fontWeight: 700, color: t.text }}>{T('home.restday')}</div>
               <div style={{ fontSize: 12.5, color: t.soft }}>{Object.keys(workoutPlan).length === 0 ? T('home.planworkouts') : T('home.recovery')}</div>
             </div>
           </div>
-        )}
-        </div>
-      </Card>
+        </Card>
+      )}
 
       {/* Block 4: Weight Graph — clickable to open history */}
       <Card onClick={() => setShowHistory(true)}>

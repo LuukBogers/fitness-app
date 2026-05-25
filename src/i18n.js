@@ -25,6 +25,12 @@ export const detectLang = () => {
 export const TRANSLATIONS = {
   /* ─────────── ENGLISH (master) ─────────── */
   en: {
+    // ─── home next-workout ───
+    "home.nextworkout": "Your next workout",
+    "home.daysweek": "days/week",
+    "home.tomorrow": "Tomorrow",
+    "home.indays": "In {days} days",
+
     // ─── workout generator ───
     "wo.gen.banner.label": "AUTO-GENERATE",
     "wo.gen.banner.title": "{count} workouts in your plan have no template yet",
@@ -707,6 +713,12 @@ export const TRANSLATIONS = {
 
   /* ─────────── NEDERLANDS ─────────── */
   nl: {
+    // ─── home next-workout ───
+    "home.nextworkout": "Je volgende workout",
+    "home.daysweek": "dagen/week",
+    "home.tomorrow": "Morgen",
+    "home.indays": "Over {days} dagen",
+
     // ─── workout generator ───
     "wo.gen.banner.label": "AUTOMATISCH MAKEN",
     "wo.gen.banner.title": "{count} workouts in je plan hebben nog geen template",
@@ -1363,6 +1375,12 @@ export const TRANSLATIONS = {
 
   /* ─────────── DEUTSCH ─────────── */
   de: {
+    // ─── home next-workout ───
+    "home.nextworkout": "Dein nächstes Workout",
+    "home.daysweek": "Tage/Woche",
+    "home.tomorrow": "Morgen",
+    "home.indays": "In {days} Tagen",
+
     // ─── workout generator ───
     "wo.gen.banner.label": "AUTO-GENERIEREN",
     "wo.gen.banner.title": "{count} Workouts im Plan haben keine Vorlage",
@@ -2032,6 +2050,12 @@ export const TRANSLATIONS = {
 
   /* ─────────── FRANÇAIS ─────────── */
   fr: {
+    // ─── home next-workout ───
+    "home.nextworkout": "Ton prochain workout",
+    "home.daysweek": "jours/sem",
+    "home.tomorrow": "Demain",
+    "home.indays": "Dans {days} jours",
+
     // ─── workout generator ───
     "wo.gen.banner.label": "AUTO-GÉNÉRER",
     "wo.gen.banner.title": "{count} workouts du plan n'ont pas de modèle",
@@ -2701,6 +2725,12 @@ export const TRANSLATIONS = {
 
   /* ─────────── ESPAÑOL ─────────── */
   es: {
+    // ─── home next-workout ───
+    "home.nextworkout": "Tu próximo workout",
+    "home.daysweek": "días/sem",
+    "home.tomorrow": "Mañana",
+    "home.indays": "En {days} días",
+
     // ─── workout generator ───
     "wo.gen.banner.label": "AUTO-GENERAR",
     "wo.gen.banner.title": "{count} workouts del plan no tienen plantilla",
@@ -3370,6 +3400,12 @@ export const TRANSLATIONS = {
 
   /* ─────────── ITALIANO ─────────── */
   it: {
+    // ─── home next-workout ───
+    "home.nextworkout": "Il tuo prossimo workout",
+    "home.daysweek": "giorni/sett",
+    "home.tomorrow": "Domani",
+    "home.indays": "Tra {days} giorni",
+
     // ─── workout generator ───
     "wo.gen.banner.label": "AUTO-GENERA",
     "wo.gen.banner.title": "{count} workout nel piano non hanno modello",
@@ -4039,6 +4075,12 @@ export const TRANSLATIONS = {
 
   /* ─────────── PORTUGUÊS ─────────── */
   pt: {
+    // ─── home next-workout ───
+    "home.nextworkout": "O teu próximo workout",
+    "home.daysweek": "dias/sem",
+    "home.tomorrow": "Amanhã",
+    "home.indays": "Em {days} dias",
+
     // ─── workout generator ───
     "wo.gen.banner.label": "AUTO-GERAR",
     "wo.gen.banner.title": "{count} workouts no plano sem modelo",
@@ -4708,6 +4750,12 @@ export const TRANSLATIONS = {
 
   /* ─────────── POLSKI ─────────── */
   pl: {
+    // ─── home next-workout ───
+    "home.nextworkout": "Twój następny trening",
+    "home.daysweek": "dni/tyg",
+    "home.tomorrow": "Jutro",
+    "home.indays": "Za {days} dni",
+
     // ─── workout generator ───
     "wo.gen.banner.label": "AUTO-GENERUJ",
     "wo.gen.banner.title": "{count} treningów w planie nie ma szablonu",

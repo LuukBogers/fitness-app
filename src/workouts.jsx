@@ -6,6 +6,16 @@ import { EXERCISE_LIBRARY, getExercise, searchExercises, formatRestTime } from '
 import { generateMissingTemplates, countMissingTemplates } from './workout_generator';
 import { WorkoutRunner } from './workout_runner';
 
+// Canonical workout-plan values are English keys (Back/Chest/Legs/Upper/Cardio/Rest/etc.)
+// Localize for display: 'Back' → "Rug" in NL. User-named templates pass through unchanged.
+function localizeWorkoutName(name, T) {
+  if (!name || name === 'Rest') return T('wo.restday');
+  const key = `set.wo.${name.toLowerCase()}`;
+  const translated = T(key);
+  if (translated && translated !== key) return translated;
+  return name; // user-named — show as-is
+}
+
 /* ═══════════════════════════ WORKOUTS ═══════════════════════════
  * Premium gym-flow overview matching reference screenshots:
  *   - Top header with template-set name + dropdown + calendar icon
@@ -194,7 +204,7 @@ export function Workouts({ autoStart = false, onConsumedAutoStart = () => {} }) 
                         color: active ? t.orange : isToday ? t.text : t.muted,
                         letterSpacing: '-0.01em',
                       }}>
-                        {w || T('wo.restday')}
+                        {localizeWorkoutName(w, T)}
                       </div>
                       {active && (
                         <div style={{
@@ -232,8 +242,8 @@ export function Workouts({ autoStart = false, onConsumedAutoStart = () => {} }) 
                 <TemplatePreview tpl={selectedTpl} T={T} />
               ) : selectedWorkoutName ? (
                 <div style={{ padding: 30, textAlign: 'center', borderRadius: 16, background: t.card, border: `1px dashed ${t.border}` }}>
-                  <div style={{ fontSize: 14, color: t.text, fontWeight: 600, marginBottom: 6 }}>{selectedWorkoutName}</div>
-                  <div style={{ fontSize: 12, color: t.muted, lineHeight: 1.5 }}>{T('wo.today.notpl', { name: selectedWorkoutName })}</div>
+                  <div style={{ fontSize: 14, color: t.text, fontWeight: 600, marginBottom: 6 }}>{localizeWorkoutName(selectedWorkoutName, T)}</div>
+                  <div style={{ fontSize: 12, color: t.muted, lineHeight: 1.5 }}>{T('wo.today.notpl', { name: localizeWorkoutName(selectedWorkoutName, T) })}</div>
                 </div>
               ) : (
                 <div style={{ padding: 30, textAlign: 'center', borderRadius: 16, background: t.card, border: `1px dashed ${t.border}` }}>

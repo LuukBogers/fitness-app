@@ -24,7 +24,8 @@ export function Settings() {
   const [goalState, setGoalState] = useState({ goal: d.goal || '', goalDetail: d.goalDetail || '' });
   const [trainState, setTrainState] = useState({
     trainingStructure: d.trainingStructure || 'fixed',
-    weekSchedule: d.weekSchedule || { Mon: 'Back', Tue: 'Chest', Wed: 'Rest', Thu: 'Legs', Fri: 'Rest', Sat: 'Upper', Sun: 'Rest' },
+    // Read from workoutPlan (canonical) with legacy weekSchedule fallback for users who saved with the old field name
+    workoutPlan: d.workoutPlan || d.weekSchedule || { Mon: 'Back', Tue: 'Chest', Wed: 'Rest', Thu: 'Legs', Fri: 'Rest', Sat: 'Upper', Sun: 'Rest' },
   });
 
   // --- MACROS: 2-of-3 logic, only auto-computes when user has touched 2 fields ---
@@ -104,7 +105,11 @@ export function Settings() {
     flashToast(T('set.goal.saved'));
   };
   const saveTraining = async () => {
-    await saveProfileData({ trainingStructure: trainState.trainingStructure, weekSchedule: trainState.weekSchedule });
+    await saveProfileData({
+      trainingStructure: trainState.trainingStructure,
+      workoutPlan: trainState.workoutPlan,
+      weekSchedule: null, // drop legacy field once migrated
+    });
     flashToast(T('set.training.saved'));
   };
   const saveNotif = async () => {
@@ -303,7 +308,7 @@ export function Settings() {
       { v: 'Upper',  l: T('set.wo.upper') },
       { v: 'Cardio', l: T('set.wo.cardio') },
     ];
-    const setDay = (day, value) => setTrainState(s => ({ ...s, weekSchedule: { ...s.weekSchedule, [day]: value } }));
+    const setDay = (day, value) => setTrainState(s => ({ ...s, workoutPlan: { ...s.workoutPlan, [day]: value } }));
 
     return (
       <div style={{ padding: '20px 16px 100px' }}>
@@ -328,7 +333,7 @@ export function Settings() {
             <div style={{ fontSize: 11, color: t.muted, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 12 }}>{T('set.training.weekschedule')}</div>
             {WEEK.map((day, idx) => {
               const dayKey = `onb.day.${day}`;
-              const currentVal = trainState.weekSchedule[day] || 'Rest';
+              const currentVal = trainState.workoutPlan[day] || 'Rest';
               return (
                 <div key={day} style={{ paddingBottom: idx < WEEK.length - 1 ? 12 : 0, marginBottom: idx < WEEK.length - 1 ? 12 : 0, borderBottom: idx < WEEK.length - 1 ? `1px solid ${t.border}` : 'none' }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: t.text, marginBottom: 6 }}>{T(dayKey)}</div>
