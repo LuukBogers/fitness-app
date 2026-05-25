@@ -213,40 +213,83 @@ export function NotificationsModal({ visible, onClose }) {
     return T('notif.daysago', { d: diffD });
   };
 
+  if (!visible) return null;
+
   return (
-    <Modal visible={visible} onClose={onClose} title={T('notif.title')}>
-      {sorted.length === 0 ? (
-        <div style={{ padding: 32, textAlign: 'center' }}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>🔔</div>
-          <div style={{ fontSize: 14, color: t.soft, lineHeight: 1.5 }}>{T('notif.empty')}</div>
+    <div style={{
+      position: 'absolute', inset: 0,
+      background: t.bg, zIndex: 100,
+      display: 'flex', flexDirection: 'column',
+      fontFamily: 'inherit',
+      animation: 'fadeIn 0.22s ease',
+    }}>
+      {/* Header */}
+      <div style={{
+        position: 'sticky', top: 0, zIndex: 5,
+        background: t.bg, borderBottom: `1px solid ${t.border}`,
+        padding: '14px 16px 12px',
+        display: 'flex', alignItems: 'center', gap: 12,
+      }}>
+        <div onClick={onClose} style={{
+          width: 36, height: 36,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+        }}>
+          <Icon name="chevL" size={22} color={t.text} stroke={2.4} />
         </div>
-      ) : (
-        <>
-          {sorted.map(n => (
+        <div style={{ flex: 1, fontSize: 17, fontWeight: 800, color: t.text, letterSpacing: '-0.01em' }}>
+          {T('notif.title')}
+        </div>
+        {sorted.length > 0 && (
+          <div onClick={clearAll} style={{
+            fontSize: 13, fontWeight: 700, color: t.orange, cursor: 'pointer', padding: '6px 8px',
+          }}>
+            {T('notif.clearall')}
+          </div>
+        )}
+      </div>
+
+      {/* Scrollable body */}
+      <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', padding: 16 }}>
+        {sorted.length === 0 ? (
+          <div style={{ padding: 60, textAlign: 'center' }}>
+            <div style={{ fontSize: 48, marginBottom: 14 }}>🔔</div>
+            <div style={{ fontSize: 14, color: t.soft, lineHeight: 1.5 }}>{T('notif.empty')}</div>
+          </div>
+        ) : (
+          sorted.map(n => (
             <div key={n.id} style={{
-              padding: 14, borderRadius: 14, marginBottom: 8,
+              padding: 14, borderRadius: 14, marginBottom: 10,
               background: n.is_read ? t.card2 : t.greenBg,
               border: `1px solid ${n.is_read ? t.border : t.greenBorder}`,
-              opacity: n.is_read ? 0.75 : 1,
+              opacity: n.is_read ? 0.85 : 1,
+              display: 'flex', gap: 12, alignItems: 'flex-start',
             }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 6 }}>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: n.is_read ? t.text : t.green }}>{n.title}</div>
-                  {!n.is_read && <div style={{ width: 6, height: 6, borderRadius: 3, background: t.green, flexShrink: 0 }} />}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, marginBottom: 6 }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: n.is_read ? t.text : t.green }}>{n.title}</div>
+                    {!n.is_read && <div style={{ width: 6, height: 6, borderRadius: 3, background: t.green, flexShrink: 0 }} />}
+                  </div>
+                  <div style={{ fontSize: 10, color: t.muted, flexShrink: 0 }}>{formatTime(n.created_at)}</div>
                 </div>
-                <div style={{ fontSize: 10, color: t.muted, flexShrink: 0 }}>{formatTime(n.created_at)}</div>
+                <div style={{ fontSize: 12.5, color: t.soft, lineHeight: 1.5 }}>{n.message}</div>
+                <div style={{ marginTop: 8, fontSize: 10, color: t.muted, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                  {n.type === 'coach' ? '🤖 ' + T('notif.coach') : n.type}
+                </div>
               </div>
-              <div style={{ fontSize: 12.5, color: t.soft, lineHeight: 1.5 }}>{n.message}</div>
-              <div style={{ marginTop: 8, fontSize: 10, color: t.muted, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>{n.type === 'coach' ? '🤖 ' + T('notif.coach') : n.type}</span>
-                <span onClick={() => deleteOne(n.id)} style={{ cursor: 'pointer', color: t.muted }}>{T('common.delete').toLowerCase()}</span>
+              <div onClick={() => deleteOne(n.id)} style={{
+                width: 36, height: 36, borderRadius: 10,
+                background: t.card3, border: `1px solid ${t.border}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', flexShrink: 0,
+              }}>
+                <Icon name="trash" size={16} color={t.muted} stroke={2} />
               </div>
             </div>
-          ))}
-          <Btn full variant="outline" onClick={clearAll} style={{ marginTop: 14 }}>{T('notif.clearall')}</Btn>
-        </>
-      )}
-    </Modal>
+          ))
+        )}
+      </div>
+    </div>
   );
 }
 
