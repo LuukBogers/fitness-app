@@ -283,13 +283,20 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
     return list;
   }, [products, query, filter]);
 
-  // Recipes hits (when filter = meals)
+  // Recipes hits (when filter = meals OR favorites with recipes)
   const recipeHits = useMemo(() => {
-    if (filter !== 'meals') return [];
+    if (filter !== 'meals' && filter !== 'favorites') return [];
     const q = query.trim().toLowerCase();
     let list = recipes;
+    if (filter === 'favorites') list = list.filter(r => r.favorite === true);
     if (q.length >= 1) list = list.filter(r => (r.name || '').toLowerCase().includes(q));
-    return list;
+    // Favorites first, then by name
+    return [...list].sort((a, b) => {
+      const af = a.favorite === true ? 0 : 1;
+      const bf = b.favorite === true ? 0 : 1;
+      if (af !== bf) return af - bf;
+      return (a.name || '').localeCompare(b.name || '');
+    });
   }, [recipes, query, filter]);
 
   // Local NL foods (NEVO-style basis-data, instant, no API)
@@ -338,6 +345,15 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
     const updated = products.map(p => p.id === productId ? { ...p, favorite: !p.favorite } : p);
     await saveProfileData({ products: updated });
     const flipped = updated.find(p => p.id === productId);
+    setToast(flipped?.favorite ? T('log.toast.fav.added') : T('log.toast.fav.removed'));
+    setTimeout(() => setToast(''), 1600);
+  };
+
+  const toggleRecipeFavorite = async (recipeId, e) => {
+    e.stopPropagation();
+    const updated = recipes.map(r => r.id === recipeId ? { ...r, favorite: !r.favorite } : r);
+    await saveProfileData({ recipes: updated });
+    const flipped = updated.find(r => r.id === recipeId);
     setToast(flipped?.favorite ? T('log.toast.fav.added') : T('log.toast.fav.removed'));
     setTimeout(() => setToast(''), 1600);
   };
@@ -470,31 +486,42 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
           </>
         )}
 
-        {/* Recipe results when filter = meals */}
-        {filter === 'meals' && recipeHits.length > 0 && recipeHits.map(r => (
-          <div key={r.id} onClick={() => onProductTap?.({ ...r, isRecipe: true })} style={{
-            display: 'flex', gap: 12, padding: 12, marginBottom: 8,
-            background: t.card, borderRadius: 14, border: `1px solid ${t.border}`,
-            boxShadow: t.cardShadow, cursor: 'pointer', alignItems: 'center',
-          }}>
-            {r.image ? (
-              <img src={r.image} alt="" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
-            ) : (
-              <div style={{ width: 44, height: 44, borderRadius: 10, background: t.card3, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>🍽️</div>
-            )}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: t.text, marginBottom: 3 }}>{r.name}</div>
-              <div style={{ fontSize: 11.5, color: t.muted }}>{r.kcal} kcal · {(r.items||[]).length} {T('nutr.products')}</div>
+        {/* Recipe results when filter = meals or favorites */}
+        {(filter === 'meals' || filter === 'favorites') && recipeHits.length > 0 && recipeHits.map(r => {
+          const isFav = r.favorite === true;
+          return (
+            <div key={r.id} onClick={() => onProductTap?.({ ...r, isRecipe: true })} style={{
+              display: 'flex', gap: 12, padding: 12, marginBottom: 8,
+              background: t.card, borderRadius: 14, border: `1px solid ${t.border}`,
+              boxShadow: t.cardShadow, cursor: 'pointer', alignItems: 'center',
+            }}>
+              {r.image ? (
+                <img src={r.image} alt="" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }} />
+              ) : (
+                <div style={{ width: 44, height: 44, borderRadius: 10, background: t.card3, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>🍽️</div>
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: t.text, marginBottom: 3 }}>{r.name}</div>
+                <div style={{ fontSize: 11.5, color: t.muted }}>{r.kcal} kcal · {(r.items||[]).length} {T('nutr.products')}</div>
+              </div>
+              <div onClick={(e) => toggleRecipeFavorite(r.id, e)} style={{
+                width: 32, height: 36, borderRadius: 10,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: isFav ? t.error : t.muted, fontSize: 20, cursor: 'pointer',
+                flexShrink: 0, alignSelf: 'center',
+              }}>
+                {isFav ? '♥' : '♡'}
+              </div>
+              {onRecipeActions && (
+                <div onClick={(e) => { e.stopPropagation(); onRecipeActions(r); }} style={{
+                  width: 28, height: 36, borderRadius: 8, display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', color: t.soft, fontSize: 18, cursor: 'pointer', flexShrink: 0,
+                  letterSpacing: '0.1em',
+                }}>⋯</div>
+              )}
             </div>
-            {onRecipeActions && (
-              <div onClick={(e) => { e.stopPropagation(); onRecipeActions(r); }} style={{
-                width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center',
-                justifyContent: 'center', color: t.soft, fontSize: 18, cursor: 'pointer', flexShrink: 0,
-                letterSpacing: '0.1em',
-              }}>⋯</div>
-            )}
-          </div>
-        ))}
+          );
+        })}
 
         {filter === 'meals' && recipeHits.length === 0 && !query.trim() && (
           <div style={{ padding: 28, textAlign: 'center', borderRadius: 16, background: t.card, border: `1px dashed ${t.border}` }}>

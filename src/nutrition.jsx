@@ -56,7 +56,12 @@ export function Nutrition() {
   const [planningItemActions, setPlanningItemActions] = useState(null); // { slot, idx, item }
   const [editingPlanningItem, setEditingPlanningItem] = useState(null); // { slot, idx, item }
   // Groceries skip-list per week (items hidden this week)
-  const [groceriesItemActions, setGroceriesItemActions] = useState(null); // { key, item }
+  const [groceriesItemActions, setGroceriesItemActions] = useState(null); // { key, item, isCustom }
+  // Add-grocery modal
+  const [showAddGrocery, setShowAddGrocery] = useState(false);
+  const [newGrocName, setNewGrocName] = useState('');
+  const [newGrocQty, setNewGrocQty] = useState('');
+  const [newGrocStore, setNewGrocStore] = useState('');
 
   // Selected day key
   const selDate = (() => { const dt = new Date(); dt.setDate(dt.getDate() - ti + selectedDay); return fmtKey(dt); })();
@@ -136,7 +141,6 @@ export function Nutrition() {
     return dayStatus(fmtKey(dt), meals, calories);
   });
 
-  // Smart groceries derived from recipes assigned to meals this week
   const groceriesByShelf = (() => {
     const byProduct = new Map();
     Object.values(meals).forEach(dayList => {
@@ -296,6 +300,10 @@ export function Nutrition() {
   })();
   const grocerySkips = profile?.data?.grocerySkips || {};
   const skippedKeys = new Set(grocerySkips[weekKey] || []);
+  const groceryChecked = profile?.data?.groceryChecked || {};
+  const checkedKeys = new Set(groceryChecked[weekKey] || []);
+  const groceryCustom = profile?.data?.groceryCustom || {};
+  const customItems = Array.isArray(groceryCustom[weekKey]) ? groceryCustom[weekKey] : [];
   const groceryItemKey = (it) => `${it.name}|${it.store || ''}`;
   const skipGroceryItem = async (it) => {
     const key = groceryItemKey(it);
@@ -303,7 +311,7 @@ export function Nutrition() {
     if (current.includes(key)) return;
     const newSkips = { ...grocerySkips, [weekKey]: [...current, key] };
     await saveProfileData({ grocerySkips: newSkips });
-    setToast(T('grocery.skipped', { name: it.name }));
+    setToast(T('grocery.removed', { name: it.name }));
     setTimeout(() => setToast(''), 1800);
   };
   const unskipGroceryItem = async (it) => {
@@ -311,6 +319,39 @@ export function Nutrition() {
     const current = grocerySkips[weekKey] || [];
     const newSkips = { ...grocerySkips, [weekKey]: current.filter(k => k !== key) };
     await saveProfileData({ grocerySkips: newSkips });
+  };
+  const toggleGroceryChecked = async (it) => {
+    const key = groceryItemKey(it);
+    const current = groceryChecked[weekKey] || [];
+    const exists = current.includes(key);
+    const next = exists ? current.filter(k => k !== key) : [...current, key];
+    const newChecked = { ...groceryChecked, [weekKey]: next };
+    await saveProfileData({ groceryChecked: newChecked });
+  };
+  const addCustomGrocery = async () => {
+    const name = newGrocName.trim();
+    if (!name) return;
+    const item = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      name,
+      qty: newGrocQty.trim(),
+      store: newGrocStore.trim(),
+      createdAt: new Date().toISOString(),
+    };
+    const current = Array.isArray(groceryCustom[weekKey]) ? groceryCustom[weekKey] : [];
+    const newCustom = { ...groceryCustom, [weekKey]: [...current, item] };
+    await saveProfileData({ groceryCustom: newCustom });
+    setNewGrocName(''); setNewGrocQty(''); setNewGrocStore('');
+    setShowAddGrocery(false);
+    setToast(T('grocery.added', { name }));
+    setTimeout(() => setToast(''), 1800);
+  };
+  const removeCustomGrocery = async (id, name) => {
+    const current = Array.isArray(groceryCustom[weekKey]) ? groceryCustom[weekKey] : [];
+    const newCustom = { ...groceryCustom, [weekKey]: current.filter(c => c.id !== id) };
+    await saveProfileData({ groceryCustom: newCustom });
+    setToast(T('grocery.removed', { name }));
+    setTimeout(() => setToast(''), 1800);
   };
 
   const tabs = [
@@ -533,15 +574,24 @@ export function Nutrition() {
 
         {sub === 'groceries' && (
           <>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12, alignItems: 'center' }}>
               <Chip active={grocMode === 'simple'} onClick={() => setGrocMode('simple')}>{T('nutr.simple')}</Chip>
               <Chip active={grocMode === 'smart'} onClick={() => setGrocMode('smart')}>{T('nutr.smart')}</Chip>
+              <div style={{ flex: 1 }} />
+              <div onClick={() => setShowAddGrocery(true)} style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 16,
+                background: t.greenBg, border: `1px solid ${t.greenBorder}`, color: t.green,
+                fontSize: 12, fontWeight: 700, cursor: 'pointer',
+              }}>
+                + {T('grocery.add')}
+              </div>
             </div>
-            {!hasGroceries ? (
+            {(!hasGroceries && customItems.length === 0) ? (
               <div style={{ padding: 40, textAlign: 'center', borderRadius: 16, background: t.card, border: `1px dashed ${t.border}` }}>
                 <div style={{ fontSize: 32, marginBottom: 10 }}>🛒</div>
                 <div style={{ fontSize: 14, color: t.text, fontWeight: 600, marginBottom: 6 }}>{T('nutr.emptygroceries')}</div>
-                <div style={{ fontSize: 12, color: t.muted, lineHeight: 1.5 }}>{T('nutr.emptygroceriesbody')}</div>
+                <div style={{ fontSize: 12, color: t.muted, lineHeight: 1.5, marginBottom: 14 }}>{T('nutr.emptygroceriesbody')}</div>
+                <Btn small variant="ghost" onClick={() => setShowAddGrocery(true)}>+ {T('grocery.add')}</Btn>
               </div>
             ) : grocMode === 'smart' ? (
               <>
@@ -553,24 +603,68 @@ export function Nutrition() {
                       <Label color={cat === 'fresh' ? t.green : cat === 'refrigerated' ? t.protein : t.muted}>
                         {cat === 'shelf' ? T('nutr.shelfstable') : cat === 'refrigerated' ? T('nutr.refrigerated') : T('nutr.fresh')}
                       </Label>
-                      {items.map((it, i) => (
-                        <div key={i} onClick={() => setGroceriesItemActions({ key: groceryItemKey(it), item: it })} style={{
-                          display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0',
-                          borderBottom: i < items.length - 1 ? `1px solid ${t.border}` : 'none', cursor: 'pointer',
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
-                            <div style={{ width: 18, height: 18, borderRadius: 6, border: `1.5px solid ${t.border}`, flexShrink: 0 }} />
-                            <div style={{ minWidth: 0 }}>
-                              <div style={{ fontSize: 14, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</div>
-                              <div style={{ fontSize: 11, color: t.muted }}>{it.store}</div>
+                      {items.map((it, i) => {
+                        const itKey = groceryItemKey(it);
+                        const isChecked = checkedKeys.has(itKey);
+                        return (
+                          <div key={i} style={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0',
+                            borderBottom: i < items.length - 1 ? `1px solid ${t.border}` : 'none',
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                              <div onClick={(e) => { e.stopPropagation(); toggleGroceryChecked(it); }} style={{
+                                width: 22, height: 22, borderRadius: 6,
+                                border: `1.5px solid ${isChecked ? t.green : t.border}`,
+                                background: isChecked ? t.green : 'transparent',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                flexShrink: 0, cursor: 'pointer',
+                              }}>
+                                {isChecked && <Icon name="check" size={14} color="#0A0A0B" stroke={3} />}
+                              </div>
+                              <div onClick={() => setGroceriesItemActions({ key: itKey, item: it, isCustom: false })} style={{ minWidth: 0, flex: 1, cursor: 'pointer' }}>
+                                <div style={{ fontSize: 14, color: isChecked ? t.muted : t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: isChecked ? 'line-through' : 'none' }}>{it.name}</div>
+                                <div style={{ fontSize: 11, color: t.muted }}>{it.store}</div>
+                              </div>
                             </div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: t.soft, flexShrink: 0, opacity: isChecked ? 0.4 : 1 }}>{it.amt}</div>
                           </div>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: t.soft, flexShrink: 0 }}>{it.amt}</div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </Card>
                   );
                 })}
+                {customItems.length > 0 && (
+                  <Card style={{ padding: 14 }}>
+                    <Label color={t.green}>{T('grocery.custom.section')}</Label>
+                    {customItems.map((it, i) => {
+                      const itKey = `custom:${it.id}`;
+                      const isChecked = checkedKeys.has(itKey);
+                      return (
+                        <div key={it.id} style={{
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0',
+                          borderBottom: i < customItems.length - 1 ? `1px solid ${t.border}` : 'none',
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                            <div onClick={(e) => { e.stopPropagation(); toggleGroceryChecked({ name: itKey, store: '' }); }} style={{
+                              width: 22, height: 22, borderRadius: 6,
+                              border: `1.5px solid ${isChecked ? t.green : t.border}`,
+                              background: isChecked ? t.green : 'transparent',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              flexShrink: 0, cursor: 'pointer',
+                            }}>
+                              {isChecked && <Icon name="check" size={14} color="#0A0A0B" stroke={3} />}
+                            </div>
+                            <div onClick={() => setGroceriesItemActions({ key: itKey, item: it, isCustom: true })} style={{ minWidth: 0, flex: 1, cursor: 'pointer' }}>
+                              <div style={{ fontSize: 14, color: isChecked ? t.muted : t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: isChecked ? 'line-through' : 'none' }}>{it.name}</div>
+                              {it.store && <div style={{ fontSize: 11, color: t.muted }}>{it.store}</div>}
+                            </div>
+                          </div>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: t.soft, flexShrink: 0, opacity: isChecked ? 0.4 : 1 }}>{it.qty}</div>
+                        </div>
+                      );
+                    })}
+                  </Card>
+                )}
                 {skippedKeys.size > 0 && (
                   <div style={{ fontSize: 11, color: t.muted, textAlign: 'center', marginTop: 8 }}>
                     {T('grocery.skippedhint', { count: skippedKeys.size })}
@@ -579,21 +673,34 @@ export function Nutrition() {
               </>
             ) : (
               <Card style={{ padding: 14 }}>
-                {Object.values(groceriesByShelf).flat().filter(it => !skippedKeys.has(groceryItemKey(it))).map((it, i, arr) => (
-                  <div key={i} onClick={() => setGroceriesItemActions({ key: groceryItemKey(it), item: it })} style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0',
-                    borderBottom: i < arr.length - 1 ? `1px solid ${t.border}` : 'none', cursor: 'pointer',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
-                      <div style={{ width: 18, height: 18, borderRadius: 6, border: `1.5px solid ${t.border}`, flexShrink: 0 }} />
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 14, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.name}</div>
-                        <div style={{ fontSize: 11, color: t.muted }}>{it.store}</div>
+                {[...Object.values(groceriesByShelf).flat().filter(it => !skippedKeys.has(groceryItemKey(it))).map(it => ({ ...it, _isCustom: false, _key: groceryItemKey(it) })),
+                  ...customItems.map(it => ({ name: it.name, store: it.store, amt: it.qty, _isCustom: true, _key: `custom:${it.id}`, _id: it.id }))
+                ].map((it, i, arr) => {
+                  const isChecked = checkedKeys.has(it._key);
+                  return (
+                    <div key={i} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0',
+                      borderBottom: i < arr.length - 1 ? `1px solid ${t.border}` : 'none',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                        <div onClick={(e) => { e.stopPropagation(); toggleGroceryChecked(it._isCustom ? { name: it._key, store: '' } : it); }} style={{
+                          width: 22, height: 22, borderRadius: 6,
+                          border: `1.5px solid ${isChecked ? t.green : t.border}`,
+                          background: isChecked ? t.green : 'transparent',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          flexShrink: 0, cursor: 'pointer',
+                        }}>
+                          {isChecked && <Icon name="check" size={14} color="#0A0A0B" stroke={3} />}
+                        </div>
+                        <div onClick={() => setGroceriesItemActions({ key: it._key, item: it._isCustom ? { ...it, id: it._id } : it, isCustom: it._isCustom })} style={{ minWidth: 0, flex: 1, cursor: 'pointer' }}>
+                          <div style={{ fontSize: 14, color: isChecked ? t.muted : t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: isChecked ? 'line-through' : 'none' }}>{it.name}</div>
+                          {it.store && <div style={{ fontSize: 11, color: t.muted }}>{it.store}</div>}
+                        </div>
                       </div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: t.soft, flexShrink: 0, opacity: isChecked ? 0.4 : 1 }}>{it.amt}</div>
                     </div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: t.soft, flexShrink: 0 }}>{it.amt}</div>
-                  </div>
-                ))}
+                  );
+                })}
               </Card>
             )}
           </>
@@ -832,14 +939,54 @@ export function Nutrition() {
         })()}
       </Modal>
 
-      {/* GROCERIES item actions (⋯) */}
+      {/* GROCERIES item actions */}
       <Modal visible={!!groceriesItemActions} onClose={() => setGroceriesItemActions(null)} title={groceriesItemActions?.item?.name || ''}>
-        <div style={{ fontSize: 12, color: t.muted, marginBottom: 14, lineHeight: 1.5 }}>{T('grocery.skiphint')}</div>
+        <div style={{ fontSize: 12, color: t.muted, marginBottom: 14, lineHeight: 1.5 }}>
+          {groceriesItemActions?.isCustom ? T('grocery.removehint.custom') : T('grocery.removehint.auto')}
+        </div>
         <Btn full variant="ghost" style={{ marginBottom: 8 }} onClick={async () => {
           const a = groceriesItemActions; setGroceriesItemActions(null);
-          if (a) await skipGroceryItem(a.item);
-        }}>{T('grocery.skipthisweek')}</Btn>
+          if (!a) return;
+          if (a.isCustom) await removeCustomGrocery(a.item.id, a.item.name);
+          else await skipGroceryItem(a.item);
+        }}>{T('grocery.remove')}</Btn>
         <Btn full variant="outline" onClick={() => setGroceriesItemActions(null)}>{T('common.cancel')}</Btn>
+      </Modal>
+
+      {/* GROCERIES add custom item */}
+      <Modal visible={showAddGrocery} onClose={() => setShowAddGrocery(false)} title={T('grocery.add.title')}>
+        <Field label={T('grocery.add.name')}>
+          <input
+            type="text"
+            value={newGrocName}
+            onChange={(e) => setNewGrocName(e.target.value)}
+            placeholder={T('grocery.add.name.ph')}
+            autoFocus
+            style={{ width: '100%', padding: '12px 14px', borderRadius: 10, background: t.card2, border: `1px solid ${t.border}`, color: t.text, fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box' }}
+          />
+        </Field>
+        <Field label={T('grocery.add.qty')}>
+          <input
+            type="text"
+            value={newGrocQty}
+            onChange={(e) => setNewGrocQty(e.target.value)}
+            placeholder={T('grocery.add.qty.ph')}
+            style={{ width: '100%', padding: '12px 14px', borderRadius: 10, background: t.card2, border: `1px solid ${t.border}`, color: t.text, fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box' }}
+          />
+        </Field>
+        <Field label={T('grocery.add.store')}>
+          <input
+            type="text"
+            value={newGrocStore}
+            onChange={(e) => setNewGrocStore(e.target.value)}
+            placeholder={T('grocery.add.store.ph')}
+            style={{ width: '100%', padding: '12px 14px', borderRadius: 10, background: t.card2, border: `1px solid ${t.border}`, color: t.text, fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box' }}
+          />
+        </Field>
+        <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+          <Btn full variant="outline" onClick={() => { setShowAddGrocery(false); setNewGrocName(''); setNewGrocQty(''); setNewGrocStore(''); }}>{T('common.cancel')}</Btn>
+          <Btn full onClick={addCustomGrocery} disabled={!newGrocName.trim()}>{T('common.save')}</Btn>
+        </div>
       </Modal>
 
       {/* Toast */}
