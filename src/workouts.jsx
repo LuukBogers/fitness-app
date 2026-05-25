@@ -321,8 +321,11 @@ export function Workouts({ autoStart = false, onConsumedAutoStart = () => {} }) 
             );
           })}
 
-          {/* ── Custom user-named templates (not matching the 7 types) ───── */}
-          {workouts.filter(w => !['Push','Pull','Legs','Upper','Lower','Arms','Posterior'].includes(w.name)).map((w, i) => {
+          {/* ── Custom user-named templates (not matching the 7 types, not legacy) ── */}
+          {workouts.filter(w =>
+            !['Push','Pull','Legs','Upper','Lower','Arms','Posterior'].includes(w.name)
+            && !['Rest','Back','Chest','Cardio'].includes(w.name)
+          ).map((w, i) => {
             const tplIdx = workouts.findIndex(x => x.id === w.id);
             return (
               <Card key={w.id || i} onClick={() => setShowTpl(tplIdx)} style={{ padding: 14, marginTop: i === 0 ? 16 : 10 }}>
