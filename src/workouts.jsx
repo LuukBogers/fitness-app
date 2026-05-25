@@ -286,30 +286,6 @@ export function Workouts({ autoStart = false, onConsumedAutoStart = () => {} }) 
       {/* ─── TEMPLATES ──────────────────────────────────────────────── */}
       {view === 'templates' && (
         <div style={{ padding: '0 16px' }}>
-          {/* Auto-generate from week plan card */}
-          {Object.keys(workoutPlan).length > 0 && (
-            <Card style={{ padding: 12, marginBottom: 12, background: t.orangeBg, border: `1px solid ${t.orangeBorder}` }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: t.metalOrange, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <span style={{ fontSize: 16 }}>⚡</span>
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{T('wo.gen.card.title')}</div>
-                  <div style={{ fontSize: 11, color: t.soft }}>
-                    {missingCount > 0 ? T('wo.gen.card.missing', { count: missingCount }) : T('wo.gen.card.alldone')}
-                  </div>
-                </div>
-                {missingCount > 0 && (
-                  <Btn small accent="orange" onClick={handleGenerate}>{T('wo.gen.card.cta')}</Btn>
-                )}
-              </div>
-            </Card>
-          )}
-
-          <Btn full variant="ghost" accent="orange" style={{ marginBottom: 14 }} onClick={() => { setEditingTpl(null); setShowBuilder(true); }}>
-            + {T('wo.createtemplate')}
-          </Btn>
-
           {/* ── 7 fixed workout-type cards ───────────────────────────────── */}
           {['Push','Pull','Legs','Upper','Lower','Arms','Posterior'].map(typeName => {
             const existing = workouts.find(w => w.name === typeName);
