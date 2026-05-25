@@ -187,37 +187,7 @@ export function Workouts({ autoStart = false, onConsumedAutoStart = () => {} }) 
           )}
 
           {/* Day tabs strip */}
-          {Object.keys(workoutPlan).length > 0 ? (
-            <div style={{ overflowX: 'auto', borderBottom: `1px solid ${t.border}`, marginBottom: 14 }}>
-              <div style={{ display: 'flex', gap: 0, padding: '0 8px', minWidth: 'min-content' }}>
-                {WEEK.map((day, i) => {
-                  const w = workoutPlan[day];
-                  const active = i === selectedDayIdx;
-                  const isToday = i === ti;
-                  return (
-                    <div key={day} onClick={() => setSelectedDayIdx(i)} style={{
-                      padding: '12px 14px', cursor: 'pointer', position: 'relative',
-                      whiteSpace: 'nowrap', flexShrink: 0,
-                    }}>
-                      <div style={{
-                        fontSize: 14.5, fontWeight: active ? 800 : 600,
-                        color: active ? t.orange : isToday ? t.text : t.muted,
-                        letterSpacing: '-0.01em',
-                      }}>
-                        {localizeWorkoutName(w, T)}
-                      </div>
-                      {active && (
-                        <div style={{
-                          position: 'absolute', bottom: -1, left: 8, right: 8,
-                          height: 2, background: t.orange, borderRadius: 1,
-                        }} />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : (
+          {Object.keys(workoutPlan).length === 0 ? (
             /* No plan → empty state */
             <div style={{ padding: '0 16px' }}>
               <Card style={{ padding: 30, textAlign: 'center', border: `1px dashed ${t.border}` }}>
@@ -227,33 +197,89 @@ export function Workouts({ autoStart = false, onConsumedAutoStart = () => {} }) 
                 <Btn full accent="orange" onClick={quickStart}>{T('wo.quickstart')}</Btn>
               </Card>
             </div>
-          )}
+          ) : (() => {
+            const todayName = WEEK[ti];
+            const todayWorkoutName = workoutPlan[todayName];
+            const todayTpl = todayWorkoutName ? workouts.find(w => w.name === todayWorkoutName) : null;
+            const todayDoneKey = todayKey();
+            const isDone = workoutLog[todayDoneKey]?.completed;
 
-          {/* Template preview for selected day */}
-          {Object.keys(workoutPlan).length > 0 && (
-            <div style={{ padding: '0 14px' }}>
-              {selectedDone && (
-                <div style={{ padding: '8px 12px', marginBottom: 12, borderRadius: 10, background: 'rgba(52,199,89,0.10)', border: '1px solid rgba(52,199,89,0.30)', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Icon name="check" size={14} color="#34C759" stroke={3} />
-                  <div style={{ fontSize: 12.5, fontWeight: 700, color: '#34C759' }}>{T('wo.day.completed')}</div>
+            // Rest day
+            if (!todayWorkoutName || todayWorkoutName === 'Rest') {
+              return (
+                <div style={{ padding: '0 16px' }}>
+                  <Card style={{ padding: 30, textAlign: 'center', border: `1px dashed ${t.border}` }}>
+                    <div style={{ fontSize: 36, marginBottom: 10 }}>🛌</div>
+                    <div style={{ fontSize: 15, color: t.text, fontWeight: 700, marginBottom: 6 }}>{T('wo.restday')}</div>
+                    <div style={{ fontSize: 12.5, color: t.muted, lineHeight: 1.5 }}>{T('wo.today.rest')}</div>
+                  </Card>
                 </div>
-              )}
-              {selectedTpl ? (
-                <TemplatePreview tpl={selectedTpl} T={T} />
-              ) : selectedWorkoutName ? (
-                <div style={{ padding: 30, textAlign: 'center', borderRadius: 16, background: t.card, border: `1px dashed ${t.border}` }}>
-                  <div style={{ fontSize: 14, color: t.text, fontWeight: 600, marginBottom: 6 }}>{localizeWorkoutName(selectedWorkoutName, T)}</div>
-                  <div style={{ fontSize: 12, color: t.muted, lineHeight: 1.5 }}>{T('wo.today.notpl', { name: localizeWorkoutName(selectedWorkoutName, T) })}</div>
+              );
+            }
+
+            // Completed today
+            if (isDone) {
+              return (
+                <div style={{ padding: '0 16px' }}>
+                  <Card style={{ padding: 22, textAlign: 'center', background: 'rgba(52,199,89,0.08)', border: '1px solid rgba(52,199,89,0.30)' }}>
+                    <Icon name="check" size={32} color="#34C759" stroke={3} />
+                    <div style={{ fontSize: 15, color: '#34C759', fontWeight: 800, marginTop: 8, marginBottom: 4 }}>{T('wo.day.completed')}</div>
+                    <div style={{ fontSize: 13, color: t.text, fontWeight: 600 }}>{localizeWorkoutName(todayWorkoutName, T)}</div>
+                  </Card>
                 </div>
-              ) : (
-                <div style={{ padding: 30, textAlign: 'center', borderRadius: 16, background: t.card, border: `1px dashed ${t.border}` }}>
-                  <div style={{ fontSize: 28, marginBottom: 8 }}>🛌</div>
-                  <div style={{ fontSize: 14, color: t.text, fontWeight: 600, marginBottom: 6 }}>{T('wo.restday')}</div>
-                  <div style={{ fontSize: 12, color: t.muted }}>{T('wo.today.rest')}</div>
-                </div>
-              )}
-            </div>
-          )}
+              );
+            }
+
+            // Active card — tap to start
+            const exCount = todayTpl?.exercises?.length || 0;
+            const subtitle = todayTpl
+              ? `${exCount} ${T('wo.exercises')}`
+              : T('wo.tap.create');
+            return (
+              <div style={{ padding: '0 16px' }}>
+                <Card
+                  onClick={() => {
+                    if (todayTpl) { requestStartWorkout(todayTpl); return; }
+                    // No template yet — generate one then start
+                    (async () => {
+                      const generated = generateMissingTemplates({ X: todayWorkoutName }, workouts);
+                      if (generated.length === 0) { flashToast(T('wo.gen.nothing')); return; }
+                      const newList = [...workouts, ...generated];
+                      await saveProfileData({ workouts: newList });
+                      const created = newList.find(w => w.name === todayWorkoutName);
+                      if (created) requestStartWorkout(created);
+                    })();
+                  }}
+                  style={{
+                    padding: 22,
+                    background: t.metalOrange,
+                    border: `1px solid ${t.orangeBorder}`,
+                    boxShadow: `0 8px 28px rgba(255,59,92,0.28), ${t.innerHi}`,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div style={{ fontSize: 11, fontWeight: 800, color: 'rgba(255,255,255,0.85)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
+                    {T('wo.today.label')}
+                  </div>
+                  <div style={{ fontSize: 28, fontWeight: 900, color: '#FFF', letterSpacing: '-0.02em', marginBottom: 6, lineHeight: 1.1 }}>
+                    {localizeWorkoutName(todayWorkoutName, T)}
+                  </div>
+                  <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.80)', marginBottom: 16 }}>
+                    {subtitle}
+                  </div>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    padding: '12px', borderRadius: 12,
+                    background: '#FFF', color: '#FF3B5C',
+                    fontWeight: 800, fontSize: 15,
+                  }}>
+                    <Icon name="play" size={16} color="#FF3B5C" />
+                    {T('wo.startworkout')}
+                  </div>
+                </Card>
+              </div>
+            );
+          })()}
         </>
       )}
 
@@ -346,19 +372,6 @@ export function Workouts({ autoStart = false, onConsumedAutoStart = () => {} }) 
       {view === 'library' && (
         <div style={{ padding: '0 16px' }}>
           <ExerciseLibraryScreen T={T} />
-        </div>
-      )}
-
-      {/* ─── Sticky "Log This Workout" CTA ──────────────────────────── */}
-      {view === 'today' && selectedTpl && !selectedDone && (
-        <div style={{
-          position: 'fixed', bottom: 72, left: 0, right: 0, zIndex: 10,
-          padding: '12px 16px',
-          background: 'linear-gradient(to top, rgba(8,10,14,0.98) 50%, rgba(8,10,14,0))',
-        }}>
-          <Btn full accent="orange" onClick={() => requestStartWorkout(selectedTpl)} style={{ fontSize: 15, padding: '14px' }}>
-            {T('wo.logthis')}
-          </Btn>
         </div>
       )}
 
