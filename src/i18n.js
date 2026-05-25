@@ -25,6 +25,18 @@ export const detectLang = () => {
 export const TRANSLATIONS = {
   /* ─────────── ENGLISH (master) ─────────── */
   en: {
+    // ─── workout generator ───
+    "wo.gen.banner.label": "AUTO-GENERATE",
+    "wo.gen.banner.title": "{count} workouts in your plan have no template yet",
+    "wo.gen.banner.body": "Smart-pick exercises for each day from the library — sets, reps and rest set automatically.",
+    "wo.gen.banner.cta": "Generate templates",
+    "wo.gen.card.title": "Auto-generator",
+    "wo.gen.card.missing": "{count} templates missing from week plan",
+    "wo.gen.card.alldone": "All workouts in your plan have a template",
+    "wo.gen.card.cta": "Generate",
+    "wo.gen.nothing": "Nothing to generate — all templates exist",
+    "wo.gen.success": "{count} templates created",
+
     // ─── workout module (Phase 1B visual) ───
     "wr.pill.sets": "Sets",
     "wr.pill.reps": "Reps",
@@ -695,6 +707,18 @@ export const TRANSLATIONS = {
 
   /* ─────────── NEDERLANDS ─────────── */
   nl: {
+    // ─── workout generator ───
+    "wo.gen.banner.label": "AUTOMATISCH MAKEN",
+    "wo.gen.banner.title": "{count} workouts in je plan hebben nog geen template",
+    "wo.gen.banner.body": "Slim oefeningen kiezen voor elke dag uit de bibliotheek — sets, reps en rust automatisch ingevuld.",
+    "wo.gen.banner.cta": "Templates genereren",
+    "wo.gen.card.title": "Auto-generator",
+    "wo.gen.card.missing": "{count} templates ontbreken in weekschema",
+    "wo.gen.card.alldone": "Alle workouts in je plan hebben een template",
+    "wo.gen.card.cta": "Genereer",
+    "wo.gen.nothing": "Niets te maken — alle templates bestaan al",
+    "wo.gen.success": "{count} templates gemaakt",
+
     // ─── workout module (Phase 1B visual) ───
     "wr.pill.sets": "Sets",
     "wr.pill.reps": "Reps",
@@ -1339,6 +1363,18 @@ export const TRANSLATIONS = {
 
   /* ─────────── DEUTSCH ─────────── */
   de: {
+    // ─── workout generator ───
+    "wo.gen.banner.label": "AUTO-GENERIEREN",
+    "wo.gen.banner.title": "{count} Workouts im Plan haben keine Vorlage",
+    "wo.gen.banner.body": "Übungen pro Tag aus der Bibliothek wählen — Sätze, Wdh., Pausen automatisch.",
+    "wo.gen.banner.cta": "Vorlagen erstellen",
+    "wo.gen.card.title": "Auto-Generator",
+    "wo.gen.card.missing": "{count} Vorlagen fehlen im Wochenplan",
+    "wo.gen.card.alldone": "Alle Workouts im Plan haben eine Vorlage",
+    "wo.gen.card.cta": "Erstellen",
+    "wo.gen.nothing": "Nichts zu erstellen — alle Vorlagen vorhanden",
+    "wo.gen.success": "{count} Vorlagen erstellt",
+
     // ─── workout module (Phase 1B visual) ───
     "wr.pill.sets": "Sätze",
     "wr.pill.reps": "Wdh.",
@@ -1996,6 +2032,18 @@ export const TRANSLATIONS = {
 
   /* ─────────── FRANÇAIS ─────────── */
   fr: {
+    // ─── workout generator ───
+    "wo.gen.banner.label": "AUTO-GÉNÉRER",
+    "wo.gen.banner.title": "{count} workouts du plan n'ont pas de modèle",
+    "wo.gen.banner.body": "Sélection intelligente d'exercices par jour — séries, reps, repos auto.",
+    "wo.gen.banner.cta": "Générer les modèles",
+    "wo.gen.card.title": "Auto-générateur",
+    "wo.gen.card.missing": "{count} modèles manquent dans le plan",
+    "wo.gen.card.alldone": "Tous les workouts du plan ont un modèle",
+    "wo.gen.card.cta": "Générer",
+    "wo.gen.nothing": "Rien à générer",
+    "wo.gen.success": "{count} modèles créés",
+
     // ─── workout module (Phase 1B visual) ───
     "wr.pill.sets": "Séries",
     "wr.pill.reps": "Reps",
@@ -2653,6 +2701,18 @@ export const TRANSLATIONS = {
 
   /* ─────────── ESPAÑOL ─────────── */
   es: {
+    // ─── workout generator ───
+    "wo.gen.banner.label": "AUTO-GENERAR",
+    "wo.gen.banner.title": "{count} workouts del plan no tienen plantilla",
+    "wo.gen.banner.body": "Selección inteligente de ejercicios por día — series, reps, descanso auto.",
+    "wo.gen.banner.cta": "Generar plantillas",
+    "wo.gen.card.title": "Auto-generador",
+    "wo.gen.card.missing": "{count} plantillas faltan en el plan",
+    "wo.gen.card.alldone": "Todos los workouts del plan tienen plantilla",
+    "wo.gen.card.cta": "Generar",
+    "wo.gen.nothing": "Nada que generar",
+    "wo.gen.success": "{count} plantillas creadas",
+
     // ─── workout module (Phase 1B visual) ───
     "wr.pill.sets": "Series",
     "wr.pill.reps": "Reps",
@@ -3310,6 +3370,18 @@ export const TRANSLATIONS = {
 
   /* ─────────── ITALIANO ─────────── */
   it: {
+    // ─── workout generator ───
+    "wo.gen.banner.label": "AUTO-GENERA",
+    "wo.gen.banner.title": "{count} workout nel piano non hanno modello",
+    "wo.gen.banner.body": "Esercizi intelligenti per ogni giorno — serie, reps, riposo auto.",
+    "wo.gen.banner.cta": "Genera modelli",
+    "wo.gen.card.title": "Auto-generatore",
+    "wo.gen.card.missing": "{count} modelli mancanti",
+    "wo.gen.card.alldone": "Tutti i workout hanno un modello",
+    "wo.gen.card.cta": "Genera",
+    "wo.gen.nothing": "Niente da generare",
+    "wo.gen.success": "{count} modelli creati",
+
     // ─── workout module (Phase 1B visual) ───
     "wr.pill.sets": "Serie",
     "wr.pill.reps": "Reps",
@@ -3967,6 +4039,18 @@ export const TRANSLATIONS = {
 
   /* ─────────── PORTUGUÊS ─────────── */
   pt: {
+    // ─── workout generator ───
+    "wo.gen.banner.label": "AUTO-GERAR",
+    "wo.gen.banner.title": "{count} workouts no plano sem modelo",
+    "wo.gen.banner.body": "Seleção inteligente de exercícios — séries, reps, descanso auto.",
+    "wo.gen.banner.cta": "Gerar modelos",
+    "wo.gen.card.title": "Auto-gerador",
+    "wo.gen.card.missing": "{count} modelos em falta",
+    "wo.gen.card.alldone": "Todos os workouts têm modelo",
+    "wo.gen.card.cta": "Gerar",
+    "wo.gen.nothing": "Nada para gerar",
+    "wo.gen.success": "{count} modelos criados",
+
     // ─── workout module (Phase 1B visual) ───
     "wr.pill.sets": "Séries",
     "wr.pill.reps": "Reps",
@@ -4624,6 +4708,18 @@ export const TRANSLATIONS = {
 
   /* ─────────── POLSKI ─────────── */
   pl: {
+    // ─── workout generator ───
+    "wo.gen.banner.label": "AUTO-GENERUJ",
+    "wo.gen.banner.title": "{count} treningów w planie nie ma szablonu",
+    "wo.gen.banner.body": "Inteligentny wybór ćwiczeń — serie, powtórzenia, odpoczynek auto.",
+    "wo.gen.banner.cta": "Generuj szablony",
+    "wo.gen.card.title": "Auto-generator",
+    "wo.gen.card.missing": "{count} szablonów brakuje",
+    "wo.gen.card.alldone": "Wszystkie treningi mają szablon",
+    "wo.gen.card.cta": "Generuj",
+    "wo.gen.nothing": "Nic do wygenerowania",
+    "wo.gen.success": "Utworzono {count} szablonów",
+
     // ─── workout module (Phase 1B visual) ───
     "wr.pill.sets": "Serie",
     "wr.pill.reps": "Powt.",

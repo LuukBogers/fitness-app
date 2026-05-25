@@ -3,6 +3,7 @@ import { t, WEEK, useApp, useT, useLang, todayIdx, weekDates, todayKey, weekDayS
 import { Icon, Card, Label, Btn, Chip, Modal, Field, Pill, LetterBadge, VideoThumb, ActionSheet } from './shared';
 import { Toast } from './modals';
 import { EXERCISE_LIBRARY, getExercise, searchExercises, formatRestTime } from './exercise_library';
+import { generateMissingTemplates, countMissingTemplates } from './workout_generator';
 import { WorkoutRunner } from './workout_runner';
 
 /* ═══════════════════════════ WORKOUTS ═══════════════════════════
@@ -40,6 +41,18 @@ export function Workouts({ autoStart = false, onConsumedAutoStart = () => {} }) 
   const [toast, setToast] = useState('');
 
   const flashToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2400); };
+
+  // ── Template auto-generator ──────────────────────────────────────────
+  const missingCount = countMissingTemplates(workoutPlan, workouts);
+  const handleGenerate = async () => {
+    const generated = generateMissingTemplates(workoutPlan, workouts);
+    if (generated.length === 0) {
+      flashToast(T('wo.gen.nothing'));
+      return;
+    }
+    await saveProfileData({ workouts: [...workouts, ...generated] });
+    flashToast(T('wo.gen.success', { count: generated.length }));
+  };
 
   // Selected-day template lookup
   const selectedDayName = WEEK[selectedDayIdx];
@@ -117,6 +130,33 @@ export function Workouts({ autoStart = false, onConsumedAutoStart = () => {} }) 
       {/* ─── TODAY (day-tabs + template preview) ──────────────────────── */}
       {view === 'today' && (
         <>
+          {/* Generator banner — appears when workoutPlan has names without matching templates */}
+          {missingCount > 0 && (
+            <div style={{ padding: '0 16px 12px' }}>
+              <Card style={{
+                padding: 14, background: t.metalOrange,
+                border: `1px solid ${t.orangeBorder}`,
+                boxShadow: `0 8px 24px rgba(255,59,92,0.22), ${t.innerHi}`,
+              }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: '#FFF', letterSpacing: '0.05em', textTransform: 'uppercase', opacity: 0.85, marginBottom: 4 }}>
+                  {T('wo.gen.banner.label')}
+                </div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#FFF', marginBottom: 4, lineHeight: 1.3 }}>
+                  {T('wo.gen.banner.title', { count: missingCount })}
+                </div>
+                <div style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.85)', marginBottom: 12, lineHeight: 1.4 }}>
+                  {T('wo.gen.banner.body')}
+                </div>
+                <Btn full onClick={handleGenerate} style={{
+                  background: '#FFF', color: '#FF3B5C', fontWeight: 800, padding: '12px',
+                  boxShadow: 'none', border: 'none',
+                }}>
+                  ⚡ {T('wo.gen.banner.cta')}
+                </Btn>
+              </Card>
+            </div>
+          )}
+
           {/* In-progress banner */}
           {inProgress && (
             <div style={{ padding: '0 16px 12px' }}>
@@ -210,6 +250,26 @@ export function Workouts({ autoStart = false, onConsumedAutoStart = () => {} }) 
       {/* ─── TEMPLATES ──────────────────────────────────────────────── */}
       {view === 'templates' && (
         <div style={{ padding: '0 16px' }}>
+          {/* Auto-generate from week plan card */}
+          {Object.keys(workoutPlan).length > 0 && (
+            <Card style={{ padding: 12, marginBottom: 12, background: t.orangeBg, border: `1px solid ${t.orangeBorder}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: t.metalOrange, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <span style={{ fontSize: 16 }}>⚡</span>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{T('wo.gen.card.title')}</div>
+                  <div style={{ fontSize: 11, color: t.soft }}>
+                    {missingCount > 0 ? T('wo.gen.card.missing', { count: missingCount }) : T('wo.gen.card.alldone')}
+                  </div>
+                </div>
+                {missingCount > 0 && (
+                  <Btn small accent="orange" onClick={handleGenerate}>{T('wo.gen.card.cta')}</Btn>
+                )}
+              </div>
+            </Card>
+          )}
+
           <Btn full variant="ghost" accent="orange" style={{ marginBottom: 14 }} onClick={() => { setEditingTpl(null); setShowBuilder(true); }}>
             + {T('wo.createtemplate')}
           </Btn>
