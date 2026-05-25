@@ -70,6 +70,10 @@ export const t = {
   // Kept under same keys (green/orange) so all existing UI flips palette in-place.
   orange: '#FF3B5C', orangeBg: 'rgba(255,59,92,0.12)', orangeBorder: 'rgba(255,59,92,0.32)',
   green:  '#4D8BFA', greenBg:  'rgba(77,139,250,0.12)', greenBorder:  'rgba(77,139,250,0.32)',
+  // Metadata pill background (brown-tinted, premium gym-app feel)
+  pill: 'rgba(255,140,80,0.10)', pillBorder: 'rgba(255,140,80,0.18)', pillText: '#E9D2C0',
+  // Set completion (universal "set done" = green so it reads as confirmed across themes)
+  setDone: '#34C759', setDoneBg: 'rgba(52,199,89,0.10)', setDoneBorder: 'rgba(52,199,89,0.45)',
   // Premium accents (addressable directly)
   silver: '#D8DBE2', chrome: '#F2F4F9', champagne: '#5EE3F5', graphite: '#1F2530',
   // Macro chart colours — blue (protein), silver-cool (carbs), red (fat)

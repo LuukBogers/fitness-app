@@ -1,11 +1,19 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { t, WEEK, useApp, useT, useLang, todayIdx, weekDates, todayKey, weekDayShort, fmtKey, newId } from './lib';
-import { Icon, Card, Label, Btn, Chip, Modal, Field } from './shared';
+import { Icon, Card, Label, Btn, Chip, Modal, Field, Pill, LetterBadge, VideoThumb, ActionSheet } from './shared';
 import { Toast } from './modals';
 import { EXERCISE_LIBRARY, getExercise, searchExercises, formatRestTime } from './exercise_library';
 import { WorkoutRunner } from './workout_runner';
 
-/* ═══════════════════════════ WORKOUTS ═══════════════════════════ */
+/* ═══════════════════════════ WORKOUTS ═══════════════════════════
+ * Premium gym-flow overview matching reference screenshots:
+ *   - Top header with template-set name + dropdown + calendar icon
+ *   - Day-tabs (Rest day / Push / Pull / Legs / ...) — horizontal, underline-style
+ *   - Selected day = template preview (Warm Up + Workout sections)
+ *   - Sticky "Log This Workout" CTA at bottom
+ *   - In-progress workout? → ActionSheet (Continue / Start new / Cancel)
+ * ═══════════════════════════════════════════════════════════════ */
+
 export function Workouts({ autoStart = false, onConsumedAutoStart = () => {} }) {
   const T = useT();
   const { lang } = useLang();
@@ -15,32 +23,71 @@ export function Workouts({ autoStart = false, onConsumedAutoStart = () => {} }) 
   const workoutPlan = d.workoutPlan || {};
   const workoutLog = d.workoutLog || {};
   const workoutSessions = d.workoutSessions || {};
+  const inProgress = d.inProgressWorkout || null;
 
   const ti = todayIdx();
   const dates = weekDates();
 
-  const [view, setView] = useState('today');
-  const [showTpl, setShowTpl] = useState(null);
+  const [view, setView] = useState('today');                  // today | templates | library
+  const [selectedDayIdx, setSelectedDayIdx] = useState(ti);   // 0..6 (Mon..Sun)
+  const [runnerTpl, setRunnerTpl] = useState(null);
+  const [resumeData, setResumeData] = useState(null);
+  const [showResumeSheet, setShowResumeSheet] = useState(false);
+  const [pendingStart, setPendingStart] = useState(null);     // template waiting to start once resume question is answered
   const [showBuilder, setShowBuilder] = useState(false);
   const [editingTpl, setEditingTpl] = useState(null);
-  const [runnerTpl, setRunnerTpl] = useState(null);
+  const [showTpl, setShowTpl] = useState(null);
   const [toast, setToast] = useState('');
-
-  const todayName = WEEK[ti];
-  const todayWorkoutName = workoutPlan[todayName];
-  const todayTpl = todayWorkoutName ? workouts.find(w => w.name === todayWorkoutName) : null;
-  const todayDone = workoutLog[todayKey()]?.completed || false;
 
   const flashToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2400); };
 
-  const startWorkout = (template) => setRunnerTpl(template);
-  const quickStart = () => setRunnerTpl({ id: 'quick', name: T('wr.quickworkout'), exercises: [] });
+  // Selected-day template lookup
+  const selectedDayName = WEEK[selectedDayIdx];
+  const selectedWorkoutName = workoutPlan[selectedDayName];
+  const selectedTpl = selectedWorkoutName ? workouts.find(w => w.name === selectedWorkoutName) : null;
+  const selectedDateKey = (() => {
+    const dt = new Date(); dt.setDate(dt.getDate() - ti + selectedDayIdx); return fmtKey(dt);
+  })();
+  const selectedDone = workoutLog[selectedDateKey]?.completed || false;
 
-  // Auto-start workout when triggered from Home
+  // ── Start flow ───────────────────────────────────────────────────────
+  const requestStartWorkout = (tpl) => {
+    if (inProgress) {
+      setPendingStart(tpl);
+      setShowResumeSheet(true);
+    } else {
+      setRunnerTpl(tpl);
+      setResumeData(null);
+    }
+  };
+
+  const resumeInProgress = () => {
+    setRunnerTpl({
+      id: inProgress.id || 'resumed',
+      name: inProgress.name,
+      exercises: [],
+    });
+    setResumeData(inProgress);
+    setPendingStart(null);
+    setShowResumeSheet(false);
+  };
+
+  const startNewDropOld = async () => {
+    await saveProfileData({ inProgressWorkout: null });
+    if (pendingStart) {
+      setRunnerTpl(pendingStart);
+      setResumeData(null);
+    }
+    setPendingStart(null);
+    setShowResumeSheet(false);
+  };
+
+  const quickStart = () => requestStartWorkout({ id: 'quick', name: T('wr.quickworkout'), exercises: [] });
+
+  // Auto-start from Home tap
   useEffect(() => {
     if (autoStart) {
-      if (todayTpl) startWorkout(todayTpl);
-      else quickStart();
+      requestStartWorkout(selectedTpl || { id: 'quick', name: T('wr.quickworkout'), exercises: [] });
       onConsumedAutoStart();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -48,6 +95,7 @@ export function Workouts({ autoStart = false, onConsumedAutoStart = () => {} }) 
 
   return (
     <div style={{ paddingBottom: 100 }}>
+      {/* ─── HEADER ───────────────────────────────────────────────────── */}
       <div style={{ padding: '20px 16px 0' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <div>
@@ -66,112 +114,151 @@ export function Workouts({ autoStart = false, onConsumedAutoStart = () => {} }) 
         </div>
       </div>
 
-      <div style={{ padding: '0 16px' }}>
-        {view === 'today' && (
-          <>
-            <Card style={{ padding: 18, background: todayDone ? t.greenBg : todayTpl ? `linear-gradient(135deg, ${t.card}, ${t.orangeBg})` : t.card, border: todayDone ? `1px solid ${t.greenBorder}` : todayTpl ? `1px solid ${t.orangeBorder}` : `1px solid ${t.border}` }}>
-              <Label color={todayDone ? t.green : t.orange}>{T('common.today')}</Label>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6 }}>
-                <div style={{ fontSize: 22, fontWeight: 800, color: t.text, letterSpacing: '-0.02em' }}>
-                  {todayWorkoutName || T('wo.restday')}
+      {/* ─── TODAY (day-tabs + template preview) ──────────────────────── */}
+      {view === 'today' && (
+        <>
+          {/* In-progress banner */}
+          {inProgress && (
+            <div style={{ padding: '0 16px 12px' }}>
+              <Card onClick={() => { setRunnerTpl({ id: inProgress.id, name: inProgress.name, exercises: [] }); setResumeData(inProgress); }} style={{
+                padding: 12, background: t.orangeBg, border: `1px solid ${t.orangeBorder}`,
+                display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+              }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: t.metalOrange, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="play" size={16} color="#FFF" />
                 </div>
-                {todayDone && <span style={{ fontSize: 11, color: t.green, fontWeight: 700, background: t.greenBg, padding: '3px 8px', borderRadius: 6 }}>✓ {T('common.done')}</span>}
-              </div>
-              <div style={{ fontSize: 12.5, color: t.soft, marginBottom: 14 }}>
-                {todayTpl
-                  ? T('wo.today.body', { count: (todayTpl.exercises || []).length })
-                  : todayWorkoutName
-                  ? T('wo.today.notpl', { name: todayWorkoutName })
-                  : T('wo.today.rest')}
-              </div>
-              {todayTpl && !todayDone && (
-                <Btn full accent="orange" onClick={() => startWorkout(todayTpl)}>
-                  <Icon name="play" size={14} color="#0A0A0B" /> &nbsp;{T('wo.startworkout')}
-                </Btn>
-              )}
-              {!todayTpl && (
-                <Btn full variant="ghost" accent="orange" onClick={quickStart}>{T('wo.quickstart')}</Btn>
-              )}
-            </Card>
-
-            <Label style={{ marginTop: 18 }}>{T('wo.weekview')}</Label>
-            <div>
-              {WEEK.map((day, i) => {
-                const w = workoutPlan[day];
-                const dt = new Date(); dt.setDate(dt.getDate() - ti + i);
-                const dk = fmtKey(dt);
-                const done = workoutLog[dk]?.completed || false;
-                const isToday = i === ti;
-                const session = workoutSessions[dk];
-                const setCount = session ? (session.exercises || []).reduce((s, ex) => s + (ex.sets || []).length, 0) : 0;
-                return (
-                  <Card key={day} style={{ padding: 12, marginBottom: 6, background: isToday ? `linear-gradient(135deg, ${t.card}, ${t.orangeBg})` : t.card, border: isToday ? `1px solid ${t.orangeBorder}` : `1px solid ${t.border}` }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <div style={{
-                        width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-                        background: done ? t.greenBg : w ? t.orangeBg : t.card2,
-                        border: `1px solid ${done ? t.greenBorder : w ? t.orangeBorder : t.border}`,
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                      }}>
-                        <div style={{ fontSize: 9, color: done ? t.green : w ? t.orange : t.muted, fontWeight: 700 }}>{weekDayShort(lang, i)}</div>
-                        <div style={{ fontSize: 13, color: t.text, fontWeight: 700, marginTop: -1 }}>{dates[i]}</div>
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{w || T('wo.restday')}</div>
-                        <div style={{ fontSize: 11, color: t.soft, marginTop: 2 }}>
-                          {done && session
-                            ? T('wo.day.sets', { count: setCount })
-                            : done
-                            ? T('wo.completed')
-                            : w
-                            ? T('wo.day.planned')
-                            : T('wo.recovery')}
-                        </div>
-                      </div>
-                      {done && <Icon name="check" size={14} color={t.green} stroke={3} />}
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-          </>
-        )}
-
-        {view === 'templates' && (
-          <>
-            <Btn full variant="ghost" accent="orange" style={{ marginBottom: 14 }} onClick={() => { setEditingTpl(null); setShowBuilder(true); }}>
-              + {T('wo.createtemplate')}
-            </Btn>
-            {workouts.length === 0 ? (
-              <div style={{ padding: 40, textAlign: 'center', borderRadius: 16, background: t.card, border: `1px dashed ${t.border}` }}>
-                <div style={{ fontSize: 32, marginBottom: 10 }}>🏋️</div>
-                <div style={{ fontSize: 14, color: t.text, fontWeight: 600, marginBottom: 6 }}>{T('wo.notemplates')}</div>
-                <div style={{ fontSize: 12, color: t.muted, lineHeight: 1.5 }}>{T('wo.notemplatesbody')}</div>
-              </div>
-            ) : workouts.map((w, i) => (
-              <Card key={i} onClick={() => setShowTpl(i)} style={{ padding: 14 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 11, background: t.orangeBg, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${t.orangeBorder}` }}>
-                      <Icon name="workout" size={18} color={t.orange} />
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{w.name}</div>
-                      <div style={{ fontSize: 12, color: t.soft }}>{(w.exercises || []).length} {T('wo.exercises')}</div>
-                    </div>
-                  </div>
-                  <Icon name="chevR" size={16} color={t.muted} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: t.orange, letterSpacing: '0.04em' }}>{T('wo.inprogress.label')}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{inProgress.name}</div>
                 </div>
+                <Icon name="chevR" size={14} color={t.orange} />
               </Card>
-            ))}
-          </>
-        )}
+            </div>
+          )}
 
-        {view === 'library' && (
+          {/* Day tabs strip */}
+          {Object.keys(workoutPlan).length > 0 ? (
+            <div style={{ overflowX: 'auto', borderBottom: `1px solid ${t.border}`, marginBottom: 14 }}>
+              <div style={{ display: 'flex', gap: 0, padding: '0 8px', minWidth: 'min-content' }}>
+                {WEEK.map((day, i) => {
+                  const w = workoutPlan[day];
+                  const active = i === selectedDayIdx;
+                  const isToday = i === ti;
+                  return (
+                    <div key={day} onClick={() => setSelectedDayIdx(i)} style={{
+                      padding: '12px 14px', cursor: 'pointer', position: 'relative',
+                      whiteSpace: 'nowrap', flexShrink: 0,
+                    }}>
+                      <div style={{
+                        fontSize: 14.5, fontWeight: active ? 800 : 600,
+                        color: active ? t.orange : isToday ? t.text : t.muted,
+                        letterSpacing: '-0.01em',
+                      }}>
+                        {w || T('wo.restday')}
+                      </div>
+                      {active && (
+                        <div style={{
+                          position: 'absolute', bottom: -1, left: 8, right: 8,
+                          height: 2, background: t.orange, borderRadius: 1,
+                        }} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            /* No plan → empty state */
+            <div style={{ padding: '0 16px' }}>
+              <Card style={{ padding: 30, textAlign: 'center', border: `1px dashed ${t.border}` }}>
+                <div style={{ fontSize: 36, marginBottom: 10 }}>💪</div>
+                <div style={{ fontSize: 14, color: t.text, fontWeight: 700, marginBottom: 6 }}>{T('wo.noplan.title')}</div>
+                <div style={{ fontSize: 12, color: t.muted, lineHeight: 1.5, marginBottom: 16 }}>{T('wo.noplan.body')}</div>
+                <Btn full accent="orange" onClick={quickStart}>{T('wo.quickstart')}</Btn>
+              </Card>
+            </div>
+          )}
+
+          {/* Template preview for selected day */}
+          {Object.keys(workoutPlan).length > 0 && (
+            <div style={{ padding: '0 14px' }}>
+              {selectedDone && (
+                <div style={{ padding: '8px 12px', marginBottom: 12, borderRadius: 10, background: 'rgba(52,199,89,0.10)', border: '1px solid rgba(52,199,89,0.30)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <Icon name="check" size={14} color="#34C759" stroke={3} />
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: '#34C759' }}>{T('wo.day.completed')}</div>
+                </div>
+              )}
+              {selectedTpl ? (
+                <TemplatePreview tpl={selectedTpl} T={T} />
+              ) : selectedWorkoutName ? (
+                <div style={{ padding: 30, textAlign: 'center', borderRadius: 16, background: t.card, border: `1px dashed ${t.border}` }}>
+                  <div style={{ fontSize: 14, color: t.text, fontWeight: 600, marginBottom: 6 }}>{selectedWorkoutName}</div>
+                  <div style={{ fontSize: 12, color: t.muted, lineHeight: 1.5 }}>{T('wo.today.notpl', { name: selectedWorkoutName })}</div>
+                </div>
+              ) : (
+                <div style={{ padding: 30, textAlign: 'center', borderRadius: 16, background: t.card, border: `1px dashed ${t.border}` }}>
+                  <div style={{ fontSize: 28, marginBottom: 8 }}>🛌</div>
+                  <div style={{ fontSize: 14, color: t.text, fontWeight: 600, marginBottom: 6 }}>{T('wo.restday')}</div>
+                  <div style={{ fontSize: 12, color: t.muted }}>{T('wo.today.rest')}</div>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ─── TEMPLATES ──────────────────────────────────────────────── */}
+      {view === 'templates' && (
+        <div style={{ padding: '0 16px' }}>
+          <Btn full variant="ghost" accent="orange" style={{ marginBottom: 14 }} onClick={() => { setEditingTpl(null); setShowBuilder(true); }}>
+            + {T('wo.createtemplate')}
+          </Btn>
+          {workouts.length === 0 ? (
+            <div style={{ padding: 40, textAlign: 'center', borderRadius: 16, background: t.card, border: `1px dashed ${t.border}` }}>
+              <div style={{ fontSize: 32, marginBottom: 10 }}>🏋️</div>
+              <div style={{ fontSize: 14, color: t.text, fontWeight: 600, marginBottom: 6 }}>{T('wo.notemplates')}</div>
+              <div style={{ fontSize: 12, color: t.muted, lineHeight: 1.5 }}>{T('wo.notemplatesbody')}</div>
+            </div>
+          ) : workouts.map((w, i) => (
+            <Card key={i} onClick={() => setShowTpl(i)} style={{ padding: 14 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 11, background: t.orangeBg, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${t.orangeBorder}` }}>
+                    <Icon name="workout" size={18} color={t.orange} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{w.name}</div>
+                    <div style={{ fontSize: 12, color: t.soft }}>{(w.exercises || []).length} {T('wo.exercises')}</div>
+                  </div>
+                </div>
+                <Icon name="chevR" size={16} color={t.muted} />
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* ─── LIBRARY ─────────────────────────────────────────────────── */}
+      {view === 'library' && (
+        <div style={{ padding: '0 16px' }}>
           <ExerciseLibraryScreen T={T} />
-        )}
-      </div>
+        </div>
+      )}
 
+      {/* ─── Sticky "Log This Workout" CTA ──────────────────────────── */}
+      {view === 'today' && selectedTpl && !selectedDone && (
+        <div style={{
+          position: 'fixed', bottom: 72, left: 0, right: 0, zIndex: 10,
+          padding: '12px 16px',
+          background: 'linear-gradient(to top, rgba(8,10,14,0.98) 50%, rgba(8,10,14,0))',
+        }}>
+          <Btn full accent="orange" onClick={() => requestStartWorkout(selectedTpl)} style={{ fontSize: 15, padding: '14px' }}>
+            {T('wo.logthis')}
+          </Btn>
+        </div>
+      )}
+
+      {/* ─── Template detail (full view, edit, start) ──────────────── */}
       <Modal visible={showTpl !== null} onClose={() => setShowTpl(null)} title={showTpl !== null ? workouts[showTpl]?.name || '' : ''} accent="orange">
         {showTpl !== null && workouts[showTpl] && (
           <>
@@ -181,8 +268,8 @@ export function Workouts({ autoStart = false, onConsumedAutoStart = () => {} }) 
               const name = exMeta ? exMeta.name : (typeof ex === 'string' ? ex : T('wo.unknownexercise'));
               return (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 0', borderBottom: i < (workouts[showTpl].exercises || []).length - 1 ? `1px solid ${t.border}` : 'none' }}>
-                  <div style={{ width: 28, height: 28, borderRadius: 7, background: t.orangeBg, color: t.orange, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>{i + 1}</div>
-                  <div style={{ flex: 1, fontSize: 14, color: t.text }}>{name}</div>
+                  <LetterBadge letter={String.fromCharCode(65 + i)} />
+                  <div style={{ flex: 1, fontSize: 14, color: t.text, fontWeight: 600 }}>{name}</div>
                   {typeof ex !== 'string' && ex.setCount && (
                     <div style={{ fontSize: 11, color: t.muted }}>{ex.setCount}×{ex.repRange}</div>
                   )}
@@ -191,25 +278,21 @@ export function Workouts({ autoStart = false, onConsumedAutoStart = () => {} }) 
             })}
             <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
               <Btn full variant="outline" onClick={() => { setEditingTpl(workouts[showTpl]); setShowTpl(null); setShowBuilder(true); }}>{T('common.edit')}</Btn>
-              <Btn full accent="orange" onClick={() => { const tpl = workouts[showTpl]; setShowTpl(null); startWorkout(tpl); }}>
-                {T('wo.startworkout')}
-              </Btn>
+              <Btn full accent="orange" onClick={() => { const tpl = workouts[showTpl]; setShowTpl(null); requestStartWorkout(tpl); }}>{T('wo.startworkout')}</Btn>
             </div>
           </>
         )}
       </Modal>
 
+      {/* ─── Template builder ───────────────────────────────────────── */}
       <TemplateBuilderModal
         visible={showBuilder}
         editing={editingTpl}
         onClose={() => { setShowBuilder(false); setEditingTpl(null); }}
         onSave={async (tpl) => {
           let updated;
-          if (editingTpl) {
-            updated = workouts.map(w => w.id === editingTpl.id ? tpl : w);
-          } else {
-            updated = [...workouts, tpl];
-          }
+          if (editingTpl) updated = workouts.map(w => w.id === editingTpl.id ? tpl : w);
+          else updated = [...workouts, tpl];
           await saveProfileData({ workouts: updated });
           setShowBuilder(false); setEditingTpl(null);
           flashToast(T('wo.tpl.saved'));
@@ -217,15 +300,132 @@ export function Workouts({ autoStart = false, onConsumedAutoStart = () => {} }) 
         T={T}
       />
 
+      {/* ─── Resume in-progress ActionSheet ─────────────────────────── */}
+      <ActionSheet
+        visible={showResumeSheet}
+        onClose={() => { setShowResumeSheet(false); setPendingStart(null); }}
+        title={T('wo.resume.title')}
+        subtitle={inProgress ? T('wo.resume.body', { date: new Date(inProgress.savedAt || inProgress.startedAt).toLocaleDateString(lang || 'en', { day: 'numeric', month: 'short' }) }) : ''}
+        actions={[
+          { label: T('wo.resume.continue'), color: 'orange', onPress: resumeInProgress },
+          { label: T('wo.resume.startnew'), color: 'orange', onPress: startNewDropOld },
+          { label: T('common.cancel'),      color: 'orange', onPress: () => { setShowResumeSheet(false); setPendingStart(null); } },
+        ]}
+      />
+
+      {/* ─── RUNNER ──────────────────────────────────────────────────── */}
       <WorkoutRunner
         visible={runnerTpl !== null}
         template={runnerTpl}
-        onClose={() => setRunnerTpl(null)}
+        resumeFrom={resumeData}
+        onClose={() => { setRunnerTpl(null); setResumeData(null); }}
         onFinished={() => { flashToast(T('wo.session.saved')); }}
       />
 
       <Toast message={toast} visible={!!toast} />
     </div>
+  );
+}
+
+/* ─────────────────────── TemplatePreview ─────────────────────── */
+function TemplatePreview({ tpl, T }) {
+  const exercises = tpl.exercises || [];
+  const warmups = tpl.warmups || [];
+
+  return (
+    <div style={{ paddingBottom: 80 }}>
+      {/* Warm Up section */}
+      {warmups.length > 0 && (
+        <>
+          <div style={{ fontSize: 16, fontWeight: 700, color: t.soft, padding: '4px 4px 10px', letterSpacing: '-0.01em' }}>
+            {T('wo.section.warmup')}
+          </div>
+          <Card style={{ padding: 10, marginBottom: 14 }}>
+            {warmups.map((w, i) => {
+              const exId = typeof w === 'string' ? null : w.exerciseId;
+              const exMeta = exId ? getExercise(exId) : null;
+              return (
+                <PreviewWarmupRow
+                  key={i}
+                  exercise={exMeta}
+                  reps={typeof w === 'string' ? 10 : (w.reps || 10)}
+                  letter={String.fromCharCode(65 + i)}
+                  divider={i < warmups.length - 1}
+                  T={T}
+                />
+              );
+            })}
+          </Card>
+        </>
+      )}
+
+      {/* Workout section */}
+      <div style={{ fontSize: 16, fontWeight: 700, color: t.soft, padding: '4px 4px 10px', letterSpacing: '-0.01em' }}>
+        {T('wo.section.workout')}
+      </div>
+      {exercises.length === 0 ? (
+        <div style={{ padding: 30, textAlign: 'center', borderRadius: 16, background: t.card, border: `1px dashed ${t.border}` }}>
+          <div style={{ fontSize: 13, color: t.muted }}>{T('wo.tpl.noexs')}</div>
+        </div>
+      ) : exercises.map((ex, i) => {
+        const exId = typeof ex === 'string' ? null : ex.exerciseId;
+        const exMeta = exId ? getExercise(exId) : null;
+        if (!exMeta) return null;
+        return (
+          <PreviewExerciseCard
+            key={i}
+            exercise={exMeta}
+            entry={typeof ex === 'string' ? { setCount: 3, repRange: exMeta.defaultRepRange, restSec: exMeta.defaultRestSec, tempo: exMeta.defaultTempo } : ex}
+            letter={String.fromCharCode(65 + i)}
+            T={T}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function PreviewWarmupRow({ exercise, reps, letter, divider, T }) {
+  if (!exercise) return null;
+  return (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 4px' }}>
+        <VideoThumb exercise={exercise} size="sm" />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14.5, fontWeight: 700, color: t.text, marginBottom: 4 }}>{exercise.name}</div>
+          <Pill>{T('wr.pill.reps')}: {reps}</Pill>
+        </div>
+        <LetterBadge letter={letter} active={false} />
+      </div>
+      {divider && <div style={{ height: 1, background: t.border, margin: '0 4px' }} />}
+    </>
+  );
+}
+
+function PreviewExerciseCard({ exercise, entry, letter, T }) {
+  const restLabel = entry.restSec >= 60
+    ? `${Math.floor(entry.restSec / 60)}m${entry.restSec % 60 ? ' ' + (entry.restSec % 60) + 's' : ''}`
+    : `${entry.restSec}s`;
+  return (
+    <Card style={{ padding: 12, marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+        <VideoThumb exercise={exercise} size="md" />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
+            <div style={{ flex: 1, fontSize: 16, fontWeight: 800, color: t.text, lineHeight: 1.25, letterSpacing: '-0.01em' }}>
+              {exercise.name}
+            </div>
+            <LetterBadge letter={letter} />
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            <Pill>{T('wr.pill.sets')}: {entry.setCount}</Pill>
+            <Pill>{T('wr.pill.reps')}: {entry.repRange}</Pill>
+            <Pill>{T('wr.pill.rest')}: {restLabel}</Pill>
+            {entry.tempo && <Pill>{T('wr.pill.tempo')}: {entry.tempo}</Pill>}
+          </div>
+        </div>
+      </div>
+    </Card>
   );
 }
 
@@ -238,8 +438,7 @@ function ExerciseLibraryScreen({ T }) {
   return (
     <>
       <input
-        value={q}
-        onChange={e => setQ(e.target.value)}
+        value={q} onChange={e => setQ(e.target.value)}
         placeholder={T('wr.lib.search')}
         style={{ width: '100%', padding: '12px 14px', borderRadius: 12, background: t.card2, border: `1px solid ${t.border}`, color: t.text, fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 10 }}
       />
@@ -253,9 +452,9 @@ function ExerciseLibraryScreen({ T }) {
         {T('wo.lib.count', { count: list.length })}
       </div>
       {list.map(e => (
-        <Card key={e.id} style={{ padding: 12, marginBottom: 6 }}>
+        <Card key={e.id} style={{ padding: 10, marginBottom: 6 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <LibThumb exercise={e} />
+            <VideoThumb exercise={e} size="sm" />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name}</div>
               <div style={{ fontSize: 11, color: t.muted, marginTop: 2 }}>
@@ -274,23 +473,6 @@ function ExerciseLibraryScreen({ T }) {
   );
 }
 
-function LibThumb({ exercise }) {
-  const mgColor = {
-    chest: '#FF3B5C', back: '#4D8BFA', shoulders: '#5EE3F5',
-    arms: '#B8C2D6', legs: '#FF3B5C', core: '#4D8BFA', cardio: '#5EE3F5',
-  }[exercise.primaryMuscle] || t.silver;
-  return (
-    <div style={{
-      width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-      background: `linear-gradient(135deg, ${mgColor}33, ${mgColor}11)`,
-      border: `1px solid ${mgColor}55`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      <Icon name="workout" size={18} color={mgColor} />
-    </div>
-  );
-}
-
 /* ─────────────────────── Template builder ─────────────────────── */
 function TemplateBuilderModal({ visible, editing, onClose, onSave, T }) {
   const [name, setName] = useState('');
@@ -303,10 +485,10 @@ function TemplateBuilderModal({ visible, editing, onClose, onSave, T }) {
       const exs = (e.exercises || []).map(x => {
         if (typeof x === 'string') {
           const m = EXERCISE_LIBRARY.find(em => em.name.toLowerCase() === x.toLowerCase());
-          if (m) return { exerciseId: m.id, setCount: 4, repRange: m.defaultRepRange, restSec: m.defaultRestSec };
+          if (m) return { exerciseId: m.id, setCount: 4, repRange: m.defaultRepRange, restSec: m.defaultRestSec, tempo: m.defaultTempo || '' };
           return null;
         }
-        return { exerciseId: x.exerciseId, setCount: x.setCount || 4, repRange: x.repRange || '8-12', restSec: x.restSec || 120 };
+        return { exerciseId: x.exerciseId, setCount: x.setCount || 4, repRange: x.repRange || '8-12', restSec: x.restSec || 120, tempo: x.tempo || '' };
       }).filter(Boolean);
       setPicked(exs);
     } else {
@@ -320,13 +502,11 @@ function TemplateBuilderModal({ visible, editing, onClose, onSave, T }) {
     lastVisRef.current = visKey;
     initFromEditing(editing);
   }
-  if (!visible && lastVisRef.current) {
-    lastVisRef.current = '';
-  }
+  if (!visible && lastVisRef.current) lastVisRef.current = '';
 
   const pick = (exerciseId) => {
     const m = getExercise(exerciseId);
-    setPicked(prev => [...prev, { exerciseId, setCount: 4, repRange: m?.defaultRepRange || '8-12', restSec: m?.defaultRestSec || 120 }]);
+    setPicked(prev => [...prev, { exerciseId, setCount: 4, repRange: m?.defaultRepRange || '8-12', restSec: m?.defaultRestSec || 120, tempo: m?.defaultTempo || '' }]);
     setShowPicker(false);
   };
   const remove = (idx) => setPicked(prev => prev.filter((_, i) => i !== idx));
@@ -334,12 +514,11 @@ function TemplateBuilderModal({ visible, editing, onClose, onSave, T }) {
 
   const save = () => {
     if (!name.trim() || picked.length === 0) return;
-    const tpl = {
+    onSave({
       id: editing?.id || newId(),
       name: name.trim(),
       exercises: picked,
-    };
-    onSave(tpl);
+    });
   };
 
   return (
@@ -347,8 +526,7 @@ function TemplateBuilderModal({ visible, editing, onClose, onSave, T }) {
       <Modal visible={visible && !showPicker} onClose={onClose} title={editing ? T('wo.tpl.edit') : T('wo.tpl.new')} accent="orange">
         <Field label={T('wo.tpl.name')}>
           <input
-            value={name}
-            onChange={e => setName(e.target.value)}
+            value={name} onChange={e => setName(e.target.value)}
             placeholder={T('wo.tpl.nameph')}
             style={{ width: '100%', padding: '12px 14px', borderRadius: 10, background: t.card2, border: `1px solid ${t.border}`, color: t.text, fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box' }}
           />
@@ -368,7 +546,7 @@ function TemplateBuilderModal({ visible, editing, onClose, onSave, T }) {
                   display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px',
                   background: t.card2, border: `1px solid ${t.border}`, borderRadius: 10, marginBottom: 6,
                 }}>
-                  <div style={{ width: 22, height: 22, borderRadius: 6, background: t.orangeBg, color: t.orange, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{i + 1}</div>
+                  <LetterBadge letter={String.fromCharCode(65 + i)} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 700, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m?.name || '?'}</div>
                     <div style={{ fontSize: 10.5, color: t.muted, display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -378,7 +556,7 @@ function TemplateBuilderModal({ visible, editing, onClose, onSave, T }) {
                       ×
                       <input value={p.repRange}
                         onChange={e => updatePicked(i, { repRange: e.target.value })}
-                        style={{ width: 48, padding: 2, background: 'transparent', border: 'none', color: t.text, fontSize: 10.5, fontFamily: 'inherit' }} />
+                        style={{ width: 56, padding: 2, background: 'transparent', border: 'none', color: t.text, fontSize: 10.5, fontFamily: 'inherit' }} />
                       ·
                       <input type="number" inputMode="numeric" value={p.restSec}
                         onChange={e => updatePicked(i, { restSec: parseInt(e.target.value) || 90 })}
@@ -445,10 +623,10 @@ function TemplateExercisePicker({ visible, onClose, onPick, T }) {
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 32px' }}>
         {list.map(e => (
           <div key={e.id} onClick={() => onPick(e.id)} style={{
-            display: 'flex', alignItems: 'center', gap: 12, padding: 12, marginBottom: 8,
+            display: 'flex', alignItems: 'center', gap: 12, padding: 10, marginBottom: 8,
             background: t.card, borderRadius: 12, border: `1px solid ${t.border}`, cursor: 'pointer',
           }}>
-            <LibThumb exercise={e} />
+            <VideoThumb exercise={e} size="sm" />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{e.name}</div>
               <div style={{ fontSize: 11, color: t.muted, marginTop: 2 }}>

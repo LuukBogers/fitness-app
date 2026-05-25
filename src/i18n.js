@@ -25,6 +25,29 @@ export const detectLang = () => {
 export const TRANSLATIONS = {
   /* ─────────── ENGLISH (master) ─────────── */
   en: {
+    // ─── workout module (Phase 1B visual) ───
+    "wr.pill.sets": "Sets",
+    "wr.pill.reps": "Reps",
+    "wr.pill.rest": "Rest",
+    "wr.pill.tempo": "Tempo",
+    "wr.section.workout": "Workout",
+    "wo.section.warmup": "Warm Up",
+    "wo.section.workout": "Workout",
+    "wr.warmupsets": "{count} warm-up sets ({max} reps max)",
+    "wo.logthis": "Log This Workout",
+    "wo.noplan.title": "No weekly plan yet",
+    "wo.noplan.body": "Create templates and assign them to days in Settings → Training, or do a quick workout now.",
+    "wo.inprogress.label": "IN PROGRESS",
+    "wo.resume.title": "You have a workout in progress",
+    "wo.resume.body": "saved on {date}",
+    "wo.resume.continue": "Continue",
+    "wo.resume.startnew": "Start new workout",
+    "wr.close.title": "Close workout",
+    "wr.close.body": "Save this workout log for later?",
+    "wr.close.save": "Save",
+    "wr.close.delete": "Delete",
+    "wo.day.completed": "Workout completed today",
+
     // ─── workout module (added Phase 1) ───
     "wo.tab.today": "Today",
     "wo.tab.library": "Library",
@@ -672,6 +695,29 @@ export const TRANSLATIONS = {
 
   /* ─────────── NEDERLANDS ─────────── */
   nl: {
+    // ─── workout module (Phase 1B visual) ───
+    "wr.pill.sets": "Sets",
+    "wr.pill.reps": "Reps",
+    "wr.pill.rest": "Rust",
+    "wr.pill.tempo": "Tempo",
+    "wr.section.workout": "Workout",
+    "wo.section.warmup": "Warming-up",
+    "wo.section.workout": "Workout",
+    "wr.warmupsets": "{count} warming-up sets ({max} reps max)",
+    "wo.logthis": "Log deze workout",
+    "wo.noplan.title": "Nog geen weekschema",
+    "wo.noplan.body": "Maak templates en wijs ze toe aan dagen in Instellingen → Training, of doe nu een snel workout.",
+    "wo.inprogress.label": "BEZIG",
+    "wo.resume.title": "Je hebt een workout bezig",
+    "wo.resume.body": "opgeslagen op {date}",
+    "wo.resume.continue": "Doorgaan",
+    "wo.resume.startnew": "Start nieuw workout",
+    "wr.close.title": "Workout sluiten",
+    "wr.close.body": "Workout-log opslaan voor later?",
+    "wr.close.save": "Opslaan",
+    "wr.close.delete": "Verwijderen",
+    "wo.day.completed": "Workout vandaag gedaan",
+
     // ─── workout module (added Phase 1) ───
     "wo.tab.today": "Vandaag",
     "wo.tab.library": "Bibliotheek",
@@ -1293,6 +1339,29 @@ export const TRANSLATIONS = {
 
   /* ─────────── DEUTSCH ─────────── */
   de: {
+    // ─── workout module (Phase 1B visual) ───
+    "wr.pill.sets": "Sätze",
+    "wr.pill.reps": "Wdh.",
+    "wr.pill.rest": "Pause",
+    "wr.pill.tempo": "Tempo",
+    "wr.section.workout": "Workout",
+    "wo.section.warmup": "Aufwärmen",
+    "wo.section.workout": "Workout",
+    "wr.warmupsets": "{count} Aufwärmsätze ({max} Wdh. max)",
+    "wo.logthis": "Workout starten",
+    "wo.noplan.title": "Noch kein Wochenplan",
+    "wo.noplan.body": "Vorlagen erstellen und Tagen zuweisen in Einstellungen → Training, oder jetzt schnell workouten.",
+    "wo.inprogress.label": "LÄUFT",
+    "wo.resume.title": "Du hast einen Workout im Gange",
+    "wo.resume.body": "gespeichert am {date}",
+    "wo.resume.continue": "Fortsetzen",
+    "wo.resume.startnew": "Neues Workout starten",
+    "wr.close.title": "Workout schließen",
+    "wr.close.body": "Workout-Log für später speichern?",
+    "wr.close.save": "Speichern",
+    "wr.close.delete": "Löschen",
+    "wo.day.completed": "Workout heute erledigt",
+
     // ─── workout module (added Phase 1) ───
     "wo.tab.today": "Heute",
     "wo.tab.library": "Bibliothek",
@@ -1927,6 +1996,29 @@ export const TRANSLATIONS = {
 
   /* ─────────── FRANÇAIS ─────────── */
   fr: {
+    // ─── workout module (Phase 1B visual) ───
+    "wr.pill.sets": "Séries",
+    "wr.pill.reps": "Reps",
+    "wr.pill.rest": "Repos",
+    "wr.pill.tempo": "Tempo",
+    "wr.section.workout": "Workout",
+    "wo.section.warmup": "Échauffement",
+    "wo.section.workout": "Workout",
+    "wr.warmupsets": "{count} séries d'échauffement ({max} reps max)",
+    "wo.logthis": "Démarrer ce workout",
+    "wo.noplan.title": "Pas encore de plan",
+    "wo.noplan.body": "Crée des modèles et assigne-les aux jours dans Paramètres → Training, ou démarre un workout rapide.",
+    "wo.inprogress.label": "EN COURS",
+    "wo.resume.title": "Tu as un workout en cours",
+    "wo.resume.body": "enregistré le {date}",
+    "wo.resume.continue": "Continuer",
+    "wo.resume.startnew": "Démarrer un nouveau",
+    "wr.close.title": "Fermer le workout",
+    "wr.close.body": "Enregistrer ce workout pour plus tard ?",
+    "wr.close.save": "Enregistrer",
+    "wr.close.delete": "Supprimer",
+    "wo.day.completed": "Workout terminé aujourd'hui",
+
     // ─── workout module (added Phase 1) ───
     "wo.tab.today": "Aujourd'hui",
     "wo.tab.library": "Bibliothèque",
@@ -2561,6 +2653,29 @@ export const TRANSLATIONS = {
 
   /* ─────────── ESPAÑOL ─────────── */
   es: {
+    // ─── workout module (Phase 1B visual) ───
+    "wr.pill.sets": "Series",
+    "wr.pill.reps": "Reps",
+    "wr.pill.rest": "Descanso",
+    "wr.pill.tempo": "Tempo",
+    "wr.section.workout": "Workout",
+    "wo.section.warmup": "Calentamiento",
+    "wo.section.workout": "Workout",
+    "wr.warmupsets": "{count} series de calentamiento ({max} reps max)",
+    "wo.logthis": "Iniciar este workout",
+    "wo.noplan.title": "Sin plan semanal aún",
+    "wo.noplan.body": "Crea plantillas y asígnalas a días en Ajustes → Training, o haz un workout rápido ahora.",
+    "wo.inprogress.label": "EN CURSO",
+    "wo.resume.title": "Tienes un workout en curso",
+    "wo.resume.body": "guardado el {date}",
+    "wo.resume.continue": "Continuar",
+    "wo.resume.startnew": "Iniciar uno nuevo",
+    "wr.close.title": "Cerrar workout",
+    "wr.close.body": "¿Guardar este workout para más tarde?",
+    "wr.close.save": "Guardar",
+    "wr.close.delete": "Eliminar",
+    "wo.day.completed": "Workout completado hoy",
+
     // ─── workout module (added Phase 1) ───
     "wo.tab.today": "Hoy",
     "wo.tab.library": "Biblioteca",
@@ -3195,6 +3310,29 @@ export const TRANSLATIONS = {
 
   /* ─────────── ITALIANO ─────────── */
   it: {
+    // ─── workout module (Phase 1B visual) ───
+    "wr.pill.sets": "Serie",
+    "wr.pill.reps": "Reps",
+    "wr.pill.rest": "Riposo",
+    "wr.pill.tempo": "Tempo",
+    "wr.section.workout": "Workout",
+    "wo.section.warmup": "Riscaldamento",
+    "wo.section.workout": "Workout",
+    "wr.warmupsets": "{count} serie di riscaldamento ({max} reps max)",
+    "wo.logthis": "Inizia questo workout",
+    "wo.noplan.title": "Nessun piano settimanale",
+    "wo.noplan.body": "Crea modelli e assegnali ai giorni in Impostazioni → Training, o fai un workout rapido.",
+    "wo.inprogress.label": "IN CORSO",
+    "wo.resume.title": "Hai un workout in corso",
+    "wo.resume.body": "salvato il {date}",
+    "wo.resume.continue": "Continua",
+    "wo.resume.startnew": "Inizia un nuovo workout",
+    "wr.close.title": "Chiudi workout",
+    "wr.close.body": "Salvare il workout per dopo?",
+    "wr.close.save": "Salva",
+    "wr.close.delete": "Elimina",
+    "wo.day.completed": "Workout completato oggi",
+
     // ─── workout module (added Phase 1) ───
     "wo.tab.today": "Oggi",
     "wo.tab.library": "Libreria",
@@ -3829,6 +3967,29 @@ export const TRANSLATIONS = {
 
   /* ─────────── PORTUGUÊS ─────────── */
   pt: {
+    // ─── workout module (Phase 1B visual) ───
+    "wr.pill.sets": "Séries",
+    "wr.pill.reps": "Reps",
+    "wr.pill.rest": "Descanso",
+    "wr.pill.tempo": "Tempo",
+    "wr.section.workout": "Workout",
+    "wo.section.warmup": "Aquecimento",
+    "wo.section.workout": "Workout",
+    "wr.warmupsets": "{count} séries de aquecimento ({max} reps max)",
+    "wo.logthis": "Iniciar este workout",
+    "wo.noplan.title": "Sem plano semanal",
+    "wo.noplan.body": "Cria modelos e atribui-os a dias em Definições → Training, ou faz um workout rápido.",
+    "wo.inprogress.label": "EM CURSO",
+    "wo.resume.title": "Tens um workout em curso",
+    "wo.resume.body": "guardado em {date}",
+    "wo.resume.continue": "Continuar",
+    "wo.resume.startnew": "Iniciar novo workout",
+    "wr.close.title": "Fechar workout",
+    "wr.close.body": "Guardar este workout para depois?",
+    "wr.close.save": "Guardar",
+    "wr.close.delete": "Eliminar",
+    "wo.day.completed": "Workout completo hoje",
+
     // ─── workout module (added Phase 1) ───
     "wo.tab.today": "Hoje",
     "wo.tab.library": "Biblioteca",
@@ -4463,6 +4624,29 @@ export const TRANSLATIONS = {
 
   /* ─────────── POLSKI ─────────── */
   pl: {
+    // ─── workout module (Phase 1B visual) ───
+    "wr.pill.sets": "Serie",
+    "wr.pill.reps": "Powt.",
+    "wr.pill.rest": "Odpocz.",
+    "wr.pill.tempo": "Tempo",
+    "wr.section.workout": "Trening",
+    "wo.section.warmup": "Rozgrzewka",
+    "wo.section.workout": "Trening",
+    "wr.warmupsets": "{count} serii rozgrzewki ({max} powt. max)",
+    "wo.logthis": "Rozpocznij ten trening",
+    "wo.noplan.title": "Brak planu tygodniowego",
+    "wo.noplan.body": "Utwórz szablony i przypisz je do dni w Ustawieniach → Trening, lub zrób szybki trening teraz.",
+    "wo.inprogress.label": "W TRAKCIE",
+    "wo.resume.title": "Masz trening w trakcie",
+    "wo.resume.body": "zapisany {date}",
+    "wo.resume.continue": "Kontynuuj",
+    "wo.resume.startnew": "Rozpocznij nowy trening",
+    "wr.close.title": "Zamknij trening",
+    "wr.close.body": "Zapisać ten trening na później?",
+    "wr.close.save": "Zapisz",
+    "wr.close.delete": "Usuń",
+    "wo.day.completed": "Trening ukończony dziś",
+
     // ─── workout module (added Phase 1) ───
     "wo.tab.today": "Dziś",
     "wo.tab.library": "Biblioteka",

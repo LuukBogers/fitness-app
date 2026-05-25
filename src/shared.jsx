@@ -274,3 +274,99 @@ export const Select = ({ label, value, onChange, options }) => (
     </select>
   </div>
 );
+
+/* ─────────────────────── Pill (brown metadata badge) ─────────────────────── */
+export const Pill = ({ children, style }) => (
+  <span style={{
+    display: 'inline-flex', alignItems: 'center',
+    padding: '5px 10px', borderRadius: 13,
+    background: t.pill, border: `1px solid ${t.pillBorder}`,
+    color: t.pillText, fontSize: 11.5, fontWeight: 600,
+    whiteSpace: 'nowrap',
+    ...style,
+  }}>{children}</span>
+);
+
+/* ─────────────────────── LetterBadge (A/B/C orange chip) ─────────────────────── */
+export const LetterBadge = ({ letter, active = true }) => (
+  <div style={{
+    width: 36, height: 36, borderRadius: 9,
+    background: active ? t.metalOrange : t.card2,
+    border: active ? `1px solid ${t.orangeBorder}` : `1px solid ${t.border}`,
+    boxShadow: active ? `0 4px 12px rgba(255,59,92,0.32), ${t.innerHi}` : 'none',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    color: active ? '#FFF' : t.muted, fontWeight: 800, fontSize: 14,
+    letterSpacing: '0.02em', flexShrink: 0,
+  }}>{letter}</div>
+);
+
+/* ─────────────────────── ActionSheet (iOS-style centered dialog) ───────────────────────
+ * iOS UIAlertController look: centered card with title + optional subtitle, then a list
+ * of stacked button rows separated by hairline dividers. Each action has a color
+ * (orange/red/text). Dismissible by backdrop tap.
+ */
+export const ActionSheet = ({ visible, onClose, title, subtitle, actions = [] }) => {
+  if (!visible) return null;
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, zIndex: 500,
+      background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 32,
+    }}>
+      <div onClick={e => e.stopPropagation()} style={{
+        width: '100%', maxWidth: 320, borderRadius: 18, overflow: 'hidden',
+        background: 'rgba(50,50,54,0.92)', backdropFilter: 'blur(40px) saturate(180%)',
+        boxShadow: '0 30px 90px rgba(0,0,0,0.6)',
+      }}>
+        <div style={{ padding: '20px 18px 18px', textAlign: 'center' }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#FFF', lineHeight: 1.3 }}>{title}</div>
+          {subtitle && <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.78)', marginTop: 6, lineHeight: 1.4 }}>{subtitle}</div>}
+        </div>
+        {actions.map((a, i) => (
+          <div key={i} onClick={() => { a.onPress?.(); }} style={{
+            padding: '15px 16px', textAlign: 'center',
+            borderTop: '0.5px solid rgba(255,255,255,0.18)',
+            color: a.color === 'red' ? '#FF453A' : a.color === 'muted' ? '#A0A6B4' : t.orange,
+            fontSize: 16, fontWeight: a.color === 'red' ? 600 : 500,
+            cursor: 'pointer', userSelect: 'none',
+          }}>{a.label}</div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+/* ─────────────────────── VideoThumb (rectangular placeholder w/ play overlay) ─────────────────────── */
+export const VideoThumb = ({ exercise, size = 'md' }) => {
+  const W = size === 'sm' ? 88 : size === 'lg' ? 128 : 110;
+  const H = size === 'sm' ? 66 : size === 'lg' ? 96 : 82;
+  const mgColor = {
+    chest: '#FF3B5C', back: '#4D8BFA', shoulders: '#5EE3F5',
+    arms: '#B8C2D6', legs: '#FF3B5C', core: '#4D8BFA', cardio: '#5EE3F5',
+  }[exercise?.primaryMuscle] || '#D8DBE2';
+  return (
+    <div style={{
+      width: W, height: H, borderRadius: 10, flexShrink: 0,
+      background: `linear-gradient(135deg, ${mgColor}22, ${mgColor}08), #0F1218`,
+      border: `1px solid rgba(255,255,255,0.06)`,
+      position: 'relative', overflow: 'hidden',
+    }}>
+      {/* Subtle muscle-group hint pattern */}
+      <div style={{ position: 'absolute', inset: 0, opacity: 0.18,
+        background: `radial-gradient(circle at 30% 40%, ${mgColor}88 0%, transparent 60%)`}} />
+      {/* Play overlay */}
+      <div style={{
+        position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+        width: 32, height: 32, borderRadius: 16,
+        background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        border: '1px solid rgba(255,255,255,0.25)',
+      }}>
+        <svg width="11" height="13" viewBox="0 0 24 24" fill="#FFF">
+          <polygon points="5 3 19 12 5 21 5 3" />
+        </svg>
+      </div>
+    </div>
+  );
+};

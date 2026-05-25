@@ -1,42 +1,50 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { t, useApp, useT, todayKey, newId } from './lib';
-import { Icon, Card, Btn, Modal, Label, Chip } from './shared';
+import { Icon, Card, Btn, Modal, Pill, LetterBadge, VideoThumb, ActionSheet } from './shared';
 import { Toast } from './modals';
 import { EXERCISE_LIBRARY, getExercise, formatRestTime, findLastSetFor } from './exercise_library';
 
 /* ═══════════════════════════════════════════════════════════════════════════
- * WORKOUT RUNNER
+ * WORKOUT RUNNER — premium gym-flow screen
  *
- * Hard interaction logic (per workout-rest-timer-setflow.md):
- *  - Tap check on a set: weight+reps locked in, set completedAt = now,
- *    rest timer starts automatically (2:00 default, per-exercise override).
- *  - Rest banner pinned at top, countdown visible, skip / restart / +15 / +30.
- *  - Beep + vibrate when timer hits 0 (browser-native, no service worker).
- *  - Per exercise: previous-session hint "50kg × 10 last time".
- *  - + Add Set inherits weight/reps suggestion from previous set in this session.
- *  - Finish: confirm if any set still unchecked. Save to workoutSessions[date].
+ * Reference: 9 user screenshots — Hevy-style layout with brown metadata pills,
+ * letter labels A/B/C/D, green completed sets, BW checkbox, video thumbnails.
+ *
+ * Interaction rules (per workout-rest-timer-setflow.md):
+ *  - Tap check → save w+r, completedAt=now, row turns green, rest timer auto-starts
+ *  - Rest banner sticky top with countdown, skip/restart/+15/+30, beep+vibrate at 0
+ *  - Close (X): if any sets logged → ActionSheet (Save / Delete / Cancel)
+ *  - Save → persist to profile.data.inProgressWorkout (resumable next session)
+ *  - + Add Set / + Add Exercise / Complete Workout
  * ═══════════════════════════════════════════════════════════════════════════ */
 
-// Default set count when starting a fresh exercise
-const DEFAULT_SET_COUNT = 4;
+const DEFAULT_SET_COUNT = 3;
 
 function makeFreshSet() {
   return { weight: '', reps: '', completedAt: null };
 }
 
-function makeExerciseEntry(exerciseId, planned) {
+function makeExerciseEntry(exerciseId, planned, savedSets = null) {
   const ex = getExercise(exerciseId);
   const setCount = planned?.setCount || DEFAULT_SET_COUNT;
+  const sets = savedSets && savedSets.length > 0
+    ? savedSets.map(s => ({ weight: s.weight || '', reps: s.reps || '', completedAt: s.completedAt || null }))
+    : Array.from({ length: setCount }, makeFreshSet);
   return {
     exerciseId,
-    setCount,
+    setCount: sets.length,
     repRange: planned?.repRange || ex?.defaultRepRange || '8-12',
     restSec: planned?.restSec || ex?.defaultRestSec || 120,
-    sets: Array.from({ length: setCount }, makeFreshSet),
+    tempo: planned?.tempo || ex?.defaultTempo || '',
+    warmupSets: planned?.warmupSets || 0,
+    warmupRepsMax: planned?.warmupRepsMax || 6,
+    isBodyweight: planned?.isBodyweight || ex?.isBodyweight || false,
+    bwEnabled: planned?.bwEnabled || false,
+    sets,
   };
 }
 
-export function WorkoutRunner({ visible, onClose, template, onFinished }) {
+export function WorkoutRunner({ visible, onClose, template, onFinished, resumeFrom = null }) {
   const T = useT();
   const { profile, saveProfileData } = useApp();
   const d = profile?.data || {};
@@ -46,49 +54,50 @@ export function WorkoutRunner({ visible, onClose, template, onFinished }) {
   const [sessionExercises, setSessionExercises] = useState([]);
   const [sessionStartedAt, setSessionStartedAt] = useState(null);
   const [nowTick, setNowTick] = useState(Date.now());
-  const [restTimer, setRestTimer] = useState(null); // { exerciseIdx, setIdx, totalSec, startedAt, paused, remainingAtPause }
+  const [restTimer, setRestTimer] = useState(null);
+  const [showCloseSheet, setShowCloseSheet] = useState(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const [showAddExercise, setShowAddExercise] = useState(false);
-  const [actionsTarget, setActionsTarget] = useState(null); // exerciseIdx for ⋯ menu
+  const [actionsTarget, setActionsTarget] = useState(null);
   const [toast, setToast] = useState('');
-  const audioRef = useRef(null);
 
   // Initialize / reset on open
   useEffect(() => {
     if (!visible) return;
-    if (template && Array.isArray(template.exercises) && template.exercises.length > 0) {
-      // Template may have string-exercises (legacy) or structured. Normalize.
+    if (resumeFrom && Array.isArray(resumeFrom.sessionExercises)) {
+      // Resuming a previously-saved in-progress workout
+      setSessionExercises(resumeFrom.sessionExercises);
+      setSessionStartedAt(resumeFrom.startedAt ? new Date(resumeFrom.startedAt).getTime() : Date.now());
+    } else if (template && Array.isArray(template.exercises) && template.exercises.length > 0) {
       const normalized = template.exercises.map(ex => {
         if (typeof ex === 'string') {
-          // Legacy: try to find a matching library exercise by name (case-insensitive contains)
           const lq = ex.toLowerCase();
           const match = EXERCISE_LIBRARY.find(e => e.name.toLowerCase() === lq)
                      || EXERCISE_LIBRARY.find(e => e.name.toLowerCase().includes(lq) || lq.includes(e.name.toLowerCase()));
           return makeExerciseEntry(match ? match.id : null, null);
         }
         return makeExerciseEntry(ex.exerciseId, ex);
-      }).filter(e => e.exerciseId); // drop unmatched legacy strings
+      }).filter(e => e.exerciseId);
       setSessionExercises(normalized);
+      setSessionStartedAt(Date.now());
     } else {
       setSessionExercises([]);
+      setSessionStartedAt(Date.now());
     }
-    setSessionStartedAt(Date.now());
     setRestTimer(null);
-  }, [visible, template]);
+    setShowCloseSheet(false);
+    setShowFinishConfirm(false);
+  }, [visible, template, resumeFrom]);
 
-  // Heartbeat tick for live timers (1Hz is plenty for UI)
+  // 1Hz tick
   useEffect(() => {
     if (!visible) return;
     const id = setInterval(() => setNowTick(Date.now()), 1000);
     return () => clearInterval(id);
   }, [visible]);
 
-  // Derived: session elapsed in seconds
-  const sessionElapsed = sessionStartedAt
-    ? Math.floor((nowTick - sessionStartedAt) / 1000)
-    : 0;
+  const sessionElapsed = sessionStartedAt ? Math.floor((nowTick - sessionStartedAt) / 1000) : 0;
 
-  // Derived: rest timer remaining
   const restRemaining = (() => {
     if (!restTimer || !restTimer.startedAt) return 0;
     if (restTimer.paused) return restTimer.remainingAtPause || 0;
@@ -96,17 +105,13 @@ export function WorkoutRunner({ visible, onClose, template, onFinished }) {
     return Math.max(0, restTimer.totalSec - elapsedRest);
   })();
 
-  // Auto-trigger end-of-rest cue when remaining transitions to 0
+  // End-of-rest cue
   const prevRemainingRef = useRef(restRemaining);
   useEffect(() => {
     if (!restTimer || restTimer.paused) { prevRemainingRef.current = restRemaining; return; }
     if (prevRemainingRef.current > 0 && restRemaining === 0) {
-      // Cue: beep + vibrate. Browser-native, no permission needed (vibrate may be a no-op on desktop).
+      try { if (navigator.vibrate) navigator.vibrate([180, 80, 180]); } catch {}
       try {
-        if (navigator.vibrate) navigator.vibrate([180, 80, 180]);
-      } catch { /* no-op */ }
-      try {
-        // Soft synthesized beep — no audio asset needed
         const AC = window.AudioContext || window.webkitAudioContext;
         if (AC) {
           const ctx = new AC();
@@ -121,7 +126,7 @@ export function WorkoutRunner({ visible, onClose, template, onFinished }) {
           osc.start();
           osc.stop(ctx.currentTime + 0.6);
         }
-      } catch { /* no-op */ }
+      } catch {}
       setToast(T('wr.rest.over'));
       setTimeout(() => setToast(''), 2500);
     }
@@ -141,18 +146,15 @@ export function WorkoutRunner({ visible, onClose, template, onFinished }) {
     const ex = sessionExercises[exIdx];
     const s = ex.sets[setIdx];
     if (s.completedAt) {
-      // Uncheck → clear completion (rest timer stays as-is)
       updateSet(exIdx, setIdx, { completedAt: null });
       return;
     }
-    // Need at least one of weight or reps before completing (allow bodyweight too)
-    if (!s.weight && !s.reps) {
+    if (!s.weight && !s.reps && !ex.bwEnabled) {
       setToast(T('wr.set.needsdata'));
       setTimeout(() => setToast(''), 1800);
       return;
     }
     updateSet(exIdx, setIdx, { completedAt: new Date().toISOString() });
-    // Auto-start rest timer
     setRestTimer({
       exerciseIdx: exIdx,
       setIdx,
@@ -165,7 +167,6 @@ export function WorkoutRunner({ visible, onClose, template, onFinished }) {
   const addSet = (exIdx) => {
     setSessionExercises(prev => prev.map((ex, i) => {
       if (i !== exIdx) return ex;
-      // Suggest weight/reps from previous set in same exercise (the latest one with data)
       const last = [...ex.sets].reverse().find(s => s.weight || s.reps);
       const suggestion = last ? { weight: last.weight, reps: last.reps, completedAt: null } : makeFreshSet();
       return { ...ex, setCount: ex.setCount + 1, sets: [...ex.sets, suggestion] };
@@ -190,22 +191,57 @@ export function WorkoutRunner({ visible, onClose, template, onFinished }) {
     setShowAddExercise(false);
   };
 
+  const toggleBw = (exIdx) => {
+    setSessionExercises(prev => prev.map((ex, i) =>
+      i !== exIdx ? ex : { ...ex, bwEnabled: !ex.bwEnabled }
+    ));
+  };
+
   // ── Rest timer actions ─────────────────────────────────────────────────
   const skipRest = () => setRestTimer(null);
   const restartRest = () => setRestTimer(r => r ? { ...r, startedAt: Date.now(), paused: false } : null);
   const extendRest = (delta) => setRestTimer(r => {
     if (!r) return r;
     if (r.paused) return { ...r, remainingAtPause: (r.remainingAtPause || 0) + delta };
-    // Shift the startedAt backwards (negative delta) to effectively add time
     return { ...r, startedAt: r.startedAt + delta * 1000 };
   });
 
-  // ── Finish workout ─────────────────────────────────────────────────────
+  // ── Close flow ─────────────────────────────────────────────────────────
   const totalCompletedSets = sessionExercises.reduce((s, ex) =>
     s + ex.sets.filter(x => x.completedAt).length, 0);
   const totalPlannedSets = sessionExercises.reduce((s, ex) => s + ex.sets.length, 0);
-  const hasUnchecked = totalPlannedSets > totalCompletedSets;
+  const hasAnyData = sessionExercises.some(ex => ex.sets.some(s => s.weight || s.reps || s.completedAt));
 
+  const onTapClose = () => {
+    if (hasAnyData) setShowCloseSheet(true);
+    else onClose?.();
+  };
+
+  const closeSaveAsDraft = async () => {
+    const draft = {
+      id: newId(),
+      templateId: template?.id || null,
+      name: template?.name || T('wr.quickworkout'),
+      startedAt: new Date(sessionStartedAt).toISOString(),
+      savedAt: new Date().toISOString(),
+      sessionExercises,
+    };
+    await saveProfileData({ inProgressWorkout: draft });
+    setShowCloseSheet(false);
+    onClose?.();
+  };
+
+  const closeDelete = async () => {
+    // Clear any saved in-progress (we discarded it)
+    if (d.inProgressWorkout) {
+      await saveProfileData({ inProgressWorkout: null });
+    }
+    setShowCloseSheet(false);
+    onClose?.();
+  };
+
+  // ── Finish workout ─────────────────────────────────────────────────────
+  const hasUnchecked = totalPlannedSets > totalCompletedSets;
   const finishWorkout = async () => {
     const dateKey = todayKey();
     const session = {
@@ -225,7 +261,7 @@ export function WorkoutRunner({ visible, onClose, template, onFinished }) {
     };
     const newSessions = { ...workoutSessions, [dateKey]: session };
     const newLog = { ...(d.workoutLog || {}), [dateKey]: { workoutName: template?.name || T('wr.quickworkout'), completed: true } };
-    await saveProfileData({ workoutSessions: newSessions, workoutLog: newLog });
+    await saveProfileData({ workoutSessions: newSessions, workoutLog: newLog, inProgressWorkout: null });
     setShowFinishConfirm(false);
     onFinished?.();
     onClose?.();
@@ -243,29 +279,35 @@ export function WorkoutRunner({ visible, onClose, template, onFinished }) {
       <div style={{
         position: 'sticky', top: 0, zIndex: 5,
         background: t.bg, borderBottom: `1px solid ${t.border}`,
-        padding: '14px 16px 10px', display: 'flex', alignItems: 'center', gap: 12,
+        padding: '14px 16px 12px', display: 'flex', alignItems: 'center', gap: 12,
       }}>
-        <div onClick={() => (hasUnchecked && sessionExercises.length > 0) ? setShowFinishConfirm(true) : onClose?.()} style={{
-          width: 36, height: 36, borderRadius: 10, background: t.card2, border: `1px solid ${t.border}`,
+        <div onClick={onTapClose} style={{
+          width: 36, height: 36,
           display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
         }}>
-          <Icon name="x" size={18} color={t.soft} />
+          <Icon name="chevL" size={22} color={t.orange} stroke={2.4} />
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 11, color: t.orange, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{T('wr.title')}</div>
-          <div style={{ fontSize: 16, fontWeight: 800, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ flex: 1, textAlign: 'center', overflow: 'hidden' }}>
+          <div style={{ fontSize: 17, fontWeight: 800, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '-0.01em' }}>
             {template?.name || T('wr.quickworkout')}
           </div>
         </div>
         <div style={{
-          padding: '6px 12px', borderRadius: 10, background: t.orangeBg, border: `1px solid ${t.orangeBorder}`,
-          color: t.orange, fontWeight: 800, fontSize: 13, fontVariantNumeric: 'tabular-nums',
+          padding: '6px 12px', borderRadius: 12, background: t.pill, border: `1px solid ${t.pillBorder}`,
+          color: t.pillText, fontWeight: 700, fontSize: 13, fontVariantNumeric: 'tabular-nums',
+          display: 'flex', alignItems: 'baseline', gap: 4,
         }}>
-          {formatRestTime(sessionElapsed)}
+          <span>{formatRestTime(sessionElapsed)}</span>
+          <span style={{ fontSize: 10, opacity: 0.7 }}>00</span>
+        </div>
+        <div style={{
+          width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+        }}>
+          <Icon name="rest" size={22} color={t.orange} stroke={2.2} />
         </div>
       </div>
 
-      {/* ─── REST BANNER (when timer active) ─────────────────────────────── */}
+      {/* ─── REST BANNER ──────────────────────────────────────────────────── */}
       {restTimer && (
         <RestBanner
           remaining={restRemaining}
@@ -278,8 +320,13 @@ export function WorkoutRunner({ visible, onClose, template, onFinished }) {
         />
       )}
 
-      {/* ─── BODY (scroll) ──────────────────────────────────────────────── */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '14px 16px 120px' }}>
+      {/* ─── BODY ─────────────────────────────────────────────────────────── */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '14px 14px 140px' }}>
+        {/* Section label */}
+        <div style={{ fontSize: 16, fontWeight: 700, color: t.soft, padding: '4px 4px 10px', letterSpacing: '-0.01em' }}>
+          {T('wr.section.workout')}
+        </div>
+
         {sessionExercises.length === 0 ? (
           <div style={{ padding: 40, textAlign: 'center', borderRadius: 16, background: t.card, border: `1px dashed ${t.border}` }}>
             <div style={{ fontSize: 38, marginBottom: 10 }}>🏋️</div>
@@ -294,36 +341,50 @@ export function WorkoutRunner({ visible, onClose, template, onFinished }) {
                 key={exIdx + ':' + exEntry.exerciseId}
                 exEntry={exEntry}
                 exIdx={exIdx}
+                letter={String.fromCharCode(65 + exIdx)}
                 workoutSessions={workoutSessions}
                 onUpdateSet={updateSet}
                 onToggleComplete={toggleSetComplete}
+                onToggleBw={() => toggleBw(exIdx)}
                 onAddSet={() => addSet(exIdx)}
                 onRemoveSet={(setIdx) => removeSet(exIdx, setIdx)}
                 onOpenActions={() => setActionsTarget(exIdx)}
                 T={T}
               />
             ))}
-            <Btn full variant="outline" style={{ marginTop: 8 }} onClick={() => setShowAddExercise(true)}>
+            <Btn full variant="ghost" accent="orange" style={{ marginTop: 4, marginBottom: 14 }} onClick={() => setShowAddExercise(true)}>
               + {T('wr.addexercise')}
             </Btn>
           </>
         )}
       </div>
 
-      {/* ─── FINISH BUTTON (sticky bottom) ───────────────────────────────── */}
+      {/* ─── COMPLETE WORKOUT (sticky bottom) ────────────────────────────── */}
       {sessionExercises.length > 0 && (
         <div style={{
           position: 'sticky', bottom: 0, zIndex: 4,
-          padding: '12px 16px', background: 'rgba(8,10,14,0.92)',
-          backdropFilter: 'blur(20px)', borderTop: `1px solid ${t.border}`,
+          padding: '14px 14px 16px', background: 'linear-gradient(to top, rgba(8,10,14,0.98) 70%, rgba(8,10,14,0))',
         }}>
-          <Btn full accent="orange" onClick={() => hasUnchecked ? setShowFinishConfirm(true) : finishWorkout()}>
-            {T('wr.finish')} ({totalCompletedSets}/{totalPlannedSets})
+          <Btn full accent="orange" onClick={() => hasUnchecked ? setShowFinishConfirm(true) : finishWorkout()} style={{ fontSize: 15, padding: '14px' }}>
+            {T('wr.finish')}
           </Btn>
         </div>
       )}
 
-      {/* ─── Exercise actions menu ──────────────────────────────────────── */}
+      {/* ─── Close ActionSheet (Save/Delete/Cancel) ──────────────────────── */}
+      <ActionSheet
+        visible={showCloseSheet}
+        onClose={() => setShowCloseSheet(false)}
+        title={T('wr.close.title')}
+        subtitle={T('wr.close.body')}
+        actions={[
+          { label: T('wr.close.save'),   color: 'orange', onPress: closeSaveAsDraft },
+          { label: T('wr.close.delete'), color: 'red',    onPress: closeDelete },
+          { label: T('common.cancel'),   color: 'orange', onPress: () => setShowCloseSheet(false) },
+        ]}
+      />
+
+      {/* ─── Exercise actions ⋯ menu ─────────────────────────────────────── */}
       <Modal visible={actionsTarget !== null} onClose={() => setActionsTarget(null)} title={actionsTarget !== null ? getExercise(sessionExercises[actionsTarget]?.exerciseId)?.name || '' : ''} accent="orange">
         <Btn full variant="ghost" accent="orange" style={{ marginBottom: 8 }} onClick={() => { setToast(T('wr.swap.todo')); setTimeout(()=>setToast(''),1800); setActionsTarget(null); }}>{T('wr.action.swap')}</Btn>
         <Btn full variant="ghost" accent="orange" style={{ marginBottom: 8 }} onClick={() => { setToast(T('wr.history.todo')); setTimeout(()=>setToast(''),1800); setActionsTarget(null); }}>{T('wr.action.history')}</Btn>
@@ -332,17 +393,20 @@ export function WorkoutRunner({ visible, onClose, template, onFinished }) {
       </Modal>
 
       {/* ─── Finish confirm ──────────────────────────────────────────────── */}
-      <Modal visible={showFinishConfirm} onClose={() => setShowFinishConfirm(false)} title={T('wr.finish.confirm')} accent="orange">
-        <div style={{ fontSize: 13, color: t.soft, lineHeight: 1.5, marginBottom: 16 }}>
-          {hasUnchecked
-            ? T('wr.finish.body.unchecked', { done: totalCompletedSets, total: totalPlannedSets })
-            : T('wr.finish.body')}
-        </div>
-        <Btn full accent="orange" style={{ marginBottom: 8 }} onClick={finishWorkout}>{T('wr.finish.yes')}</Btn>
-        <Btn full variant="outline" onClick={() => setShowFinishConfirm(false)}>{T('wr.finish.no')}</Btn>
-      </Modal>
+      <ActionSheet
+        visible={showFinishConfirm}
+        onClose={() => setShowFinishConfirm(false)}
+        title={T('wr.finish.confirm')}
+        subtitle={hasUnchecked
+          ? T('wr.finish.body.unchecked', { done: totalCompletedSets, total: totalPlannedSets })
+          : T('wr.finish.body')}
+        actions={[
+          { label: T('wr.finish.yes'), color: 'orange', onPress: finishWorkout },
+          { label: T('wr.finish.no'),  color: 'muted',  onPress: () => setShowFinishConfirm(false) },
+        ]}
+      />
 
-      {/* ─── Add exercise (full library picker) ──────────────────────────── */}
+      {/* ─── Add exercise picker ─────────────────────────────────────────── */}
       <AddExerciseModal
         visible={showAddExercise}
         onClose={() => setShowAddExercise(false)}
@@ -355,7 +419,7 @@ export function WorkoutRunner({ visible, onClose, template, onFinished }) {
   );
 }
 
-/* ─────────────────────── RestBanner (top countdown) ─────────────────────── */
+/* ─────────────────────── RestBanner ─────────────────────── */
 function RestBanner({ remaining, total, paused, onSkip, onRestart, onExtend, T }) {
   const pct = total > 0 ? Math.min(100, (1 - remaining / total) * 100) : 100;
   const isOver = remaining === 0;
@@ -364,14 +428,14 @@ function RestBanner({ remaining, total, paused, onSkip, onRestart, onExtend, T }
       position: 'sticky', top: 64, zIndex: 4,
       margin: '10px 12px', padding: '12px 14px',
       borderRadius: 14,
-      background: isOver ? 'rgba(255,59,92,0.18)' : 'rgba(77,139,250,0.14)',
-      border: `1px solid ${isOver ? 'rgba(255,59,92,0.4)' : 'rgba(77,139,250,0.4)'}`,
+      background: isOver ? 'rgba(52,199,89,0.18)' : 'rgba(255,59,92,0.14)',
+      border: `1px solid ${isOver ? 'rgba(52,199,89,0.45)' : 'rgba(255,59,92,0.35)'}`,
       backdropFilter: 'blur(20px)',
       boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <Icon name="rest" size={18} color={isOver ? '#FF3B5C' : '#4D8BFA'} />
-        <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: isOver ? '#FF3B5C' : '#4D8BFA' }}>
+        <Icon name="rest" size={18} color={isOver ? '#34C759' : '#FF3B5C'} />
+        <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: isOver ? '#34C759' : '#FF3B5C' }}>
           {isOver ? T('wr.rest.over') : T('wr.rest.label')}
         </div>
         <div style={{ flex: 1 }} />
@@ -379,15 +443,13 @@ function RestBanner({ remaining, total, paused, onSkip, onRestart, onExtend, T }
           {formatRestTime(remaining)}
         </div>
       </div>
-      {/* Progress bar */}
       <div style={{ height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 2, marginTop: 8, overflow: 'hidden' }}>
         <div style={{
           height: '100%', width: `${pct}%`,
-          background: isOver ? '#FF3B5C' : '#4D8BFA',
+          background: isOver ? '#34C759' : '#FF3B5C',
           transition: 'width 0.5s linear',
         }} />
       </div>
-      {/* Action row */}
       <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
         <SmallChip onClick={onSkip}>{T('wr.rest.skip')}</SmallChip>
         <SmallChip onClick={onRestart}>↻ {T('wr.rest.restart')}</SmallChip>
@@ -410,7 +472,7 @@ function SmallChip({ onClick, children }) {
 }
 
 /* ─────────────────────── ExerciseCard ─────────────────────── */
-function ExerciseCard({ exEntry, exIdx, workoutSessions, onUpdateSet, onToggleComplete, onAddSet, onRemoveSet, onOpenActions, T }) {
+function ExerciseCard({ exEntry, exIdx, letter, workoutSessions, onUpdateSet, onToggleComplete, onToggleBw, onAddSet, onRemoveSet, onOpenActions, T }) {
   const exMeta = getExercise(exEntry.exerciseId);
   const lastSet = useMemo(() => findLastSetFor(exEntry.exerciseId, workoutSessions), [exEntry.exerciseId, workoutSessions]);
 
@@ -422,45 +484,57 @@ function ExerciseCard({ exEntry, exIdx, workoutSessions, onUpdateSet, onToggleCo
     );
   }
 
+  const totalSets = exEntry.sets.length;
+  const restLabel = exEntry.restSec >= 60
+    ? `${Math.floor(exEntry.restSec / 60)}m${exEntry.restSec % 60 ? ' ' + (exEntry.restSec % 60) + 's' : ''}`
+    : `${exEntry.restSec}s`;
+
   return (
-    <Card style={{ padding: 14, marginBottom: 12 }}>
-      {/* Header row: thumbnail placeholder + name + ⋯ */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-        <ExerciseThumb exercise={exMeta} />
+    <Card style={{ padding: 14, marginBottom: 14 }}>
+      {/* Header row */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
+        <VideoThumb exercise={exMeta} size="md" />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', letterSpacing: '-0.01em' }}>
-            {exMeta.name}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+            <div style={{ flex: 1, fontSize: 16, fontWeight: 800, color: t.text, lineHeight: 1.25, letterSpacing: '-0.01em' }}>
+              {exMeta.name}
+            </div>
+            <div onClick={onOpenActions} style={{
+              padding: '0 6px', color: t.soft, fontSize: 20, cursor: 'pointer',
+              letterSpacing: '0.1em', lineHeight: 1,
+            }}>⋯</div>
+            <LetterBadge letter={letter} />
           </div>
-          <div style={{ fontSize: 11, color: t.muted, marginTop: 2 }}>
-            {T('wr.ex.target', { range: exEntry.repRange })} · {formatRestTime(exEntry.restSec)} {T('wr.ex.rest')}
+          {/* Metadata pills */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+            <Pill>{T('wr.pill.sets')}: {totalSets}</Pill>
+            <Pill>{T('wr.pill.reps')}: {exEntry.repRange}</Pill>
+            <Pill>{T('wr.pill.rest')}: {restLabel}</Pill>
+            {exEntry.tempo && <Pill>{T('wr.pill.tempo')}: {exEntry.tempo}</Pill>}
           </div>
         </div>
-        <div onClick={onOpenActions} style={{
-          width: 32, height: 32, borderRadius: 9,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: t.soft, fontSize: 18, cursor: 'pointer',
-          letterSpacing: '0.1em',
-        }}>⋯</div>
       </div>
 
-      {/* Previous session hint */}
-      {lastSet && (
-        <div style={{
-          fontSize: 11, color: '#4D8BFA', marginBottom: 10,
-          padding: '6px 10px', background: 'rgba(77,139,250,0.08)',
-          border: '1px solid rgba(77,139,250,0.22)', borderRadius: 8,
-        }}>
-          {T('wr.lastsession', { weight: lastSet.weight, reps: lastSet.reps })}
+      {/* Warm-up sets hint */}
+      {exEntry.warmupSets > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 2px 10px', borderTop: `1px solid ${t.border}`, marginTop: 4 }}>
+          <div style={{ fontSize: 11.5, color: t.muted }}>
+            {T('wr.warmupsets', { count: exEntry.warmupSets, max: exEntry.warmupRepsMax })}
+          </div>
         </div>
       )}
 
-      {/* Sets header */}
-      <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr 1fr 44px 32px', gap: 8, alignItems: 'center', padding: '4px 4px 6px', fontSize: 10, color: t.muted, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-        <div>{T('wr.set')}</div>
-        <div>{T('wr.weight')}</div>
-        <div>{T('wr.reps')}</div>
-        <div style={{ textAlign: 'center' }}>{T('wr.done')}</div>
-        <div></div>
+      {/* BW toggle */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 6, padding: '0 2px 8px' }}>
+        <div onClick={onToggleBw} style={{
+          width: 20, height: 20, borderRadius: 5,
+          border: `1.5px solid ${exEntry.bwEnabled ? t.orange : t.border}`,
+          background: exEntry.bwEnabled ? t.orange : 'transparent',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+        }}>
+          {exEntry.bwEnabled && <Icon name="check" size={12} color="#FFF" stroke={3} />}
+        </div>
+        <div style={{ fontSize: 11.5, color: t.soft, fontWeight: 600 }}>BW</div>
       </div>
 
       {/* Set rows */}
@@ -468,60 +542,62 @@ function ExerciseCard({ exEntry, exIdx, workoutSessions, onUpdateSet, onToggleCo
         const isDone = !!s.completedAt;
         return (
           <div key={setIdx} style={{
-            display: 'grid', gridTemplateColumns: '36px 1fr 1fr 44px 32px', gap: 8, alignItems: 'center',
-            padding: '6px 4px', borderTop: setIdx > 0 ? `1px solid ${t.border}` : 'none',
-            background: isDone ? 'rgba(77,139,250,0.06)' : 'transparent',
-            borderRadius: isDone ? 8 : 0,
+            display: 'grid', gridTemplateColumns: '32px 1fr 1fr 44px 24px', gap: 8, alignItems: 'center',
+            padding: '8px 4px', borderTop: setIdx > 0 ? `1px solid ${t.border}` : 'none',
+            background: isDone ? t.setDoneBg : 'transparent',
           }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: isDone ? '#4D8BFA' : t.soft, textAlign: 'center' }}>{setIdx + 1}</div>
-            <input
-              type="number" inputMode="decimal" placeholder="kg"
+            <div style={{ fontSize: 14, fontWeight: 700, color: isDone ? t.setDone : t.soft, textAlign: 'center', fontVariantNumeric: 'tabular-nums' }}>
+              {(setIdx + 1).toString().padStart(2, '0')}
+            </div>
+            <SetInput
               value={s.weight}
-              onChange={e => onUpdateSet(exIdx, setIdx, { weight: e.target.value })}
+              onChange={v => onUpdateSet(exIdx, setIdx, { weight: v })}
+              placeholder="kg"
+              suffix="kg"
               disabled={isDone}
-              style={{
-                padding: '9px 10px', borderRadius: 8,
-                background: isDone ? 'rgba(255,255,255,0.04)' : t.card2,
-                border: `1px solid ${t.border}`, color: t.text, fontSize: 14,
-                fontFamily: 'inherit', boxSizing: 'border-box', width: '100%',
-                opacity: isDone ? 0.7 : 1,
-              }}
+              done={isDone}
             />
-            <input
-              type="number" inputMode="numeric" placeholder="reps"
+            <SetInput
               value={s.reps}
-              onChange={e => onUpdateSet(exIdx, setIdx, { reps: e.target.value })}
+              onChange={v => onUpdateSet(exIdx, setIdx, { reps: v })}
+              placeholder="reps"
+              suffix="reps"
               disabled={isDone}
-              style={{
-                padding: '9px 10px', borderRadius: 8,
-                background: isDone ? 'rgba(255,255,255,0.04)' : t.card2,
-                border: `1px solid ${t.border}`, color: t.text, fontSize: 14,
-                fontFamily: 'inherit', boxSizing: 'border-box', width: '100%',
-                opacity: isDone ? 0.7 : 1,
-              }}
+              done={isDone}
             />
             <div onClick={() => onToggleComplete(exIdx, setIdx)} style={{
-              width: 34, height: 34, margin: '0 auto', borderRadius: 9,
-              background: isDone ? '#4D8BFA' : 'transparent',
-              border: `2px solid ${isDone ? '#4D8BFA' : t.border}`,
+              width: 32, height: 32, margin: '0 auto', borderRadius: 16,
+              background: isDone ? t.setDone : 'transparent',
+              border: `1.5px solid ${isDone ? t.setDone : t.border}`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               cursor: 'pointer', transition: 'all 0.15s',
             }}>
-              {isDone && <Icon name="check" size={18} color="#0A0A0B" stroke={3} />}
+              <Icon name="check" size={isDone ? 16 : 13} color={isDone ? '#FFF' : t.muted} stroke={isDone ? 3 : 2} />
             </div>
             <div onClick={() => onRemoveSet(exIdx, setIdx)} style={{
-              width: 26, height: 26, margin: '0 auto', borderRadius: 7,
+              width: 22, height: 22, margin: '0 auto', borderRadius: 5,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: t.muted, cursor: 'pointer', fontSize: 16,
+              color: t.muted, cursor: 'pointer', fontSize: 14, opacity: 0.5,
             }}>×</div>
           </div>
         );
       })}
 
-      {/* + Add Set */}
+      {/* Previous session hint (subtle, below sets) */}
+      {lastSet && (
+        <div style={{
+          fontSize: 10.5, color: t.muted, marginTop: 8, padding: '4px 2px',
+          fontStyle: 'italic',
+        }}>
+          {T('wr.lastsession', { weight: lastSet.weight, reps: lastSet.reps })}
+        </div>
+      )}
+
+      {/* + Add Set (brown rounded button) */}
       <div onClick={onAddSet} style={{
-        marginTop: 8, padding: '8px', textAlign: 'center', borderRadius: 8,
-        border: `1px dashed ${t.border}`, color: t.soft, fontSize: 12, fontWeight: 600,
+        marginTop: 10, padding: '12px', textAlign: 'center', borderRadius: 12,
+        background: t.pill, border: `1px solid ${t.pillBorder}`,
+        color: t.pillText, fontSize: 13.5, fontWeight: 600,
         cursor: 'pointer',
       }}>
         + {T('wr.addset')}
@@ -530,22 +606,29 @@ function ExerciseCard({ exEntry, exIdx, workoutSessions, onUpdateSet, onToggleCo
   );
 }
 
-/* ─────────────────────── ExerciseThumb (placeholder) ─────────────────────── */
-function ExerciseThumb({ exercise }) {
-  // Future: render video_url / thumbnail_url if available
-  // For now: muscle-group gradient + workout icon
-  const mgColor = {
-    chest: '#FF3B5C', back: '#4D8BFA', shoulders: '#5EE3F5',
-    arms: '#B8C2D6', legs: '#FF3B5C', core: '#4D8BFA', cardio: '#5EE3F5',
-  }[exercise.primaryMuscle] || t.silver;
+function SetInput({ value, onChange, placeholder, suffix, disabled, done }) {
   return (
-    <div style={{
-      width: 44, height: 44, borderRadius: 11, flexShrink: 0,
-      background: `linear-gradient(135deg, ${mgColor}33, ${mgColor}11)`,
-      border: `1px solid ${mgColor}55`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-    }}>
-      <Icon name="workout" size={20} color={mgColor} />
+    <div style={{ position: 'relative' }}>
+      <input
+        type="number" inputMode="decimal" placeholder={placeholder}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        disabled={disabled}
+        style={{
+          width: '100%', padding: '9px 30px 9px 12px', borderRadius: 8,
+          background: done ? 'rgba(52,199,89,0.06)' : t.card2,
+          border: `1px solid ${done ? t.setDoneBorder : t.border}`,
+          color: t.text, fontSize: 15, fontWeight: 600,
+          fontFamily: 'inherit', boxSizing: 'border-box',
+          textAlign: 'center',
+        }}
+      />
+      {value && (
+        <div style={{
+          position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+          fontSize: 11, color: t.muted, pointerEvents: 'none', fontWeight: 500,
+        }}>{suffix}</div>
+      )}
     </div>
   );
 }
@@ -564,7 +647,7 @@ function AddExerciseModal({ visible, onClose, onPick, T }) {
   if (!visible) return null;
   return (
     <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(8,10,14,0.92)', zIndex: 200,
+      position: 'fixed', inset: 0, background: 'rgba(8,10,14,0.94)', zIndex: 200,
       display: 'flex', flexDirection: 'column', backdropFilter: 'blur(20px)',
     }}>
       <div style={{ padding: '14px 16px 10px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: `1px solid ${t.border}` }}>
@@ -575,28 +658,26 @@ function AddExerciseModal({ visible, onClose, onPick, T }) {
       </div>
       <div style={{ padding: '12px 16px 0' }}>
         <input
-          autoFocus
-          value={q}
-          onChange={e => setQ(e.target.value)}
+          autoFocus value={q} onChange={e => setQ(e.target.value)}
           placeholder={T('wr.lib.search')}
           style={{ width: '100%', padding: '12px 14px', borderRadius: 12, background: t.card2, border: `1px solid ${t.border}`, color: t.text, fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box' }}
         />
         <div style={{ display: 'flex', gap: 6, marginTop: 10, overflowX: 'auto', paddingBottom: 4 }}>
-          <Chip active={muscle === 'all'} onClick={() => setMuscle('all')} accent="orange">{T('wr.lib.all')}</Chip>
+          <FilterChip active={muscle === 'all'} onClick={() => setMuscle('all')}>{T('wr.lib.all')}</FilterChip>
           {['chest','back','shoulders','arms','legs','core','cardio'].map(mg => (
-            <Chip key={mg} active={muscle === mg} onClick={() => setMuscle(mg)} accent="orange">{T(`wr.mg.${mg}`)}</Chip>
+            <FilterChip key={mg} active={muscle === mg} onClick={() => setMuscle(mg)}>{T(`wr.mg.${mg}`)}</FilterChip>
           ))}
         </div>
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px 32px' }}>
         {list.map(e => (
           <div key={e.id} onClick={() => onPick(e.id)} style={{
-            display: 'flex', alignItems: 'center', gap: 12, padding: 12, marginBottom: 8,
+            display: 'flex', alignItems: 'center', gap: 12, padding: 10, marginBottom: 8,
             background: t.card, borderRadius: 12, border: `1px solid ${t.border}`, cursor: 'pointer',
           }}>
-            <ExerciseThumb exercise={e} />
+            <VideoThumb exercise={e} size="sm" />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: t.text }}>{e.name}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: t.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name}</div>
               <div style={{ fontSize: 11, color: t.muted, marginTop: 2 }}>
                 {T(`wr.mg.${e.primaryMuscle}`)} · {e.equipment} · {e.defaultRepRange}
               </div>
@@ -611,5 +692,17 @@ function AddExerciseModal({ visible, onClose, onPick, T }) {
         )}
       </div>
     </div>
+  );
+}
+
+function FilterChip({ active, onClick, children }) {
+  return (
+    <button onClick={onClick} style={{
+      padding: '7px 12px', borderRadius: 18, whiteSpace: 'nowrap',
+      background: active ? t.orangeBg : t.card2,
+      border: `1px solid ${active ? t.orangeBorder : t.border}`,
+      color: active ? t.orange : t.soft, fontSize: 12, fontWeight: 700,
+      cursor: 'pointer', fontFamily: 'inherit',
+    }}>{children}</button>
   );
 }
