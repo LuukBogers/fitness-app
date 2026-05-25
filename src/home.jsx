@@ -188,61 +188,58 @@ export function Home({ onOpenCheckIn, onStartTodayWorkout }) {
         </div>
       </Card>
 
-      {/* Block 3: Your Next Workout (premium prominent card) */}
-      {nextWorkout ? (
-        <>
-          <div style={{ fontSize: 14.5, fontWeight: 700, color: t.text, padding: '4px 4px 10px', marginTop: 6, letterSpacing: '-0.01em' }}>
-            {T('home.nextworkout')}
-          </div>
-          <Card onClick={onStartTodayWorkout} style={{
-            padding: 18, position: 'relative', overflow: 'hidden', cursor: 'pointer',
-            background: `linear-gradient(135deg, ${t.card} 0%, ${t.card2} 100%)`,
-            boxShadow: `0 8px 28px rgba(0,0,0,0.45), 0 0 0 1px ${t.borderStrong} inset, ${t.innerHi}`,
+      {/* Block 3: Today's workout status (static, not clickable) */}
+      {(() => {
+        const hasPlan = Object.keys(workoutPlan).length > 0;
+        const isRest = !todayWorkout || todayWorkout === 'Rest';
+        const displayName = !hasPlan
+          ? null
+          : isRest ? T('wo.restday') : localizeWoName(todayWorkout);
+        const statusColor = todayDone ? t.green : (isRest ? t.muted : t.orange);
+        const statusBg = todayDone ? 'rgba(52,199,89,0.10)' : (isRest ? t.glass : t.orangeBg);
+        const statusBorder = todayDone ? 'rgba(52,199,89,0.30)' : (isRest ? t.border : t.orangeBorder);
+        const statusText = !hasPlan
+          ? T('home.planworkouts')
+          : isRest
+            ? T('home.recovery')
+            : todayDone ? T('home.completed') : T('home.workout.todo');
+        return (
+          <Card style={{
+            padding: 18, position: 'relative', overflow: 'hidden',
+            background: statusBg, border: `1px solid ${statusBorder}`,
           }}>
-            <div style={{ position: 'absolute', top: -60, right: -40, width: 180, height: 180, background: `radial-gradient(circle, rgba(255,59,92,0.15), transparent 70%)`, pointerEvents: 'none' }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                {planLabel && (
-                  <div style={{ fontSize: 11, fontWeight: 700, color: t.muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>
-                    {planLabel}
-                  </div>
-                )}
-                <div style={{ fontSize: 30, fontWeight: 800, color: t.text, letterSpacing: '-0.025em', lineHeight: 1.1 }}>
-                  {localizeWoName(nextWorkout.name)}
-                </div>
-                {nextWorkout.offset > 0 && (
-                  <div style={{ fontSize: 12, color: t.soft, marginTop: 4 }}>
-                    {nextWorkout.offset === 1 ? T('home.tomorrow') : T('home.indays', { days: nextWorkout.offset })}
-                  </div>
-                )}
-                {nextWorkout.offset === 0 && todayDone && (
-                  <div style={{ fontSize: 12, color: t.green, marginTop: 4, fontWeight: 700 }}>
-                    ✓ {T('home.completed')}
-                  </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{
+                width: 48, height: 48, borderRadius: 14,
+                background: todayDone ? 'rgba(52,199,89,0.18)' : (isRest ? t.glass : t.metalOrange),
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                border: `1px solid ${statusBorder}`, flexShrink: 0,
+              }}>
+                {todayDone ? (
+                  <Icon name="check" size={22} color={t.green} stroke={3} />
+                ) : isRest ? (
+                  <Icon name="rest" size={22} color={t.muted} />
+                ) : (
+                  <Icon name="workout" size={22} color="#FFF" />
                 )}
               </div>
-              <div style={{ width: 44, height: 44, borderRadius: 14, background: t.metalOrange, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: `0 0 18px rgba(255,59,92,0.45), ${t.innerHi}`, flexShrink: 0 }}>
-                <Icon name="chevR" size={20} color="#FFF" stroke={2.6} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: t.muted, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
+                  {T('home.todaysworkout')}
+                </div>
+                {displayName && (
+                  <div style={{ fontSize: 20, fontWeight: 800, color: t.text, letterSpacing: '-0.02em', lineHeight: 1.15, marginBottom: 4 }}>
+                    {displayName}
+                  </div>
+                )}
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: statusColor }}>
+                  {todayDone && '✓ '}{statusText}
+                </div>
               </div>
             </div>
           </Card>
-        </>
-      ) : (
-        /* Rest day — no upcoming workout */
-        <Card style={{ position: 'relative', overflow: 'hidden' }}>
-          <div style={{ position: 'absolute', top: -50, right: -40, width: 160, height: 160, background: `radial-gradient(circle, rgba(249,115,22,0.12), transparent 70%)`, pointerEvents: 'none' }} />
-          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 14, background: t.glass, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${t.border}` }}>
-              <Icon name="rest" size={22} color={t.muted} />
-            </div>
-            <div>
-              <Label color={t.orange} style={{ marginBottom: 4 }}>{T('home.todaysworkout')}</Label>
-              <div style={{ fontSize: 17, fontWeight: 700, color: t.text }}>{T('home.restday')}</div>
-              <div style={{ fontSize: 12.5, color: t.soft }}>{Object.keys(workoutPlan).length === 0 ? T('home.planworkouts') : T('home.recovery')}</div>
-            </div>
-          </div>
-        </Card>
-      )}
+        );
+      })()}
 
       {/* Block 4: Weight Graph — clickable to open history */}
       <Card onClick={() => setShowHistory(true)}>
