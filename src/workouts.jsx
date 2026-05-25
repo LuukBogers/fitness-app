@@ -320,30 +320,6 @@ export function Workouts({ autoStart = false, onConsumedAutoStart = () => {} }) 
               </Card>
             );
           })}
-
-          {/* ── Custom user-named templates (not matching the 7 types, not legacy) ── */}
-          {workouts.filter(w =>
-            !['Push','Pull','Legs','Upper','Lower','Arms','Posterior'].includes(w.name)
-            && !['Rest','Back','Chest','Cardio'].includes(w.name)
-          ).map((w, i) => {
-            const tplIdx = workouts.findIndex(x => x.id === w.id);
-            return (
-              <Card key={w.id || i} onClick={() => setShowTpl(tplIdx)} style={{ padding: 14, marginTop: i === 0 ? 16 : 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 11, background: t.orangeBg, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${t.orangeBorder}` }}>
-                      <Icon name="workout" size={18} color={t.orange} />
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{w.name}</div>
-                      <div style={{ fontSize: 12, color: t.soft }}>{(w.exercises || []).length} {T('wo.exercises')}</div>
-                    </div>
-                  </div>
-                  <Icon name="chevR" size={16} color={t.muted} />
-                </div>
-              </Card>
-            );
-          })}
         </div>
       )}
 
