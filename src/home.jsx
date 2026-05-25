@@ -159,7 +159,7 @@ export function Home({ onOpenCheckIn, onStartTodayWorkout }) {
         </div>
       </Card>
 
-      {/* Block 2: Nutrition Status */}
+      {/* Block 2a: Nutrition Status (header + progress) */}
       <Card style={{ position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: -60, left: -40, width: 180, height: 180, background: `radial-gradient(circle, rgba(34,197,94,0.10), transparent 70%)`, pointerEvents: 'none' }} />
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, position: 'relative' }}>
@@ -180,8 +180,11 @@ export function Home({ onOpenCheckIn, onStartTodayWorkout }) {
           <span style={{ color: t.soft }}><span style={{ color: t.text, fontWeight: 800 }}>{eatenKcal}</span> {T('home.eaten')}</span>
           <span style={{ color: t.soft }}>{T('home.target')} <span style={{ color: t.text, fontWeight: 800 }}>{calories || '—'}</span></span>
         </div>
+      </Card>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginTop: 20, paddingTop: 18, borderTop: `1px solid ${t.border}`, position: 'relative' }}>
+      {/* Block 2b: Macro rings only */}
+      <Card style={{ position: 'relative', overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, position: 'relative' }}>
           {[
             { label: T('macros.carbs'),   color: t.carbs,   target: carbs   || 0, value: eatenC },
             { label: T('macros.protein'), color: t.protein, target: protein || 0, value: eatenP },
