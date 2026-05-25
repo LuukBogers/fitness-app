@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { t, useT, useLang } from './lib';
+import { t, useT, useLang, WEEK } from './lib';
 import { LANGUAGES } from './i18n';
 import { Icon, Label, Btn, Toggle, Chip, Field } from './shared';
 
@@ -7,35 +7,54 @@ import { Icon, Label, Btn, Toggle, Chip, Field } from './shared';
 export function Onboarding({ onComplete }) {
   const T = useT();
   const { lang, setLang } = useLang();
-  const [step, setStep] = useState(0); // 0 = language, 1 = personal, 2 = goal, 3 = cut strategy, 4 = numbers, 5 = macro structure, 6 = check-ins
+  // Step map (8 + language):
+  //  0 = language
+  //  1 = personal (gender, age, h, w, activity, strength, cardio)
+  //  2 = main goal
+  //  3 = cut deepening (skipped if not Cutting)
+  //  4 = numbers (BMR + maint + target + macros)
+  //  5 = macro structure (same vs split)
+  //  6 = training structure (fixed weekly schedule vs flexible)
+  //  7 = daily check-in explainer
+  //  8 = privacy / progress photos
+  const [step, setStep] = useState(0);
   const [d, setD] = useState({
     gender: '', age: '', height: '', weight: '',
-    activity: '', strength: '', cardio: '', goal: '', goalDetail: '', macroStructure: '',
+    activity: '', strength: '', cardio: '',
+    goal: '', goalDetail: '', macroStructure: '',
+    trainingStructure: 'fixed', // default to recommended
+    weekSchedule: { Mon: 'Back', Tue: 'Chest', Wed: 'Rest', Thu: 'Legs', Fri: 'Rest', Sat: 'Upper', Sun: 'Rest' },
     notif: { weigh: true, checkin: true, photoSat: true, photoSun: true },
   });
   const up = (k, v) => setD(p => ({ ...p, [k]: v }));
 
-  const age = parseInt(d.age) || 28;
-  const h = parseInt(d.height) || 181;
-  const w = parseFloat(d.weight) || 82;
-  const bmr = d.gender === 'female'
+  // Calculations — Mifflin-St Jeor with NEW activity multipliers + 5-goal deficit/surplus
+  const age = parseInt(d.age) || 0;
+  const h = parseInt(d.height) || 0;
+  const w = parseFloat(d.weight) || 0;
+  const hasData = !!(age && h && w);
+  const bmr = !hasData ? 0 : (d.gender === 'female'
     ? Math.round(10 * w + 6.25 * h - 5 * age - 161)
-    : Math.round(10 * w + 6.25 * h - 5 * age + 5);
-  const mult = { Low: 1.2, Average: 1.375, High: 1.55, 'Very high': 1.725 }[d.activity] || 1.375;
+    : Math.round(10 * w + 6.25 * h - 5 * age + 5));
+  const mult = { Low: 1.4, Average: 1.55, High: 1.7, 'Very high': 1.8 }[d.activity] || 1.55;
   const maint = Math.round(bmr * mult);
-  const deficit = d.goal === 'Cutting' ? 500 : d.goal === 'Fat loss' ? 300 : 0;
-  const startCal = maint - deficit;
+  const deficit = d.goal === 'Cutting' ? -500
+                : d.goal === 'Fat loss' ? -300
+                : d.goal === 'Lean bulk' ? +200
+                : d.goal === 'Bulk' ? +500
+                : 0;
+  const startCal = Math.max(1200, maint + deficit);
   const proteinG = Math.round(w * (d.goalDetail === 'Mini cut' ? 2.5 : d.goal === 'Cutting' ? 2.4 : 2.2));
   const fatG = Math.round(w * 0.7);
   const carbG = Math.max(0, Math.round((startCal - proteinG * 4 - fatG * 9) / 4));
 
   const showCutStep = d.goal === 'Cutting';
-  const TOTAL = 7; // language, personal, goal, [cut], numbers, macro, checkins
+  const TOTAL = 9; // 0..8
 
   const next = () => {
-    // Skip cut strategy if not Cutting
+    // Skip cut deepening if not Cutting
     if (step === 2 && !showCutStep) { setStep(4); return; }
-    if (step === 6) { onComplete(d); return; }
+    if (step === 8) { onComplete(d); return; }
     setStep(s => s + 1);
   };
   const back = () => {
@@ -126,6 +145,8 @@ export function Onboarding({ onComplete }) {
             { v: 'Cutting',     emoji: '🔥', l: T('onb.goal.cutting'),  sub: T('onb.goal.cutting.sub') },
             { v: 'Fat loss',    emoji: '📉', l: T('onb.goal.fatloss'),  sub: T('onb.goal.fatloss.sub') },
             { v: 'Maintenance', emoji: '⚖️', l: T('onb.goal.maint'),    sub: T('onb.goal.maint.sub') },
+            { v: 'Lean bulk',   emoji: '📈', l: T('onb.goal.leanbulk'), sub: T('onb.goal.leanbulk.sub') },
+            { v: 'Bulk',        emoji: '💪', l: T('onb.goal.bulk'),     sub: T('onb.goal.bulk.sub') },
           ].map(opt => (
             <div key={opt.v} onClick={() => up('goal', opt.v)} style={{
               padding: 18, borderRadius: 16, cursor: 'pointer', marginBottom: 10,
@@ -226,15 +247,58 @@ export function Onboarding({ onComplete }) {
 
       case 6: return (
         <div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: t.text, marginBottom: 6, letterSpacing: '-0.02em' }}>{T('onb.training.title')}</div>
+          <div style={{ fontSize: 14, color: t.soft, marginBottom: 24, lineHeight: 1.5 }}>{T('onb.training.sub')}</div>
+
+          {[
+            { v: 'fixed',    l: T('onb.training.fixed'),    sub: T('onb.training.fixed.sub'),    rec: true },
+            { v: 'flexible', l: T('onb.training.flexible'), sub: T('onb.training.flexible.sub') },
+          ].map(o => (
+            <div key={o.v} onClick={() => up('trainingStructure', o.v)} style={{
+              padding: 18, borderRadius: 16, cursor: 'pointer', marginBottom: 12,
+              background: d.trainingStructure === o.v ? t.greenBg : t.card2,
+              border: `1px solid ${d.trainingStructure === o.v ? t.green : t.border}`, position: 'relative',
+            }}>
+              {o.rec && (
+                <div style={{ position: 'absolute', top: -8, right: 12, background: t.green, color: '#0A0A0B', fontSize: 10, fontWeight: 800, padding: '4px 10px', borderRadius: 8, letterSpacing: '0.05em' }}>{T('common.recommended')}</div>
+              )}
+              <div style={{ fontWeight: 700, fontSize: 16, color: d.trainingStructure === o.v ? t.green : t.text, marginBottom: 6 }}>{o.l}</div>
+              <div style={{ fontSize: 13, color: t.soft, lineHeight: 1.5 }}>{o.sub}</div>
+            </div>
+          ))}
+
+          {d.trainingStructure === 'fixed' && (
+            <div style={{ marginTop: 18, padding: 14, background: t.card2, borderRadius: 14, border: `1px solid ${t.border}` }}>
+              <div style={{ fontSize: 11, color: t.muted, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 10 }}>{T('onb.training.example')}</div>
+              {WEEK.map(day => {
+                const dayKey = `onb.day.${day}`;
+                const v = d.weekSchedule?.[day] || 'Rest';
+                return (
+                  <div key={day} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', fontSize: 13, color: t.soft }}>
+                    <span>{T(dayKey)}</span>
+                    <span style={{ color: v === 'Rest' ? t.muted : t.text, fontWeight: 600 }}>{v === 'Rest' ? T('common.rest') : v}</span>
+                  </div>
+                );
+              })}
+              <div style={{ fontSize: 11, color: t.muted, marginTop: 8 }}>{T('onb.training.adjustable')}</div>
+            </div>
+          )}
+        </div>
+      );
+
+      case 7: return (
+        <div>
           <div style={{ fontSize: 24, fontWeight: 800, color: t.text, marginBottom: 6, letterSpacing: '-0.02em' }}>{T('onb.checkins.title')}</div>
           <div style={{ fontSize: 14, color: t.soft, marginBottom: 22, lineHeight: 1.5 }}>{T('onb.checkins.sub')}</div>
 
-          <div style={{ background: t.greenBg, borderRadius: 16, padding: 16, border: `1px solid ${t.greenBorder}`, marginBottom: 16 }}>
-            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-              <Icon name="shield" size={18} color={t.green} />
-              <div>
-                <div style={{ fontSize: 13, color: t.green, fontWeight: 700, marginBottom: 4 }}>{T('onb.privacy.title')}</div>
-                <div style={{ fontSize: 12.5, color: t.soft, lineHeight: 1.5 }}>{T('onb.privacy.body')}</div>
+          <div style={{ background: t.card2, borderRadius: 16, padding: 16, border: `1px solid ${t.border}`, marginBottom: 16 }}>
+            <div style={{ fontSize: 12.5, color: t.soft, lineHeight: 1.6 }}>
+              {T('onb.checkins.body')}
+            </div>
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${t.border}` }}>
+              <div style={{ fontSize: 11, color: t.muted, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', marginBottom: 8 }}>{T('onb.checkins.includes')}</div>
+              <div style={{ fontSize: 12.5, color: t.soft, lineHeight: 1.8 }}>
+                {T('onb.checkins.list')}
               </div>
             </div>
           </div>
@@ -243,6 +307,33 @@ export function Onboarding({ onComplete }) {
           {[
             { k: 'weigh',    l: T('onb.notif.weigh'),    icon: '⚖️' },
             { k: 'checkin',  l: T('onb.notif.checkin'),  icon: '✅' },
+          ].map(n => (
+            <div key={n.k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 0', borderBottom: `1px solid ${t.border}` }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                <span style={{ fontSize: 18 }}>{n.icon}</span>
+                <span style={{ fontSize: 14, color: t.text }}>{n.l}</span>
+              </div>
+              <Toggle on={d.notif[n.k]} onChange={v => up('notif', { ...d.notif, [n.k]: v })} />
+            </div>
+          ))}
+        </div>
+      );
+
+      case 8: return (
+        <div>
+          <div style={{ fontSize: 24, fontWeight: 800, color: t.text, marginBottom: 6, letterSpacing: '-0.02em' }}>{T('onb.privacy.fullttitle')}</div>
+          <div style={{ fontSize: 14, color: t.soft, marginBottom: 22, lineHeight: 1.5 }}>{T('onb.privacy.fullsub')}</div>
+
+          <div style={{ background: t.greenBg, borderRadius: 16, padding: 18, border: `1px solid ${t.greenBorder}`, marginBottom: 16 }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 10 }}>
+              <Icon name="shield" size={20} color={t.green} />
+              <div style={{ fontSize: 14, color: t.green, fontWeight: 700 }}>{T('onb.privacy.title')}</div>
+            </div>
+            <div style={{ fontSize: 12.5, color: t.soft, lineHeight: 1.6 }}>{T('onb.privacy.body')}</div>
+          </div>
+
+          <Label>{T('onb.privacy.remind')}</Label>
+          {[
             { k: 'photoSat', l: T('onb.notif.photoSat'), icon: '📷' },
             { k: 'photoSun', l: T('onb.notif.photoSun'), icon: '📷' },
           ].map(n => (
@@ -285,7 +376,7 @@ export function Onboarding({ onComplete }) {
       </div>
 
       <div style={{ padding: '16px 20px', borderTop: `1px solid ${t.border}`, background: t.bg }}>
-        <Btn full onClick={next}>{step === 6 ? T('onb.start') + ' →' : T('common.continue') + ' →'}</Btn>
+        <Btn full onClick={next}>{step === 8 ? T('onb.start') + ' →' : T('common.continue') + ' →'}</Btn>
       </div>
     </div>
   );
