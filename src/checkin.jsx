@@ -6,11 +6,11 @@ import { evaluateCoachTriggers, mergeNotifications } from './notifications';
 /* ═══════════════════════════ CHECK-IN QUESTIONS ═══════════════════════════ */
 // Labels worden runtime vertaald via T() — alleen ids/types/units zijn statisch.
 const CHECKIN_Q = [
-  { id: 'weight',   labelKey: 'checkin.q.weight',   type: 'number', unit: 'kg', ph: '82.3' },
-  { id: 'sleep',    labelKey: 'checkin.q.sleep',    type: 'number', unit: 'h',  ph: '7.5' },
+  { id: 'weight',   labelKey: 'checkin.q.weight',   type: 'number', unit: 'kg', ph: '' },
+  { id: 'sleep',    labelKey: 'checkin.q.sleep',    type: 'number', unit: 'h',  ph: '' },
   { id: 'sleepQ',   labelKey: 'checkin.q.sleepq',   type: 'scale' },
-  { id: 'water',    labelKey: 'checkin.q.water',    type: 'number', unit: 'L',  ph: '2.5' },
-  { id: 'steps',    labelKey: 'checkin.q.steps',    type: 'number', unit: '',   ph: '8500' },
+  { id: 'water',    labelKey: 'checkin.q.water',    type: 'number', unit: 'L',  ph: '' },
+  { id: 'steps',    labelKey: 'checkin.q.steps',    type: 'number', unit: '',   ph: '' },
   { id: 'stress',   labelKey: 'checkin.q.stress',   type: 'scale' },
   { id: 'energy',   labelKey: 'checkin.q.energy',   type: 'scale' },
   { id: 'hunger',   labelKey: 'checkin.q.hunger',   type: 'scale' },
