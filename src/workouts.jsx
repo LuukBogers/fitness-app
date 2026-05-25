@@ -287,7 +287,7 @@ export function Workouts({ autoStart = false, onConsumedAutoStart = () => {} }) 
       {view === 'templates' && (
         <div style={{ padding: '0 16px' }}>
           {/* ── 7 fixed workout-type cards ───────────────────────────────── */}
-          {['Push','Pull','Legs','Upper','Lower','Arms','Posterior'].map(typeName => {
+          {['Push','Pull','Legs','Upper','Lower','Posterior'].map(typeName => {
             const existing = workouts.find(w => w.name === typeName);
             const exCount = existing?.exercises?.length || 0;
             const tplIdx = existing ? workouts.findIndex(w => w.id === existing.id) : -1;
@@ -309,7 +309,7 @@ export function Workouts({ autoStart = false, onConsumedAutoStart = () => {} }) 
                       <Icon name="workout" size={18} color={t.orange} />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{localizeWorkoutName(typeName, T)}</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{typeName}</div>
                       <div style={{ fontSize: 12, color: t.soft }}>
                         {exCount > 0 ? `${exCount} ${T('wo.exercises')}` : T('wo.tap.create')}
                       </div>
