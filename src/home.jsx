@@ -1,11 +1,15 @@
+import { useState } from "react";
 import { t, WEEK, useApp, useT, useLang, todayIdx, weekDates, todayKey, dayLabel, weekDayShort, fmtKey } from './lib';
 import { Icon, Card, Label, ProgressBar, Ring } from './shared';
+import { HomeBell, NotificationsModal, CheckinHistoryModal } from './notifications';
 
 /* ═══════════════════════════ HOME ═══════════════════════════ */
 export function Home({ onOpenCheckIn }) {
   const T = useT();
   const { lang } = useLang();
   const { profile, session } = useApp();
+  const [showNotifs, setShowNotifs] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const d = profile?.data || {};
   const userName = profile?.name || session?.user?.user_metadata?.full_name || session?.user?.email?.split('@')[0] || 'You';
   const calories = d.calories || 0;
@@ -70,21 +74,13 @@ export function Home({ onOpenCheckIn }) {
           <div style={{ fontSize: 26, fontWeight: 800, color: t.text, letterSpacing: '-0.02em' }}>{T('home.greeting')}, {userName}</div>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          <div style={{
-            position: 'relative', width: 42, height: 42, borderRadius: 13,
-            background: t.glass, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            border: `1px solid ${t.border}`, cursor: 'pointer',
-            boxShadow: t.innerHi,
-          }}>
-            <Icon name="bell" size={18} color={t.soft} />
-          </div>
+          <HomeBell onClick={() => setShowNotifs(true)} />
           <div style={{
             width: 42, height: 42, borderRadius: 13,
             background: `linear-gradient(135deg, ${t.green}, ${t.orange})`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: '#0A0A0B', fontWeight: 800, fontSize: 15,
-            boxShadow: `0 0 18px rgba(34,197,94,0.35), 0 4px 12px rgba(0,0,0,0.4), ${t.innerHi}`,
+            boxShadow: `0 4px 12px rgba(0,0,0,0.4), ${t.innerHi}`,
           }}>{(userName[0] || 'U').toUpperCase()}</div>
         </div>
       </div>
@@ -202,8 +198,8 @@ export function Home({ onOpenCheckIn }) {
         </div>
       </Card>
 
-      {/* Block 4: Weight Graph */}
-      <Card>
+      {/* Block 4: Weight Graph — clickable to open history */}
+      <Card onClick={() => setShowHistory(true)}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16 }}>
           <div>
             <Label>{T('home.weight')}</Label>
@@ -219,7 +215,10 @@ export function Home({ onOpenCheckIn }) {
               <div style={{ fontSize: 14, color: t.muted, marginTop: 4 }}>{T('home.logweighfirst')}</div>
             )}
           </div>
-          {hasWeights && <div style={{ fontSize: 11, color: t.muted, fontWeight: 600 }}>{T('home.lastentries', { n: wLog.length })}</div>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {hasWeights && <div style={{ fontSize: 11, color: t.muted, fontWeight: 600 }}>{T('home.lastentries', { n: wLog.length })}</div>}
+            <Icon name="chevR" size={14} color={t.muted} />
+          </div>
         </div>
 
         {hasWeights ? (
@@ -242,6 +241,9 @@ export function Home({ onOpenCheckIn }) {
           </div>
         )}
       </Card>
+
+      <NotificationsModal visible={showNotifs} onClose={() => setShowNotifs(false)} />
+      <CheckinHistoryModal visible={showHistory} onClose={() => setShowHistory(false)} />
     </div>
   );
 }

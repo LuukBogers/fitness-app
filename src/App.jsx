@@ -8,6 +8,7 @@ import { Nutrition } from './nutrition';
 import { Workouts } from './workouts';
 import { Settings } from './settings';
 import { BottomNav } from './nav';
+import { evaluateCoachTriggers, mergeNotifications } from './notifications';
 import { DiagnosePage } from './diagnose';
 
 /* ═══════════════════════════ SWIPE-TO-CHANGE-TAB ═══════════════════════════
@@ -211,6 +212,22 @@ function App() {
             data.data = newData;
           }
         }
+
+        // Run coach evaluator on every profile load (cheap, idempotent via mergeNotifications)
+        try {
+          const fresh = evaluateCoachTriggers(data.data || {});
+          if (fresh.length > 0) {
+            const merged = mergeNotifications(data.data?.notifications || [], fresh);
+            // Only write if the count changed (avoid superfluous writes)
+            if (merged.length !== (data.data?.notifications || []).length) {
+              const newData = { ...(data.data || {}), notifications: merged };
+              await supabase.from('profiles')
+                .update({ data: newData, updated_at: new Date().toISOString() })
+                .eq('id', session.user.id);
+              data.data = newData;
+            }
+          }
+        } catch (e) { console.error('Coach eval error:', e); }
         setProfile(data);
         // Restore language from profile if set
         if (data.data?.language) {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { t, useApp, useT, todayKey, fmtKey } from './lib';
 import { Btn, Modal, ScaleInput, YesNo } from './shared';
+import { evaluateCoachTriggers, mergeNotifications } from './notifications';
 
 /* ═══════════════════════════ CHECK-IN QUESTIONS ═══════════════════════════ */
 // Labels worden runtime vertaald via T() — alleen ids/types/units zijn statisch.
@@ -50,6 +51,14 @@ export function CheckIn({ visible, onClose }) {
     const prevStreak = profile?.data?.streak || 0;
     const yChecked = !!currentCheckIns[yKey];
     patch.streak = yChecked ? prevStreak + 1 : 1;
+
+    // Run coach evaluator on the merged data (use the new check-ins)
+    const dataForEval = { ...(profile?.data || {}), ...patch };
+    const fresh = evaluateCoachTriggers(dataForEval);
+    if (fresh.length > 0) {
+      patch.notifications = mergeNotifications(profile?.data?.notifications || [], fresh);
+    }
+
     await saveProfileData(patch);
     onClose();
   };
