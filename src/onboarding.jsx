@@ -102,10 +102,10 @@ export function Onboarding({ onComplete }) {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-            <Field label={T('onb.age')} value={d.age} onChange={v => up('age', v)} type="number" placeholder="28" unit="yr" />
-            <Field label={T('onb.height')} value={d.height} onChange={v => up('height', v)} type="number" placeholder="181" unit="cm" />
+            <Field label={T('onb.age')} value={d.age} onChange={v => up('age', v)} type="number" unit={T('onb.unit.years')} />
+            <Field label={T('onb.height')} value={d.height} onChange={v => up('height', v)} type="number" unit="cm" />
           </div>
-          <Field label={T('onb.weight')} value={d.weight} onChange={v => up('weight', v)} type="number" placeholder="82.3" unit="kg" />
+          <Field label={T('onb.weight')} value={d.weight} onChange={v => up('weight', v)} type="number" unit="kg" />
 
           <Label style={{ marginTop: 10 }}>{T('onb.activity')}</Label>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
