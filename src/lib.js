@@ -59,29 +59,29 @@ export { detectLang };
 
 /* ═══════════════════════════ TOKENS ═══════════════════════════ */
 export const t = {
-  // Surfaces (Premium graphite/chrome)
-  bg: '#0B0C0E', bg2: '#121417',
-  card: '#17191D', card2: '#1A1C21', card3: '#22252A',
-  // Borders & dividers (frosted glass)
-  border: 'rgba(255,255,255,0.10)', borderStrong: 'rgba(255,255,255,0.18)',
+  // Surfaces (deep graphite with subtle cool tint matching new bg)
+  bg: '#080A0E', bg2: '#0E1115',
+  card: '#141821', card2: '#1A1F2A', card3: '#252B36',
+  // Borders & dividers (cool frosted glass)
+  border: 'rgba(140,160,200,0.10)', borderStrong: 'rgba(140,160,200,0.20)',
   // Text
-  text: '#F2F2F3', soft: '#A7A9AD', muted: '#6F7277', dim: '#4A4D52',
-  // Brand accents (former green → silver/chrome, former orange → champagne)
-  // Kept under same keys so existing UI flips palette in-place.
-  orange: '#C8B18A', orangeBg: 'rgba(200,177,138,0.10)', orangeBorder: 'rgba(200,177,138,0.32)',
-  green:  '#D8D8DA', greenBg:  'rgba(255,255,255,0.06)',  greenBorder:  'rgba(255,255,255,0.18)',
-  // Premium accents (new, addressable directly)
-  silver: '#D8D8DA', chrome: '#F5F5F6', champagne: '#C8B18A', graphite: '#3A3D42',
-  // Macro chart colours — punchier but still premium (between pastel and neon)
-  protein: '#7BB8F5', carbs: '#F5D670', fat: '#F5928E',
-  // Status overlays (subtler than before)
-  glow: '#E8EAEE',
-  success: '#B8D6BE', warning: '#D6C49B', error: '#D6A799',
-  // Metallic gradients (for primary CTAs / hero accents)
-  metalGreen:  'linear-gradient(135deg, #F5F5F6 0%, #D8D8DA 40%, #9CA0A6 100%)', // silver/chrome
-  metalOrange: 'linear-gradient(135deg, #E2CFA8 0%, #C8B18A 50%, #9C8761 100%)', // champagne
-  metalSilver: 'linear-gradient(135deg, #F5F5F6 0%, #C8C9CC 50%, #828B99 100%)',
-  // Surface effects
+  text: '#F0F2F7', soft: '#A0A6B4', muted: '#6F7480', dim: '#454A55',
+  // Brand accents — Nutrition = electric blue, Training = crimson red.
+  // Kept under same keys (green/orange) so all existing UI flips palette in-place.
+  orange: '#FF3B5C', orangeBg: 'rgba(255,59,92,0.12)', orangeBorder: 'rgba(255,59,92,0.32)',
+  green:  '#4D8BFA', greenBg:  'rgba(77,139,250,0.12)', greenBorder:  'rgba(77,139,250,0.32)',
+  // Premium accents (addressable directly)
+  silver: '#D8DBE2', chrome: '#F2F4F9', champagne: '#5EE3F5', graphite: '#1F2530',
+  // Macro chart colours — blue (protein), silver-cool (carbs), red (fat)
+  protein: '#4D8BFA', carbs: '#B8C2D6', fat: '#FF3B5C',
+  // Status overlays
+  glow: '#4D8BFA',
+  success: '#4D8BFA', warning: '#FFB84D', error: '#FF3B5C',
+  // Metallic gradients (for primary CTAs)
+  metalGreen:  'linear-gradient(135deg, #6FA0FF 0%, #4D8BFA 45%, #1F5BD4 100%)', // electric blue
+  metalOrange: 'linear-gradient(135deg, #FF6680 0%, #FF3B5C 45%, #C42043 100%)', // crimson red
+  metalSilver: 'linear-gradient(135deg, #F2F4F9 0%, #C8CCD4 50%, #828B99 100%)',
+  // Surface effects (glassmorphism stays)
   glass:        'rgba(255,255,255,0.04)',
   glassHover:   'rgba(255,255,255,0.08)',
   glassPanel:   'linear-gradient(145deg, rgba(255,255,255,0.075), rgba(255,255,255,0.025))',
@@ -91,11 +91,11 @@ export const t = {
 };
 
 export const STATUS = {
-  gray:   { bg: 'rgba(111,114,119,0.22)', dot: '#6F7277', label: '#A7A9AD' },
-  green:  { bg: 'rgba(216,216,218,0.14)', dot: '#D8D8DA', label: '#D8D8DA' },
-  yellow: { bg: 'rgba(200,177,138,0.16)', dot: '#C8B18A', label: '#D6C49B' },
-  orange: { bg: 'rgba(200,177,138,0.20)', dot: '#C8B18A', label: '#D6A799' },
-  red:    { bg: 'rgba(214,167,153,0.20)', dot: '#D6A799', label: '#D6A799' },
+  gray:   { bg: 'rgba(111,116,128,0.22)', dot: '#6F7480', label: '#A0A6B4' },
+  green:  { bg: 'rgba(77,139,250,0.16)',  dot: '#4D8BFA', label: '#4D8BFA' },
+  yellow: { bg: 'rgba(184,194,214,0.16)', dot: '#B8C2D6', label: '#B8C2D6' },
+  orange: { bg: 'rgba(255,184,77,0.18)',  dot: '#FFB84D', label: '#FFB84D' },
+  red:    { bg: 'rgba(255,59,92,0.20)',   dot: '#FF3B5C', label: '#FF3B5C' },
 };
 
 /* ═══════════════════════════ UI CONSTANTS ═══════════════════════════ */
