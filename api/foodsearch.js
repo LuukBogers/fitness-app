@@ -5,8 +5,15 @@
 //  - OpenFoodFacts v1 cgi/search.pl (legacy, full-text fallback)
 //  - OpenFoodFacts v2 search (categorical fallback)
 //  - USDA FoodData Central (DEMO_KEY)
+//  - FatSecret Platform (when env vars set)
+//  - DSLD Dietary Supplement Label Database (NIH, supplements only)
 //
-// All four fetched in parallel server-side; results returned to client in one JSON.
+// Query params:
+//  q          — search term, required, min 2 chars
+//  lang       — language code (default 'nl')
+//  category   — optional. 'supplements' → DSLD-only mode (skips food sources)
+//
+// All sources fetched in parallel server-side; results returned to client in one JSON.
 // Edge-cached 1 hour, so repeat queries are instant.
 
 const USER_AGENT = 'FitnessApp/1.0 (luukbogers@outlook.com)';
@@ -125,6 +132,102 @@ function normSal(hit) {
   return { ...p, _src: 'off_sal' };
 }
 
+// ──────────────── DSLD (NIH supplement label database) ────────────────
+// Find macro from DSLD ingredientRows. DSLD names vary, try common variants.
+function dsldFindMacro(ingredientRows, candidates) {
+  for (const row of (ingredientRows || [])) {
+    const n = (row.name || '').toLowerCase().trim();
+    const group = (row.ingredientGroup || '').toLowerCase().trim();
+    if (candidates.some(c => n === c || group === c || n.includes(c))) {
+      const q = (row.quantity || [])[0];
+      if (q && typeof q.quantity === 'number') return { qty: q.quantity, unit: (q.unit || '').toLowerCase() };
+    }
+  }
+  return null;
+}
+
+function dsldToOff(label) {
+  const kcal    = dsldFindMacro(label.ingredientRows, ['calories', 'energy', 'energy (calories)', 'calorie']);
+  const protein = dsldFindMacro(label.ingredientRows, ['protein', 'proteins']);
+  const carbs   = dsldFindMacro(label.ingredientRows, ['total carbohydrate', 'carbohydrate', 'total carbs', 'carbohydrates', 'total carbohydrates']);
+  const fat     = dsldFindMacro(label.ingredientRows, ['total fat', 'fat', 'total lipid (fat)', 'total lipids']);
+
+  const ss = (label.servingSizes || [])[0] || {};
+  const servingQty = (typeof ss.minQuantity === 'number' && ss.minQuantity > 0) ? ss.minQuantity : 1;
+  const servingUnit = (ss.unit || '').toLowerCase();
+
+  // If serving is in grams (powders), scale to /100g. Otherwise keep as per-serving.
+  const isGramBased = servingUnit === 'g' || servingUnit === 'gram' || servingUnit === 'grams';
+  const isMlBased = servingUnit === 'ml' || servingUnit === 'milliliter' || servingUnit === 'milliliters';
+  const scale100g = (isGramBased || isMlBased) && servingQty > 0 ? (100 / servingQty) : null;
+
+  const kcalServ = kcal ? kcal.qty : 0;
+  const pServ    = protein ? protein.qty : 0;
+  const cServ    = carbs   ? carbs.qty   : 0;
+  const fServ    = fat     ? fat.qty     : 0;
+
+  return {
+    _src: 'dsld',
+    code: 'dsld:' + label.id,
+    product_name: label.fullName || '',
+    brands: label.brandName || '',
+    image_url: label.thumbnail || '',
+    quantity: label.netContents && label.netContents[0] ? label.netContents[0].display : '',
+    nutriments: {
+      // Per-100g (only if scale derivable from grams/ml serving)
+      'energy-kcal_100g': scale100g ? Math.round(kcalServ * scale100g) : 0,
+      proteins_100g:     scale100g ? Math.round(pServ * scale100g * 10) / 10 : 0,
+      carbohydrates_100g: scale100g ? Math.round(cServ * scale100g * 10) / 10 : 0,
+      fat_100g:          scale100g ? Math.round(fServ * scale100g * 10) / 10 : 0,
+      // Per-serving (always populated, for capsules/tablets/scoops)
+      'energy-kcal_serving': Math.round(kcalServ),
+      proteins_serving:     Math.round(pServ * 10) / 10,
+      carbohydrates_serving: Math.round(cServ * 10) / 10,
+      fat_serving:          Math.round(fServ * 10) / 10,
+    },
+    _servingSize: servingQty,
+    _servingUnit: ss.unit || '',
+  };
+}
+
+async function fetchDsldLabel(id) {
+  const r = await fetch(`https://api.ods.od.nih.gov/dsld/v9/label/${encodeURIComponent(id)}`, {
+    headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
+  });
+  if (!r.ok) throw new Error(`DSLD label ${r.status}`);
+  return r.json();
+}
+
+async function fetchDsld(q, maxResults = 6) {
+  // Step 1: search-filter for IDs + basic info
+  const u = new URL('https://api.ods.od.nih.gov/dsld/v9/search-filter');
+  u.searchParams.set('q', q);
+  u.searchParams.set('size', String(maxResults * 2)); // overshoot, some labels may lack macros
+  u.searchParams.set('status', '1'); // on-market only
+  u.searchParams.set('sort_by', '_score');
+  const r = await fetch(u.toString(), { headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' } });
+  if (!r.ok) throw new Error(`DSLD ${r.status}`);
+  const d = await r.json();
+  const hits = (d.hits || []).slice(0, maxResults * 2);
+  if (!hits.length) return [];
+
+  // Step 2: fetch label details in parallel (limited concurrency)
+  const labelResults = await Promise.allSettled(
+    hits.slice(0, maxResults * 2).map(h => fetchDsldLabel(h._id))
+  );
+  const labels = labelResults
+    .filter(r => r.status === 'fulfilled')
+    .map(r => r.value);
+
+  // Step 3: transform + filter out labels with no macros at all
+  const transformed = labels.map(dsldToOff).filter(p =>
+    (p.nutriments['energy-kcal_serving'] > 0) ||
+    (p.nutriments.proteins_serving > 0)
+  );
+
+  return transformed.slice(0, maxResults);
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -132,6 +235,7 @@ export default async function handler(req, res) {
 
   const q = (req.query.q || '').toString().trim();
   const lang = (req.query.lang || 'nl').toString().slice(0, 2);
+  const category = (req.query.category || '').toString().trim().toLowerCase();
 
   if (q.length < 2) {
     return res.status(400).json({ error: 'Query must be at least 2 characters' });
@@ -139,7 +243,25 @@ export default async function handler(req, res) {
 
   const startedAt = Date.now();
 
-  // === All 4 sources, in parallel, server-side (no CORS issues) ===
+  // ──────────────── SUPPLEMENTS MODE: DSLD only ────────────────
+  if (category === 'supplements') {
+    let dsldHits = [];
+    let dsldError = null;
+    try {
+      dsldHits = await fetchDsld(q, 8);
+    } catch (e) {
+      dsldError = String(e && e.message || e);
+    }
+    res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
+    return res.status(200).json({
+      q, lang, category: 'supplements',
+      ms: Date.now() - startedAt,
+      status: { dsld: dsldError ? { error: dsldError } : { count: dsldHits.length } },
+      products: dsldHits,
+    });
+  }
+
+  // === All 5 food sources, in parallel, server-side (no CORS issues) ===
   const sources = await Promise.allSettled([
     // 1) Search-a-licious (modern OFF)
     (async () => {

@@ -45,6 +45,7 @@ export function DiagnosePage() {
   const [r1, setR1] = useState({ badge: 'wachten', color: '#facc15', status: '', body: null });
   const [r2, setR2] = useState({ badge: 'wachten', color: '#facc15', status: '', body: null });
   const [r3, setR3] = useState({ badge: 'wachten', color: '#facc15', status: '', body: null });
+  const [r4, setR4] = useState({ badge: 'wachten', color: '#facc15', status: '', body: null });
 
   async function testAll() {
     setBusy(true);
@@ -52,6 +53,7 @@ export function DiagnosePage() {
     setR1({ badge: 'bezig...', color: '#facc15', status: '', body: null });
     setR2({ badge: 'bezig...', color: '#facc15', status: '', body: null });
     setR3({ badge: 'bezig...', color: '#facc15', status: '', body: null });
+    setR4({ badge: 'bezig...', color: '#facc15', status: '', body: null });
 
     // Test 0: Vercel serverless PROXY (the one we want working)
     const proxy = (async () => {
@@ -235,6 +237,60 @@ export function DiagnosePage() {
     })();
 
     await Promise.all([proxy, sal, usda, legacy]);
+
+    // Test 4: DSLD via proxy (supplements mode). Auto-run with a supplement-y query.
+    const dsld = (async () => {
+      const supQ = (q && q.length > 1) ? q : 'whey protein';
+      const url = `/api/foodsearch?q=${encodeURIComponent(supQ)}&lang=nl&category=supplements`;
+      try {
+        const t0 = performance.now();
+        const res = await fetch(url);
+        const dt = Math.round(performance.now() - t0);
+        if (!res.ok) {
+          const text = await res.text().catch(() => '');
+          setR4({ badge: `HTTP ${res.status}`, color: '#f87171', status: url, body: <Pre>HTTP {res.status} {res.statusText}{'\n'}Duur: {dt}ms{'\n\n'}{text.slice(0, 500)}</Pre> });
+          return;
+        }
+        const data = await res.json();
+        const products = data.products || [];
+        const dsldStatus = data.status?.dsld || {};
+        const hasError = !!dsldStatus.error;
+        setR4({
+          badge: hasError ? 'GEBLOKKEERD' : `${products.length} treffers (${data.ms || dt}ms)`,
+          color: hasError ? '#f87171' : (products.length > 0 ? '#22C55E' : '#facc15'),
+          status: url + ' — NIH supplement label DB',
+          body: (
+            <div>
+              <Pre>DSLD status:{'\n'}{shortPreview(dsldStatus)}</Pre>
+              {products.slice(0, 5).map((p, i) => {
+                const n = p.nutriments || {};
+                const kcal = n['energy-kcal_100g'] || n['energy-kcal_serving'] || '?';
+                const prot = n.proteins_100g || n.proteins_serving || 0;
+                return (
+                  <div key={i} style={{ padding: '8px 10px', background: '#09090B', border: `1px solid ${t.border}`, borderRadius: 8, marginBottom: 6, fontSize: 12 }}>
+                    <b style={{ color: t.text }}>{p.product_name || '(geen naam)'}</b>
+                    {p.brands ? <span style={{ color: t.muted }}> · {p.brands}</span> : null}
+                    <br /><span style={{ color: '#5EE3F5' }}>{kcal} kcal · {prot}g eiwit · serving: {p._servingSize || '?'} {p._servingUnit || ''}</span>
+                  </div>
+                );
+              })}
+              {products.length === 0 && !hasError && (
+                <div style={{ fontSize: 11, color: t.muted, padding: 8 }}>Geen treffers — probeer "creatine", "vitamin d", "omega 3".</div>
+              )}
+              {hasError && (
+                <div style={{ fontSize: 11, color: '#f87171', padding: 8 }}>
+                  ⚠️ DSLD niet bereikbaar vanaf Vercel. NIH heeft IP-allowlist; mogelijk geo-blocked.
+                </div>
+              )}
+            </div>
+          ),
+        });
+      } catch (e) {
+        setR4({ badge: 'error', color: '#f87171', status: url, body: <Pre>FAIL: {e.message || String(e)}</Pre> });
+      }
+    })();
+
+    await dsld;
     setBusy(false);
   }
 
@@ -263,6 +319,7 @@ export function DiagnosePage() {
       <Panel title="Search-a-licious (OpenFoodFacts)" badge={r1.badge} badgeColor={r1.color} status={r1.status}>{r1.body}</Panel>
       <Panel title="USDA FoodData Central" badge={r2.badge} badgeColor={r2.color} status={r2.status}>{r2.body}</Panel>
       <Panel title="OFF legacy cgi (controle)" badge={r3.badge} badgeColor={r3.color} status={r3.status}>{r3.body}</Panel>
+      <Panel title="💊 DSLD supplementen (NIH)" badge={r4.badge} badgeColor={r4.color} status={r4.status}>{r4.body}</Panel>
 
       <button
         onClick={() => { window.location.hash = ''; window.location.reload(); }}

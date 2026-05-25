@@ -86,10 +86,26 @@ function cacheSet(query, data) {
 function offToProduct(raw) {
   const p = raw && raw._source ? raw._source : raw || {};
   const n = p.nutriments || {};
+  const isDsld = p._src === 'dsld';
+
+  // For DSLD: prefer per-100g if scaled, else fall back to per-serving values
   let kcal = n['energy-kcal_100g'];
   if (kcal == null && n['energy_100g']) kcal = n['energy_100g'] / 4.184;
   if (kcal == null) kcal = p['energy-kcal_100g'] || 0;
-  const id = 'off:' + (p.code || raw?._id || p._id || p.id || '');
+  if (!kcal && isDsld) kcal = n['energy-kcal_serving'] || 0;
+
+  let pr = n.proteins_100g || 0;
+  let cb = n.carbohydrates_100g || 0;
+  let ft = n.fat_100g || 0;
+  let perServing = false;
+  if (isDsld && pr === 0 && cb === 0 && ft === 0) {
+    pr = n.proteins_serving || 0;
+    cb = n.carbohydrates_serving || 0;
+    ft = n.fat_serving || 0;
+    perServing = true;
+  }
+
+  const id = isDsld ? ('dsld:' + (p.code?.replace('dsld:','') || raw?._id || '')) : 'off:' + (p.code || raw?._id || p._id || p.id || '');
   const name = p.product_name_nl || p.product_name || p.product_name_en || p.generic_name || (p.product_name_localized && (p.product_name_localized.nl || p.product_name_localized.en)) || 'Unknown product';
   // Parse quantity ("500 g", "1.5 L", "330ml") → default portion suggestion
   let defaultPortion = null;
@@ -112,6 +128,17 @@ function offToProduct(raw) {
       };
     }
   }
+  // For DSLD: default portion = serving size (so logging works as "1 scoop / 1 capsule")
+  if (!defaultPortion && isDsld && p._servingSize && p._servingUnit) {
+    const ssUnit = String(p._servingUnit).toLowerCase();
+    const isML = ssUnit.includes('ml') || ssUnit.includes('milliliter');
+    const isG = ssUnit === 'g' || ssUnit.includes('gram');
+    defaultPortion = isG
+      ? { id: 'default', name: 'Serving', g: Math.round(p._servingSize), makeDefault: true }
+      : isML
+      ? { id: 'default', name: 'Serving', ml: Math.round(p._servingSize), makeDefault: true }
+      : { id: 'default', name: `${p._servingSize} ${p._servingUnit}`, g: Math.round(p._servingSize * 1), makeDefault: true };
+  }
   if (!defaultPortion) {
     defaultPortion = { id: 'default', name: 'Portion', g: 100, makeDefault: true };
   }
@@ -121,14 +148,17 @@ function offToProduct(raw) {
     brand: (Array.isArray(p.brands) ? (p.brands[0] || '') : String(p.brands || '').split(',')[0]).trim(),
     image: p.image_front_small_url || p.image_small_url || p.image_url || null,
     kcal: Math.round(kcal || 0),
-    p: Math.round((n.proteins_100g || 0) * 10) / 10,
-    c: Math.round((n.carbohydrates_100g || 0) * 10) / 10,
-    f: Math.round((n.fat_100g || 0) * 10) / 10,
-    barcode: p.code || '',
+    p: Math.round(pr * 10) / 10,
+    c: Math.round(cb * 10) / 10,
+    f: Math.round(ft * 10) / 10,
+    barcode: p.code && !p.code.startsWith('dsld:') ? p.code : '',
     quantity: p.quantity || '',
     store: '', shelf: 'shelf', favorite: false,
     defaultPortion,
-    source: p._src === 'usda' ? 'usda' : 'openfoodfacts',
+    source: isDsld ? 'dsld' : (p._src === 'usda' ? 'usda' : 'openfoodfacts'),
+    _perServing: perServing,  // UI hint: show "/serving" instead of "/100g"
+    _servingSize: p._servingSize || null,
+    _servingUnit: p._servingUnit || '',
   };
 }
 
@@ -175,6 +205,9 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
   const [webHits, setWebHits] = useState([]);
   const [webLoading, setWebLoading] = useState(false);
   const [webError, setWebError] = useState(false);
+  const [supHits, setSupHits] = useState([]);
+  const [supLoading, setSupLoading] = useState(false);
+  const [supError, setSupError] = useState(false);
   const [toast, setToast] = useState('');
   const debounceRef = useRef(null);
   const fetchSeq = useRef(0);
@@ -198,7 +231,7 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const q = query.trim();
-    if (q.length < 2 || filter === 'favorites' || filter === 'meals' || filter === 'aiscans') {
+    if (q.length < 2 || filter === 'favorites' || filter === 'meals' || filter === 'aiscans' || filter === 'supplements') {
       setWebHits([]); setWebLoading(false); setWebError(false);
       return;
     }
@@ -273,12 +306,52 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [query, filter, lang]);
 
+  // Supplements search (DSLD via Vercel proxy). Only runs when filter === 'supplements'.
+  const supDebounceRef = useRef(null);
+  const supFetchSeq = useRef(0);
+  useEffect(() => {
+    if (supDebounceRef.current) clearTimeout(supDebounceRef.current);
+    if (filter !== 'supplements') {
+      setSupHits([]); setSupLoading(false); setSupError(false);
+      return;
+    }
+    const q = query.trim();
+    if (q.length < 2) {
+      setSupHits([]); setSupLoading(false); setSupError(false);
+      return;
+    }
+    setSupLoading(true); setSupError(false);
+    supDebounceRef.current = setTimeout(async () => {
+      const seq = ++supFetchSeq.current;
+      try {
+        const u = new URL('/api/foodsearch', window.location.origin);
+        u.searchParams.set('q', q);
+        u.searchParams.set('lang', lang || 'nl');
+        u.searchParams.set('category', 'supplements');
+        const res = await fetch(u.toString());
+        if (seq !== supFetchSeq.current) return;
+        if (!res.ok) { setSupHits([]); setSupError(true); setSupLoading(false); return; }
+        const data = await res.json();
+        const items = (data.products || []).map(offToProduct).filter(p => p.name && p.name !== 'Unknown product');
+        setSupHits(items);
+        setSupError(items.length === 0 && data.status?.dsld?.error);
+      } catch (e) {
+        if (seq !== supFetchSeq.current) return;
+        setSupHits([]); setSupError(true);
+      } finally {
+        if (seq === supFetchSeq.current) setSupLoading(false);
+      }
+    }, 400);
+    return () => { if (supDebounceRef.current) clearTimeout(supDebounceRef.current); };
+  }, [query, filter, lang]);
+
   // Local filter
   const localHits = useMemo(() => {
     const q = query.trim().toLowerCase();
     let list = products;
     if (filter === 'favorites') list = list.filter(p => p.favorite === true);
     if (filter === 'aiscans')   list = list.filter(p => p.source === 'aiscan');
+    if (filter === 'supplements') return [];  // supplements tab shows DSLD only
     if (q.length >= 1) list = list.filter(p => (p.name || '').toLowerCase().includes(q) || (p.brand || '').toLowerCase().includes(q));
     return list;
   }, [products, query, filter]);
@@ -301,7 +374,7 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
 
   // Local NL foods (NEVO-style basis-data, instant, no API)
   const localFoodHits = useMemo(() => {
-    if (filter === 'favorites' || filter === 'meals' || filter === 'aiscans') return [];
+    if (filter === 'favorites' || filter === 'meals' || filter === 'aiscans' || filter === 'supplements') return [];
     const q = query.trim();
     if (!q) return [];
     // Dedupe against local custom products (same name)
@@ -311,7 +384,7 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
 
   // Top-2000 NL OpenFoodFacts (instant, baked into bundle at build time)
   const offNlHits = useMemo(() => {
-    if (filter === 'favorites' || filter === 'meals' || filter === 'aiscans') return [];
+    if (filter === 'favorites' || filter === 'meals' || filter === 'aiscans' || filter === 'supplements') return [];
     const q = query.trim();
     if (!q) return [];
     const seenKeys = new Set([
@@ -364,10 +437,10 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
     { k: 'favorites', l: T('log.filter.favorites'), icon: 'heart' },
     { k: 'all',       l: T('log.filter.all'),       icon: null },
     { k: 'meals',     l: T('log.filter.meals'),     icon: null },
-    { k: 'aiscans',   l: T('log.filter.aiscans'),   icon: null },
+    { k: 'supplements', l: T('log.filter.supplements'), icon: null },
   ];
 
-  const showEmpty = !query.trim() && localHits.length === 0 && recipeHits.length === 0 && webHits.length === 0 && localFoodHits.length === 0;
+  const showEmpty = !query.trim() && filter !== 'supplements' && localHits.length === 0 && recipeHits.length === 0 && webHits.length === 0 && localFoodHits.length === 0;
 
   return (
     <div style={{ position: 'relative' }}>
@@ -531,7 +604,7 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
         )}
 
         {/* Web (OpenFoodFacts) results */}
-        {filter !== 'meals' && webHitsDedupe.length > 0 && (
+        {filter !== 'meals' && filter !== 'supplements' && webHitsDedupe.length > 0 && (
           <>
             <div style={{ fontSize: 10.5, color: t.muted, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '12px 4px 8px' }}>
               {T('log.web.section')}
@@ -542,8 +615,41 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
           </>
         )}
 
+        {/* Supplements (DSLD) results */}
+        {filter === 'supplements' && supHits.length > 0 && (
+          <>
+            <div style={{ fontSize: 10.5, color: t.muted, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '12px 4px 8px' }}>
+              {T('log.supplements.section')}
+            </div>
+            {supHits.map(p => (
+              <ProductRow key={p.id} product={p} onTap={() => handleProductTap(p)} isDsld />
+            ))}
+            <div style={{ textAlign: 'center', padding: '12px 0 0', fontSize: 10, color: t.dim }}>
+              {T('log.dsld.attribution')}
+            </div>
+          </>
+        )}
+
+        {/* Supplements loading */}
+        {filter === 'supplements' && supLoading && query.trim().length >= 2 && (
+          <div style={{ padding: 18, textAlign: 'center', color: t.muted, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <div style={{ width: 14, height: 14, borderRadius: 7, border: `2px solid ${t.border}`, borderTopColor: t.green, animation: 'spin 0.8s linear infinite' }} />
+            {T('log.supplements.searching')}
+          </div>
+        )}
+
+        {/* Supplements: empty / error / prompt-to-type */}
+        {filter === 'supplements' && !supLoading && supHits.length === 0 && (
+          <div style={{ padding: 28, textAlign: 'center', borderRadius: 16, background: t.card, border: `1px dashed ${t.border}` }}>
+            <div style={{ fontSize: 28, marginBottom: 8 }}>💊</div>
+            <div style={{ fontSize: 13, color: t.muted, lineHeight: 1.5 }}>
+              {!query.trim() ? T('log.supplements.empty') : supError ? T('log.supplements.offline') : T('log.supplements.nohits')}
+            </div>
+          </div>
+        )}
+
         {/* Web loading */}
-        {webLoading && query.trim().length >= 2 && filter !== 'meals' && (
+        {webLoading && query.trim().length >= 2 && filter !== 'meals' && filter !== 'supplements' && (
           <div style={{ padding: 18, textAlign: 'center', color: t.muted, fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
             <div style={{ width: 14, height: 14, borderRadius: 7, border: `2px solid ${t.border}`, borderTopColor: t.green, animation: 'spin 0.8s linear infinite' }} />
             {T('log.web.searching')}
@@ -551,14 +657,14 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
         )}
 
         {/* Web error fallback */}
-        {webError && !webLoading && query.trim().length >= 2 && (
+        {webError && !webLoading && filter !== 'supplements' && query.trim().length >= 2 && (
           <div style={{ padding: 14, textAlign: 'center', color: t.muted, fontSize: 12 }}>
             {T('log.web.offline')}
           </div>
         )}
 
         {/* OFF attribution */}
-        {filter !== 'meals' && (webHitsDedupe.length > 0 || webLoading) && (
+        {filter !== 'meals' && filter !== 'supplements' && (webHitsDedupe.length > 0 || webLoading) && (
           <div style={{ textAlign: 'center', padding: '12px 0 0', fontSize: 10, color: t.dim }}>
             {T('log.openfoodfacts.attribution')}
           </div>
@@ -615,9 +721,13 @@ export function LogLibrary({ onProductTap, onOpenBarcode, onProductActions, onRe
 }
 
 /* ─────────────────────── ProductRow ─────────────────────── */
-function ProductRow({ product, onTap, onFav, onActions, isWeb, isNevo, isOffNl }) {
+function ProductRow({ product, onTap, onFav, onActions, isWeb, isNevo, isOffNl, isDsld }) {
   const T = useT();
   const isFav = product.favorite === true;
+  const perServing = product._perServing;
+  const servingLabel = product._servingSize && product._servingUnit
+    ? `${product._servingSize} ${product._servingUnit}`
+    : T('common.perserving');
   return (
     <div onClick={onTap} style={{
       display: 'flex', gap: 12, padding: 12, marginBottom: 8,
@@ -627,8 +737,8 @@ function ProductRow({ product, onTap, onFav, onActions, isWeb, isNevo, isOffNl }
       {product.image ? (
         <img src={product.image} alt="" style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover', background: '#fff', flexShrink: 0 }} />
       ) : (
-        <div style={{ width: 44, height: 44, borderRadius: 10, background: isNevo ? t.greenBg : t.card3, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: isNevo ? `1px solid ${t.greenBorder}` : 'none' }}>
-          <Icon name={isNevo ? 'apple' : 'photo'} size={20} color={isNevo ? t.green : t.muted} />
+        <div style={{ width: 44, height: 44, borderRadius: 10, background: isNevo ? t.greenBg : isDsld ? 'rgba(94,227,245,0.10)' : t.card3, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: isNevo ? `1px solid ${t.greenBorder}` : isDsld ? '1px solid rgba(94,227,245,0.3)' : 'none' }}>
+          <Icon name={isNevo ? 'apple' : isDsld ? 'flame' : 'photo'} size={20} color={isNevo ? t.green : isDsld ? '#5EE3F5' : t.muted} />
         </div>
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -659,14 +769,21 @@ function ProductRow({ product, onTap, onFav, onActions, isWeb, isNevo, isOffNl }
               letterSpacing: '0.05em', flexShrink: 0, border: '1px solid rgba(249,115,22,0.35)',
             }}>NL</span>
           )}
+          {isDsld && (
+            <span style={{
+              fontSize: 9, color: '#5EE3F5', fontWeight: 700,
+              background: 'rgba(94,227,245,0.10)', padding: '2px 6px', borderRadius: 5,
+              letterSpacing: '0.05em', flexShrink: 0, border: '1px solid rgba(94,227,245,0.35)',
+            }}>DSLD</span>
+          )}
         </div>
         <div style={{ fontSize: 11.5, color: product.kcal > 0 ? t.muted : t.orange, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {product.kcal > 0
-            ? `${product.kcal} kcal · ${T('common.per100g')}${product.brand ? ` · ${product.brand}` : ''}`
+            ? `${product.kcal} kcal · ${perServing ? servingLabel : T('common.per100g')}${product.brand ? ` · ${product.brand}` : ''}`
             : `${T('log.nokcal')}${product.brand ? ` · ${product.brand}` : ''}`}
         </div>
       </div>
-      {!isWeb && !isNevo && !isOffNl && onFav && (
+      {!isWeb && !isNevo && !isOffNl && !isDsld && onFav && (
         <div onClick={onFav} style={{
           width: 32, height: 36, borderRadius: 10,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -676,7 +793,7 @@ function ProductRow({ product, onTap, onFav, onActions, isWeb, isNevo, isOffNl }
           {isFav ? '♥' : '♡'}
         </div>
       )}
-      {!isWeb && !isNevo && !isOffNl && onActions && (
+      {!isWeb && !isNevo && !isOffNl && !isDsld && onActions && (
         <div onClick={onActions} style={{
           width: 28, height: 36, borderRadius: 10,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
