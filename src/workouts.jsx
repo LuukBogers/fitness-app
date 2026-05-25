@@ -283,28 +283,62 @@ export function Workouts({ autoStart = false, onConsumedAutoStart = () => {} }) 
           <Btn full variant="ghost" accent="orange" style={{ marginBottom: 14 }} onClick={() => { setEditingTpl(null); setShowBuilder(true); }}>
             + {T('wo.createtemplate')}
           </Btn>
-          {workouts.length === 0 ? (
-            <div style={{ padding: 40, textAlign: 'center', borderRadius: 16, background: t.card, border: `1px dashed ${t.border}` }}>
-              <div style={{ fontSize: 32, marginBottom: 10 }}>🏋️</div>
-              <div style={{ fontSize: 14, color: t.text, fontWeight: 600, marginBottom: 6 }}>{T('wo.notemplates')}</div>
-              <div style={{ fontSize: 12, color: t.muted, lineHeight: 1.5 }}>{T('wo.notemplatesbody')}</div>
-            </div>
-          ) : workouts.map((w, i) => (
-            <Card key={i} onClick={() => setShowTpl(i)} style={{ padding: 14 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 11, background: t.orangeBg, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${t.orangeBorder}` }}>
-                    <Icon name="workout" size={18} color={t.orange} />
+
+          {/* ── 7 fixed workout-type cards ───────────────────────────────── */}
+          {['Push','Pull','Legs','Upper','Lower','Arms','Posterior'].map(typeName => {
+            const existing = workouts.find(w => w.name === typeName);
+            const exCount = existing?.exercises?.length || 0;
+            const tplIdx = existing ? workouts.findIndex(w => w.id === existing.id) : -1;
+            const handleTap = async () => {
+              if (existing) { setShowTpl(tplIdx); return; }
+              // Generate single-type template inline
+              const generated = generateMissingTemplates({ X: typeName }, workouts);
+              if (generated.length === 0) { flashToast(T('wo.gen.nothing')); return; }
+              const newList = [...workouts, ...generated];
+              await saveProfileData({ workouts: newList });
+              const newIdx = newList.findIndex(w => w.name === typeName);
+              if (newIdx >= 0) setShowTpl(newIdx);
+            };
+            return (
+              <Card key={typeName} onClick={handleTap} style={{ padding: 14, marginBottom: 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 11, background: t.orangeBg, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${t.orangeBorder}` }}>
+                      <Icon name="workout" size={18} color={t.orange} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{localizeWorkoutName(typeName, T)}</div>
+                      <div style={{ fontSize: 12, color: t.soft }}>
+                        {exCount > 0 ? `${exCount} ${T('wo.exercises')}` : T('wo.tap.create')}
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{w.name}</div>
-                    <div style={{ fontSize: 12, color: t.soft }}>{(w.exercises || []).length} {T('wo.exercises')}</div>
-                  </div>
+                  <Icon name="chevR" size={16} color={t.muted} />
                 </div>
-                <Icon name="chevR" size={16} color={t.muted} />
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
+
+          {/* ── Custom user-named templates (not matching the 7 types) ───── */}
+          {workouts.filter(w => !['Push','Pull','Legs','Upper','Lower','Arms','Posterior'].includes(w.name)).map((w, i) => {
+            const tplIdx = workouts.findIndex(x => x.id === w.id);
+            return (
+              <Card key={w.id || i} onClick={() => setShowTpl(tplIdx)} style={{ padding: 14, marginTop: i === 0 ? 16 : 10 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 11, background: t.orangeBg, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${t.orangeBorder}` }}>
+                      <Icon name="workout" size={18} color={t.orange} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: t.text }}>{w.name}</div>
+                      <div style={{ fontSize: 12, color: t.soft }}>{(w.exercises || []).length} {T('wo.exercises')}</div>
+                    </div>
+                  </div>
+                  <Icon name="chevR" size={16} color={t.muted} />
+                </div>
+              </Card>
+            );
+          })}
         </div>
       )}
 
