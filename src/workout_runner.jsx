@@ -213,8 +213,7 @@ export function WorkoutRunner({ visible, onClose, template, onFinished, resumeFr
   const hasAnyData = sessionExercises.some(ex => ex.sets.some(s => s.weight || s.reps || s.completedAt));
 
   const onTapClose = () => {
-    if (hasAnyData) setShowCloseSheet(true);
-    else onClose?.();
+    setShowCloseSheet(true);
   };
 
   const closeSaveAsDraft = async () => {
