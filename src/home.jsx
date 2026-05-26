@@ -166,11 +166,25 @@ export function Home({ onOpenCheckIn, onStartTodayWorkout }) {
             { label: T('macros.carbs'),   color: t.carbs,   target: carbs   || 0, value: eatenC },
             { label: T('macros.protein'), color: t.protein, target: protein || 0, value: eatenP },
             { label: T('macros.fat'),     color: t.fat,     target: fat     || 0, value: eatenF },
-          ].map(macro => (
-            <div key={macro.label} style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-              <Ring value={Math.round(macro.value)} max={macro.target || 1} color={macro.color} label={macro.label} size={68} />
-            </div>
-          ))}
+          ].map(macro => {
+            const noTarget = !macro.target;
+            const ratio = noTarget ? 0 : macro.value / macro.target;
+            const pct = Math.round(ratio * 100);
+            const diff = Math.round(macro.value - macro.target);
+            return (
+              <div key={macro.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div style={{ fontSize: 10.5, color: macro.color, fontWeight: 700, marginBottom: 8, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{macro.label}</div>
+                <MacroRing percent={pct} color={macro.color} size={68} value={Math.round(macro.value)} noTarget={noTarget} />
+                <div style={{ fontSize: 11, color: noTarget ? t.muted : (ratio > 1 ? t.warning : t.muted), fontWeight: 700, marginTop: 8 }}>
+                  {noTarget
+                    ? T('day.macros.eaten', { g: Math.round(macro.value) })
+                    : ratio > 1
+                      ? T('day.macros.over', { g: Math.abs(diff) })
+                      : T('day.macros.left', { g: Math.max(0, -diff) })}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </Card>
 
