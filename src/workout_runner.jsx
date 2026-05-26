@@ -4,6 +4,10 @@ import { Icon, Card, Btn, Modal, Pill, LetterBadge, VideoThumb, ActionSheet } fr
 import { Toast } from './modals';
 import { EXERCISE_LIBRARY, getExercise, formatRestTime, findLastSetFor } from './exercise_library';
 import { ExerciseDetail } from './exercise_detail';
+import {
+  ensureProgressionShape, detectPR, checkSanity, calculateEpley,
+  processWorkoutCompletion, prPostWorkoutHeadline, PR_TYPES,
+} from './pr';
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * WORKOUT RUNNER — premium gym-flow screen
@@ -63,6 +67,19 @@ export function WorkoutRunner({ visible, onClose, template, onFinished, resumeFr
   const [detailExId, setDetailExId] = useState(null);
   const [toast, setToast] = useState('');
 
+  // ── PR / progression state (resets each workout) ──────────────────────
+  const [inFlowPR, setInFlowPR] = useState(null);          // { exIdx, setIdx, type, newValue } | null
+  const [inFlowPRShown, setInFlowPRShown] = useState(false); // one in-flow per workout
+  const [pendingSanity, setPendingSanity] = useState(null); // { exIdx, setIdx, setData, reason, delta } | null
+  const [postSummary, setPostSummary] = useState(null);     // { session, prEvents, totalVolume, durationSec, statsBefore } | null
+
+  // Current bodyweight (for compound strength ratio + sanity weight check)
+  const currentBodyweight = useMemo(() => {
+    const arr = Array.isArray(d.weights) ? d.weights : [];
+    if (arr.length > 0) return Number(arr[arr.length - 1].weight) || 0;
+    return Number(d.weight) || 0;
+  }, [d.weights, d.weight]);
+
   // Initialize / reset on open
   useEffect(() => {
     if (!visible) return;
@@ -89,6 +106,10 @@ export function WorkoutRunner({ visible, onClose, template, onFinished, resumeFr
     setRestTimer(null);
     setShowCloseSheet(false);
     setShowFinishConfirm(false);
+    setInFlowPR(null);
+    setInFlowPRShown(false);
+    setPendingSanity(null);
+    setPostSummary(null);
   }, [visible, template, resumeFrom]);
 
   // 1Hz tick
@@ -156,6 +177,43 @@ export function WorkoutRunner({ visible, onClose, template, onFinished, resumeFr
       setTimeout(() => setToast(''), 1800);
       return;
     }
+
+    // ── PR detection BEFORE persisting the set ──────────────────────────
+    const exId = ex.exerciseId;
+    const stats = (d.exerciseStats || {})[exId] || null;
+    // Session volume for this exercise = already-completed sets + this new set
+    const newSetVol = (Number(s.weight) || 0) * (Number(s.reps) || 0);
+    const priorVol = ex.sets.reduce((sum, x, i) => {
+      if (i === setIdx) return sum;
+      if (!x.completedAt) return sum;
+      return sum + (Number(x.weight) || 0) * (Number(x.reps) || 0);
+    }, 0);
+    const sessionVolForEx = priorVol + newSetVol;
+
+    const pr = detectPR({ stats, set: s, sessionVolumeForExercise: sessionVolForEx });
+
+    // ── Sanity check (only if PR detected — saves cycles) ───────────────
+    if (pr) {
+      const sanity = checkSanity({
+        newEst1RM: calculateEpley(s.weight, s.reps),
+        currentEst1RM: stats?.est1RM || 0,
+        weight: Number(s.weight) || 0,
+        bodyweight: currentBodyweight,
+      });
+      if (sanity.suspicious) {
+        // Block persistence — wait for user confirmation. Set is NOT saved
+        // yet (this aligns with blueprint: never auto-skip set, only PR).
+        setPendingSanity({
+          exIdx, setIdx,
+          setData: s,
+          reason: sanity.reason,
+          delta: sanity.delta || 0,
+        });
+        return;
+      }
+    }
+
+    // ── Persist set + start rest timer ─────────────────────────────────
     updateSet(exIdx, setIdx, { completedAt: new Date().toISOString() });
     setRestTimer({
       exerciseIdx: exIdx,
@@ -164,7 +222,34 @@ export function WorkoutRunner({ visible, onClose, template, onFinished, resumeFr
       startedAt: Date.now(),
       paused: false,
     });
+
+    // ── In-flow PR moment (max 1 per workout) ──────────────────────────
+    if (pr && !inFlowPRShown) {
+      setInFlowPR({ exIdx, setIdx, type: pr.type, newValue: pr.newValue });
+      setInFlowPRShown(true);
+      try { if (navigator.vibrate) navigator.vibrate(60); } catch {}
+      setTimeout(() => setInFlowPR(null), 2000);
+    }
   };
+
+  // Sanity prompt handlers
+  const confirmSanity = () => {
+    if (!pendingSanity) return;
+    const { exIdx, setIdx, setData } = pendingSanity;
+    const exNow = sessionExercises[exIdx];
+    updateSet(exIdx, setIdx, { completedAt: new Date().toISOString() });
+    setRestTimer({
+      exerciseIdx: exIdx,
+      setIdx,
+      totalSec: exNow?.restSec || 120,
+      startedAt: Date.now(),
+      paused: false,
+    });
+    setPendingSanity(null);
+    // Suspicious PRs are never surfaced in-flow (only post-workout).
+  };
+
+  const editSanity = () => setPendingSanity(null);
 
   const addSet = (exIdx) => {
     setSessionExercises(prev => prev.map((ex, i) => {
@@ -260,10 +345,47 @@ export function WorkoutRunner({ visible, onClose, template, onFinished, resumeFr
         })),
       })).filter(e => e.sets.length > 0),
     };
+
+    // ── Run progression pipeline ────────────────────────────────────────
+    const profileData = ensureProgressionShape(d);
+    const result = processWorkoutCompletion({
+      session,
+      profileData,
+      bodyweight: currentBodyweight,
+    });
+
+    const newExerciseStats   = { ...profileData.exerciseStats,   ...result.exerciseStatsUpdates };
+    const newCompoundStrength = { ...profileData.compoundStrength, ...result.compoundStrengthUpdates };
+    const newPrEvents = [...profileData.prEvents, ...result.prEvents];
     const newSessions = { ...workoutSessions, [dateKey]: session };
-    const newLog = { ...(d.workoutLog || {}), [dateKey]: { workoutName: template?.name || T('wr.quickworkout'), completed: true } };
-    await saveProfileData({ workoutSessions: newSessions, workoutLog: newLog, inProgressWorkout: null });
+    const newLog = {
+      ...(d.workoutLog || {}),
+      [dateKey]: { workoutName: template?.name || T('wr.quickworkout'), completed: true },
+    };
+
+    await saveProfileData({
+      exerciseStats: newExerciseStats,
+      compoundStrength: newCompoundStrength,
+      prEvents: newPrEvents,
+      workoutSessions: newSessions,
+      workoutLog: newLog,
+      inProgressWorkout: null,
+    });
+
+    // Build summary data — modal blocks runner-close until user taps Continue.
+    const durationSec = Math.max(0, Math.floor((Date.now() - sessionStartedAt) / 1000));
+    setPostSummary({
+      session,
+      prEvents: result.prEvents,
+      totalVolume: result.totalSessionVolume,
+      durationSec,
+      exerciseCount: session.exercises.length,
+    });
     setShowFinishConfirm(false);
+  };
+
+  const dismissSummary = () => {
+    setPostSummary(null);
     onFinished?.();
     onClose?.();
   };
@@ -417,6 +539,30 @@ export function WorkoutRunner({ visible, onClose, template, onFinished, resumeFr
       />
 
       <Toast message={toast} visible={!!toast} />
+
+      {/* In-flow PR moment — subtle floating banner */}
+      <InFlowPRBanner pr={inFlowPR} T={T} />
+
+      {/* Sanity-check prompt for suspicious PRs */}
+      <ActionSheet
+        visible={!!pendingSanity}
+        onClose={editSanity}
+        title={T('sanity.title')}
+        subtitle={pendingSanity ? buildSanityBody(pendingSanity, T) : ''}
+        actions={[
+          { label: T('sanity.confirm'), color: 'orange', onPress: confirmSanity },
+          { label: T('sanity.edit'),    color: 'muted',  onPress: editSanity },
+        ]}
+      />
+
+      {/* Cinematic post-workout summary */}
+      {postSummary && (
+        <PostWorkoutSummary
+          data={postSummary}
+          T={T}
+          onDismiss={dismissSummary}
+        />
+      )}
 
       {/* Exercise detail modal */}
       {detailExId && <ExerciseDetail exerciseId={detailExId} onClose={() => setDetailExId(null)} />}
@@ -710,5 +856,335 @@ function FilterChip({ active, onClick, children }) {
       color: active ? t.orange : t.soft, fontSize: 12, fontWeight: 700,
       cursor: 'pointer', fontFamily: 'inherit',
     }}>{children}</button>
+  );
+}
+
+/* ═══════════════════════════ PR MOMENT — in-flow banner ═══════════════════════════
+ * Subtle floating banner that fades in after a set-complete that triggered a
+ * PR. Max one per workout. Blueprint DNA: calm motion, soft glow, no popup.
+ */
+
+const PR_TYPE_TO_KEY = {
+  [PR_TYPES.HEAVIEST_WEIGHT]: 'pr.type.heaviest',
+  [PR_TYPES.EST_1RM]:         'pr.type.est1rm',
+  [PR_TYPES.BEST_VOLUME]:     'pr.type.volume',
+};
+
+function InFlowPRBanner({ pr, T }) {
+  const visible = !!pr;
+  return (
+    <div style={{
+      position: 'fixed', top: 76, left: 16, right: 16, zIndex: 50,
+      pointerEvents: 'none',
+      opacity: visible ? 1 : 0,
+      transform: visible ? 'translateY(0)' : 'translateY(-8px)',
+      transition: 'opacity 380ms ease-out, transform 380ms ease-out',
+    }}>
+      <div style={{
+        background: 'rgba(20, 24, 33, 0.86)',
+        backdropFilter: 'blur(22px) saturate(160%)',
+        WebkitBackdropFilter: 'blur(22px) saturate(160%)',
+        border: '1px solid rgba(255,255,255,0.10)',
+        borderRadius: 18, padding: '14px 18px',
+        boxShadow: '0 16px 48px rgba(0,0,0,0.55), inset 0 1px 0 0 rgba(255,255,255,0.07)',
+        display: 'flex', alignItems: 'center', gap: 14,
+      }}>
+        <div style={{
+          width: 8, height: 8, borderRadius: 4,
+          background: '#4D8BFA',
+          boxShadow: '0 0 14px #4D8BFA',
+        }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontSize: 9.5, fontWeight: 800, color: '#6FA0FF',
+            letterSpacing: '0.14em', textTransform: 'uppercase',
+            marginBottom: 3,
+          }}>
+            {T('pr.new')}
+          </div>
+          <div style={{
+            fontSize: 13, color: t.text, fontWeight: 600,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>
+            {pr ? T(PR_TYPE_TO_KEY[pr.type] || 'pr.new') : ''}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function buildSanityBody(sanity, T) {
+  if (!sanity || !sanity.setData) return '';
+  const w = Number(sanity.setData.weight) || 0;
+  const r = Number(sanity.setData.reps) || 0;
+  if (sanity.reason === '1RM_JUMP') {
+    return T('sanity.body.jump', { delta: sanity.delta, weight: w, reps: r });
+  }
+  return T('sanity.body.weight', { weight: w, reps: r });
+}
+
+/* ═══════════════════════════ POST-WORKOUT SUMMARY ═══════════════════════════
+ * Cinematic recap shown after Complete Workout. Visual DNA: dark matte glass,
+ * editorial typography, slow reveal, 1 hero stat → identity sentence → metrics.
+ */
+
+const IDENTITY_KEYS = [
+  'summary.identity.1', 'summary.identity.2',
+  'summary.identity.3', 'summary.identity.4',
+];
+
+function pickIdentityKey(data) {
+  // Deterministic — same workout always shows same sentence.
+  const seed = (data?.session?.id || '').length + (data?.totalVolume || 0);
+  return IDENTITY_KEYS[seed % IDENTITY_KEYS.length];
+}
+
+function pickHeroPR(prEvents) {
+  if (!Array.isArray(prEvents) || prEvents.length === 0) return null;
+  // Priority: 1RM > heaviest weight > volume
+  return prEvents.find(p => p.type === PR_TYPES.EST_1RM)
+      || prEvents.find(p => p.type === PR_TYPES.HEAVIEST_WEIGHT)
+      || prEvents.find(p => p.type === PR_TYPES.BEST_VOLUME)
+      || null;
+}
+
+function formatHero(hero) {
+  if (!hero) return null;
+  if (hero.type === PR_TYPES.BEST_VOLUME) {
+    return { value: Math.round(hero.newValue).toLocaleString('en-US'), unit: 'kg' };
+  }
+  return { value: Number(hero.newValue).toFixed(1), unit: 'kg' };
+}
+
+function formatDuration(sec) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  if (m === 0) return `${s}s`;
+  if (s === 0) return `${m}m`;
+  return `${m}m ${s}s`;
+}
+
+function PostWorkoutSummary({ data, T, onDismiss }) {
+  const { session, prEvents, totalVolume, durationSec, exerciseCount } = data;
+  const heroPR = pickHeroPR(prEvents);
+  const heroVal = formatHero(heroPR);
+  const heroExName = heroPR ? (getExercise(heroPR.exerciseId)?.name || heroPR.exerciseId) : null;
+  const heroLabelKey = heroPR ? PR_TYPE_TO_KEY[heroPR.type] : null;
+  const identityKey = pickIdentityKey(data);
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 300,
+      background: t.bg,
+      display: 'flex', flexDirection: 'column',
+      overflowY: 'auto',
+      animation: 'pwsFadeIn 600ms ease-out',
+    }}>
+      {/* Inline keyframes for slow cinematic reveal */}
+      <style>{`
+        @keyframes pwsFadeIn {
+          0%   { opacity: 0; }
+          100% { opacity: 1; }
+        }
+        @keyframes pwsRise {
+          0%   { opacity: 0; transform: translateY(12px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+
+      {/* Soft top-light gradient — cinematic depth */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: 360,
+        background: `radial-gradient(ellipse at center top, rgba(77,139,250,0.14), transparent 60%)`,
+        pointerEvents: 'none',
+      }} />
+
+      {/* Header */}
+      <div style={{
+        padding: '28px 20px 8px', position: 'relative',
+        animation: 'pwsRise 700ms ease-out 100ms backwards',
+      }}>
+        <div style={{
+          fontSize: 11, fontWeight: 800, color: t.soft,
+          letterSpacing: '0.18em', textTransform: 'uppercase',
+          textAlign: 'center',
+        }}>
+          {T('summary.title')}
+        </div>
+      </div>
+
+      {/* Hero stat */}
+      <div style={{
+        padding: '32px 24px 28px', position: 'relative',
+        textAlign: 'center',
+        animation: 'pwsRise 800ms ease-out 280ms backwards',
+      }}>
+        {heroVal ? (
+          <>
+            <div style={{
+              fontSize: 64, fontWeight: 800, color: t.text,
+              letterSpacing: '-0.04em', lineHeight: 1, marginBottom: 12,
+              fontVariantNumeric: 'tabular-nums',
+            }}>
+              {heroVal.value}
+              <span style={{ fontSize: 24, color: t.soft, marginLeft: 6, fontWeight: 700 }}>
+                {heroVal.unit}
+              </span>
+            </div>
+            <div style={{
+              fontSize: 12, color: t.soft, fontWeight: 700,
+              letterSpacing: '0.08em', textTransform: 'uppercase',
+            }}>
+              {T(heroLabelKey)} {heroExName ? `· ${heroExName}` : ''}
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{
+              fontSize: 64, fontWeight: 800, color: t.text,
+              letterSpacing: '-0.04em', lineHeight: 1, marginBottom: 12,
+              fontVariantNumeric: 'tabular-nums',
+            }}>
+              {Math.round(totalVolume).toLocaleString('en-US')}
+              <span style={{ fontSize: 24, color: t.soft, marginLeft: 6, fontWeight: 700 }}>kg</span>
+            </div>
+            <div style={{
+              fontSize: 12, color: t.soft, fontWeight: 700,
+              letterSpacing: '0.08em', textTransform: 'uppercase',
+            }}>
+              {T('summary.volume')}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Identity sentence */}
+      <div style={{
+        padding: '4px 36px 32px', textAlign: 'center', position: 'relative',
+        animation: 'pwsRise 800ms ease-out 480ms backwards',
+      }}>
+        <div style={{
+          fontSize: 16, color: t.text, fontWeight: 500, lineHeight: 1.45,
+          letterSpacing: '-0.01em', fontStyle: 'italic', opacity: 0.85,
+        }}>
+          {T(identityKey)}
+        </div>
+      </div>
+
+      {/* Session metrics row */}
+      <div style={{
+        margin: '0 20px 24px', padding: '20px 0',
+        borderTop: `1px solid ${t.border}`,
+        borderBottom: `1px solid ${t.border}`,
+        display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
+        position: 'relative',
+        animation: 'pwsRise 800ms ease-out 640ms backwards',
+      }}>
+        <SummaryMetric
+          label={T('summary.volume')}
+          value={Math.round(totalVolume).toLocaleString('en-US')}
+          unit="kg"
+        />
+        <SummaryMetric
+          label={T('summary.duration')}
+          value={formatDuration(durationSec)}
+        />
+        <SummaryMetric
+          label={T('summary.exercises')}
+          value={String(exerciseCount)}
+        />
+      </div>
+
+      {/* Personal bests grid */}
+      {prEvents && prEvents.length > 0 && (
+        <div style={{
+          padding: '4px 20px 20px', position: 'relative',
+          animation: 'pwsRise 800ms ease-out 780ms backwards',
+        }}>
+          <div style={{
+            fontSize: 11, fontWeight: 800, color: t.muted,
+            letterSpacing: '0.10em', textTransform: 'uppercase',
+            marginBottom: 12,
+          }}>
+            {T('summary.prs_today')} · {prEvents.length}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {prEvents.map(pr => (
+              <SummaryPRTile key={pr.id} pr={pr} T={T} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Spacer + continue button */}
+      <div style={{ flex: 1, minHeight: 24 }} />
+      <div style={{
+        padding: '16px 20px 24px', position: 'sticky', bottom: 0,
+        background: `linear-gradient(to top, ${t.bg} 60%, rgba(8,10,14,0))`,
+        animation: 'pwsRise 800ms ease-out 920ms backwards',
+      }}>
+        <Btn full accent="orange" onClick={onDismiss} style={{ fontSize: 15, padding: '14px' }}>
+          {T('summary.continue')}
+        </Btn>
+      </div>
+    </div>
+  );
+}
+
+function SummaryMetric({ label, value, unit }) {
+  return (
+    <div style={{ textAlign: 'center', padding: '0 8px' }}>
+      <div style={{
+        fontSize: 10, fontWeight: 800, color: t.muted,
+        letterSpacing: '0.10em', textTransform: 'uppercase', marginBottom: 8,
+      }}>
+        {label}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 3 }}>
+        <span style={{
+          fontSize: 18, fontWeight: 800, color: t.text,
+          letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums',
+        }}>{value}</span>
+        {unit && <span style={{ fontSize: 11, color: t.soft, fontWeight: 600 }}>{unit}</span>}
+      </div>
+    </div>
+  );
+}
+
+function SummaryPRTile({ pr, T }) {
+  const exMeta = getExercise(pr.exerciseId);
+  const exName = exMeta?.name || pr.exerciseId;
+  const value = pr.type === PR_TYPES.BEST_VOLUME
+    ? `${Math.round(pr.newValue).toLocaleString('en-US')} kg`
+    : `${Number(pr.newValue).toFixed(1)} kg`;
+  return (
+    <div style={{
+      padding: '12px 14px', borderRadius: 14,
+      background: 'rgba(255,255,255,0.025)',
+      border: `1px solid ${t.border}`,
+      boxShadow: 'inset 0 1px 0 0 rgba(255,255,255,0.04)',
+    }}>
+      <div style={{
+        fontSize: 9, fontWeight: 800, color: t.soft,
+        letterSpacing: '0.10em', textTransform: 'uppercase', marginBottom: 5,
+      }}>
+        {T(PR_TYPE_TO_KEY[pr.type] || 'pr.new')}
+      </div>
+      <div style={{
+        fontSize: 17, fontWeight: 800, color: t.text,
+        letterSpacing: '-0.02em', lineHeight: 1.1, marginBottom: 4,
+        fontVariantNumeric: 'tabular-nums',
+      }}>
+        {value}
+      </div>
+      <div style={{
+        fontSize: 11, color: t.muted, lineHeight: 1.3,
+        overflow: 'hidden', textOverflow: 'ellipsis',
+        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+      }}>
+        {exName}
+      </div>
+    </div>
   );
 }

@@ -2,6 +2,11 @@ import { useState } from "react";
 import { t, WEEK, useApp, useT, useLang, todayIdx, weekDates, todayKey, dayLabel, weekDayShort, fmtKey } from './lib';
 import { Icon, Card, Label, ProgressBar, Ring, MacroRing } from './shared';
 import { HomeBell, NotificationsModal, CheckinHistoryModal } from './notifications';
+import {
+  calculateLiveIdentity, tierFromScore, prPostWorkoutHeadline, totalLifetimeVolume,
+  TIERS, PR_TYPES,
+} from './pr';
+import { getExercise } from './exercise_library';
 
 /* ═══════════════════════════ HOME ═══════════════════════════ */
 export function Home({ onOpenCheckIn, onStartTodayWorkout }) {
@@ -241,7 +246,10 @@ export function Home({ onOpenCheckIn, onStartTodayWorkout }) {
         );
       })()}
 
-      {/* Block 4: Weight Graph — clickable to open history */}
+      {/* Block 4: Progression hub — Identity + Recent PRs + Lifetime volume */}
+      <ProgressionHub data={d} T={T} />
+
+      {/* Block 5: Weight Graph — clickable to open history */}
       <Card onClick={() => setShowHistory(true)}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16 }}>
           <div>
@@ -291,3 +299,208 @@ export function Home({ onOpenCheckIn, onStartTodayWorkout }) {
   );
 }
 export function EXMAP_LEN(workouts, name) { const w = (workouts||[]).find(x => x.name === name); return w ? (w.exercises||[]).length : 4; }
+
+/* ═══════════════════════════ PROGRESSION HUB ═══════════════════════════
+ * Identity (tier + score) + Recent PRs + Lifetime volume — Home dashboard
+ * card. Visual DNA: matte glass, editorial typography, calm motion. No
+ * popups, no badges. Tap-target reserved for future Identity Screen modal.
+ */
+
+const TIER_KEY_MAP = {
+  [TIERS.FOUNDATION]: { name: 'progress.tier.foundation', copy: 'progress.copy.foundation' },
+  [TIERS.FORGED]:     { name: 'progress.tier.forged',     copy: 'progress.copy.forged' },
+  [TIERS.DIALED]:     { name: 'progress.tier.dialed',     copy: 'progress.copy.dialed' },
+  [TIERS.RELENTLESS]: { name: 'progress.tier.relentless', copy: 'progress.copy.relentless' },
+};
+
+const PR_KEY_MAP = {
+  [PR_TYPES.HEAVIEST_WEIGHT]: 'pr.type.heaviest',
+  [PR_TYPES.EST_1RM]:         'pr.type.est1rm',
+  [PR_TYPES.BEST_VOLUME]:     'pr.type.volume',
+};
+
+function formatPRValue(prType, value) {
+  if (prType === PR_TYPES.BEST_VOLUME) return `${Math.round(value).toLocaleString('en-US')} kg`;
+  return `${Number(value).toFixed(1)} kg`;
+}
+
+function ProgressionHub({ data, T }) {
+  const { tier, score } = calculateLiveIdentity(data);
+  const tierKeys = TIER_KEY_MAP[tier] || TIER_KEY_MAP[TIERS.FOUNDATION];
+  const exerciseStats = data.exerciseStats || {};
+  const prEvents = Array.isArray(data.prEvents) ? data.prEvents : [];
+  const lifetimeVol = totalLifetimeVolume(exerciseStats);
+
+  // Recent PRs — newest first, max 3, dedupe same exercise+type same day.
+  const recentPRs = [...prEvents]
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
+    .slice(0, 3);
+
+  const hasAnyProgress = prEvents.length > 0 || lifetimeVol > 0;
+
+  return (
+    <Card style={{ padding: 20, position: 'relative', overflow: 'hidden' }}>
+      {/* Soft top-light gradient — premium cinematic feel */}
+      <div style={{
+        position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
+        width: '120%', height: 110,
+        background: `radial-gradient(ellipse at center top, rgba(77,139,250,0.10), transparent 70%)`,
+        pointerEvents: 'none',
+      }} />
+
+      {/* Header row: section label */}
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        marginBottom: 18, position: 'relative',
+      }}>
+        <Label style={{ marginBottom: 0 }}>{T('progress.your_progress')}</Label>
+      </div>
+
+      {/* Tier + score row */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 18, position: 'relative' }}>
+        <TierRing score={score} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontSize: 24, fontWeight: 800, color: t.text,
+            letterSpacing: '-0.02em', lineHeight: 1.1,
+          }}>
+            {T(tierKeys.name)}
+          </div>
+          <div style={{
+            fontSize: 12.5, color: t.soft, marginTop: 6, lineHeight: 1.45,
+            fontWeight: 500, letterSpacing: '0.01em',
+          }}>
+            {T(tierKeys.copy)}
+          </div>
+        </div>
+      </div>
+
+      {/* Thin divider */}
+      <div style={{
+        height: 1, background: t.border, margin: '20px 0 16px', position: 'relative',
+      }} />
+
+      {/* Recent PRs section */}
+      <div style={{ position: 'relative' }}>
+        <Label style={{ marginBottom: 12 }}>{T('progress.recentprs')}</Label>
+
+        {recentPRs.length > 0 ? (
+          <div style={{
+            display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4,
+            margin: '0 -4px', padding: '0 4px 4px',
+            scrollbarWidth: 'none',
+          }}>
+            {recentPRs.map(pr => <PRMiniCard key={pr.id} pr={pr} T={T} />)}
+          </div>
+        ) : (
+          <div style={{
+            fontSize: 13, color: t.muted, lineHeight: 1.5, fontStyle: 'italic',
+            padding: '6px 2px 4px',
+          }}>
+            {hasAnyProgress ? T('progress.no_prs') : T('progress.no_progress')}
+          </div>
+        )}
+      </div>
+
+      {/* Lifetime volume row */}
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+        marginTop: 18, paddingTop: 14, borderTop: `1px solid ${t.border}`,
+        position: 'relative',
+      }}>
+        <div style={{
+          fontSize: 11, color: t.muted, fontWeight: 700,
+          letterSpacing: '0.08em', textTransform: 'uppercase',
+        }}>
+          {T('progress.lifetimevolume')}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+          <span style={{
+            fontSize: 22, fontWeight: 800, color: t.text,
+            letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums',
+          }}>
+            {lifetimeVol.toLocaleString('en-US')}
+          </span>
+          <span style={{ fontSize: 12, color: t.soft, fontWeight: 600 }}>kg</span>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function TierRing({ score, size = 64 }) {
+  const stroke = 5;
+  const radius = (size - stroke) / 2;
+  const C = 2 * Math.PI * radius;
+  const dash = (Math.min(Math.max(score, 0), 100) / 100) * C;
+  return (
+    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx={size/2} cy={size/2} r={radius}
+          stroke="rgba(140,160,200,0.10)" strokeWidth={stroke} fill="none" />
+        <circle cx={size/2} cy={size/2} r={radius}
+          stroke="url(#tierGrad)" strokeWidth={stroke} fill="none"
+          strokeDasharray={`${dash} ${C}`} strokeLinecap="round" />
+        <defs>
+          <linearGradient id="tierGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#6FA0FF" />
+            <stop offset="100%" stopColor="#4D8BFA" />
+          </linearGradient>
+        </defs>
+      </svg>
+      <div style={{
+        position: 'absolute', inset: 0,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <div style={{
+          fontSize: 18, fontWeight: 800, color: t.text,
+          letterSpacing: '-0.02em', lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+        }}>
+          {Math.round(score)}
+        </div>
+        <div style={{
+          fontSize: 8, color: t.muted, fontWeight: 700, letterSpacing: '0.1em',
+          marginTop: 2,
+        }}>
+          /100
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PRMiniCard({ pr, T }) {
+  const exMeta = getExercise(pr.exerciseId);
+  const exName = exMeta?.name || pr.exerciseId;
+  return (
+    <div style={{
+      flexShrink: 0, minWidth: 130, maxWidth: 160,
+      padding: '11px 12px 12px',
+      borderRadius: 14,
+      background: 'rgba(255,255,255,0.025)',
+      border: `1px solid ${t.border}`,
+      boxShadow: 'inset 0 1px 0 0 rgba(255,255,255,0.04)',
+    }}>
+      <div style={{
+        fontSize: 9, fontWeight: 800, color: t.soft,
+        letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 6,
+      }}>
+        {T(PR_KEY_MAP[pr.type] || 'pr.new')}
+      </div>
+      <div style={{
+        fontSize: 18, fontWeight: 800, color: t.text,
+        letterSpacing: '-0.02em', lineHeight: 1.1, marginBottom: 4,
+        fontVariantNumeric: 'tabular-nums',
+      }}>
+        {formatPRValue(pr.type, pr.newValue)}
+      </div>
+      <div style={{
+        fontSize: 11, color: t.muted, lineHeight: 1.3,
+        overflow: 'hidden', textOverflow: 'ellipsis',
+        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+      }}>
+        {exName}
+      </div>
+    </div>
+  );
+}

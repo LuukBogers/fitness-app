@@ -426,6 +426,71 @@ export function tierCopy(tier) {
   }
 }
 
+/* ─── Live tier metrics (no persistence needed) ─────────────────────────── */
+
+/**
+ * Compute tier metrics from raw profile.data. Used by Home for live display
+ * without needing the identityState write to have happened yet.
+ *
+ * Recovery compliance is hard-coded to 70 as a baseline until the recovery
+ * tracking feature lands (blueprint §4.5 open issue, Day 8).
+ */
+export function calculateLiveTierMetrics(profileData) {
+  const data = profileData || {};
+  const sessions = data.workoutSessions || {};
+  const log = data.workoutLog || {};
+  const plan = data.workoutPlan || {};
+
+  const sessionDates = Object.keys(sessions);
+  const workoutsCompleted = sessionDates.length;
+
+  // Unique ISO weeks (YYYY-Www) containing at least one session.
+  const weekSet = new Set();
+  for (const dateKey of sessionDates) {
+    const d = new Date(dateKey);
+    if (isNaN(d.getTime())) continue;
+    weekSet.add(_isoWeekKey(d));
+  }
+  const weeksActive = weekSet.size;
+
+  // Adherence: completed workouts in the last 28 days vs planned days × 4.
+  const plannedDaysPerWeek = Object.values(plan).filter(v => v && v !== 'Rest').length;
+  let adherencePct = 70; // baseline before plan exists
+  if (plannedDaysPerWeek > 0) {
+    const cutoff = Date.now() - 28 * 24 * 60 * 60 * 1000;
+    let completed = 0;
+    for (const dateKey in log) {
+      const dt = new Date(dateKey);
+      if (isNaN(dt.getTime()) || dt.getTime() < cutoff) continue;
+      if (log[dateKey]?.completed) completed += 1;
+    }
+    const target = plannedDaysPerWeek * 4;
+    adherencePct = Math.min(100, Math.round((completed / target) * 100));
+  }
+
+  const recoveryCompliance = 70; // placeholder until recovery tracking lands
+
+  return { workoutsCompleted, weeksActive, adherencePct, recoveryCompliance };
+}
+
+/** Returns full identity snapshot { tier, score, metrics } for live use. */
+export function calculateLiveIdentity(profileData) {
+  const metrics = calculateLiveTierMetrics(profileData);
+  const score = calculateTierScore(metrics);
+  const tier = tierFromScore(score);
+  return { tier, score, metrics };
+}
+
+function _isoWeekKey(date) {
+  // Returns "YYYY-Www" ISO week key.
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  return `${d.getUTCFullYear()}-W${weekNo.toString().padStart(2, '0')}`;
+}
+
 /* ─── Aggregations for dashboards ───────────────────────────────────────── */
 
 /**
