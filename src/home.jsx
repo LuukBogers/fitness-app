@@ -163,8 +163,8 @@ export function Home({ onOpenCheckIn, onStartTodayWorkout }) {
       <Card style={{ position: 'relative', overflow: 'hidden' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, position: 'relative' }}>
           {[
-            { label: T('macros.carbs'),   color: t.carbs,   target: carbs   || 0, value: eatenC },
             { label: T('macros.protein'), color: t.protein, target: protein || 0, value: eatenP },
+            { label: T('macros.carbs'),   color: t.carbs,   target: carbs   || 0, value: eatenC },
             { label: T('macros.fat'),     color: t.fat,     target: fat     || 0, value: eatenF },
           ].map(macro => {
             const noTarget = !macro.target;

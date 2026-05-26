@@ -438,8 +438,8 @@ export function Nutrition() {
             <Card style={{ padding: 16 }}>
               <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between' }}>
                 {[
-                  { label: T('macros.carbs'),   color: t.carbs,   target: d.carbs   || 0, value: eatenTotals.c, icon: 'wheat' },
                   { label: T('macros.protein'), color: t.protein, target: d.protein || 0, value: eatenTotals.p, icon: 'egg' },
+                  { label: T('macros.carbs'),   color: t.carbs,   target: d.carbs   || 0, value: eatenTotals.c, icon: 'wheat' },
                   { label: T('macros.fat'),     color: t.fat,     target: d.fat     || 0, value: eatenTotals.f, icon: 'drop' },
                 ].map(macro => {
                   const noTarget = !macro.target;
