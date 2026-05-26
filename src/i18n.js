@@ -765,6 +765,62 @@ export const TRANSLATIONS = {
     "sanity.body.weight": "That is more than 3.5x your bodyweight. Did you really lift {weight} kg for {reps} reps?",
     "sanity.confirm": "Yes, that is correct",
     "sanity.edit": "Let me edit",
+
+    // ─── progress dashboard (fase 4) ───
+    "wo.tab.progress": "Progress",
+    "progress.strength": "Strength",
+    "progress.compounds": "Compound lifts",
+    "progress.volume_per_muscle": "Volume per muscle",
+    "progress.all_exercises": "All exercises",
+    "progress.no_exercises": "Log your first set to see exercises here.",
+    "progress.ratio": "ratio",
+    "progress.session_one": "session",
+    "progress.session_other": "sessions",
+    "progress.view_all": "View all",
+    "progress.weekly_review": "Weekly review",
+    "progress.no_volume": "No volume logged yet.",
+
+    // ─── exercise detail PR section (fase 4) ───
+    "exdetail.your_records": "Your records",
+    "exdetail.est1rm": "Estimated 1RM",
+    "exdetail.heaviest": "Heaviest weight",
+    "exdetail.bestvolume": "Best session volume",
+    "exdetail.lifetimevolume": "Lifetime volume",
+    "exdetail.sessions": "Sessions",
+    "exdetail.no_records": "Complete a set to start tracking your records.",
+    "exdetail.history": "1RM history",
+
+    // ─── identity screen (fase 5) ───
+    "identity.title": "Identity",
+    "identity.workouts": "Workouts",
+    "identity.weeks_active": "Weeks active",
+    "identity.adherence": "Adherence",
+    "identity.evidence": "Evidence of change",
+    "identity.no_evidence": "Show up consistently. Your evidence appears here.",
+    "identity.this_week": "This week",
+    "identity.view_review": "View weekly review",
+
+    // ─── weekly review (fase 5) ───
+    "weekly.title": "Weekly review",
+    "weekly.subtitle": "This week moved you forward.",
+    "weekly.no_data": "Not enough activity this week yet.",
+    "weekly.sessions": "Sessions",
+    "weekly.volume": "Volume",
+    "weekly.prs": "Personal bests",
+    "weekly.bodyweight_delta": "Bodyweight delta",
+    "weekly.close": "Close",
+    "weekly.headline.consistency": "Consistency held.",
+    "weekly.headline.strength": "Strength up while bodyweight held.",
+    "weekly.headline.step": "A step forward.",
+    "weekly.headline.quiet": "A quiet week.",
+
+    // ─── identity evidence timeline (fase 5) ───
+    "timeline.long_term_consistency.title": "Built through repetition",
+    "timeline.long_term_consistency.subtitle": "{weeks} weeks active",
+    "timeline.consistency_recovery.title": "Returned to your rhythm",
+    "timeline.consistency_recovery.subtitle": "{sessions} sessions after {days} days off",
+    "timeline.strength_recomp.title": "Lean strength increasing",
+    "timeline.strength_recomp.subtitle": "Strength up while bodyweight stable",
   },
 
   /* ─────────── NEDERLANDS ─────────── */
@@ -1483,6 +1539,62 @@ export const TRANSLATIONS = {
     "sanity.body.weight": "Dat is meer dan 3,5x je lichaamsgewicht. Heb je echt {weight} kg voor {reps} reps gelift?",
     "sanity.confirm": "Ja, dat klopt",
     "sanity.edit": "Laat me bewerken",
+
+    // ─── progress dashboard (fase 4) ───
+    "wo.tab.progress": "Progressie",
+    "progress.strength": "Kracht",
+    "progress.compounds": "Compound lifts",
+    "progress.volume_per_muscle": "Volume per spiergroep",
+    "progress.all_exercises": "Alle oefeningen",
+    "progress.no_exercises": "Log je eerste set om oefeningen hier te zien.",
+    "progress.ratio": "ratio",
+    "progress.session_one": "sessie",
+    "progress.session_other": "sessies",
+    "progress.view_all": "Bekijk alles",
+    "progress.weekly_review": "Weekoverzicht",
+    "progress.no_volume": "Nog geen volume gelogd.",
+
+    // ─── exercise detail PR section (fase 4) ───
+    "exdetail.your_records": "Jouw records",
+    "exdetail.est1rm": "Geschatte 1RM",
+    "exdetail.heaviest": "Zwaarste gewicht",
+    "exdetail.bestvolume": "Beste sessievolume",
+    "exdetail.lifetimevolume": "Totaal volume",
+    "exdetail.sessions": "Sessies",
+    "exdetail.no_records": "Voltooi een set om je records bij te houden.",
+    "exdetail.history": "1RM-historie",
+
+    // ─── identity screen (fase 5) ───
+    "identity.title": "Identiteit",
+    "identity.workouts": "Workouts",
+    "identity.weeks_active": "Actieve weken",
+    "identity.adherence": "Adherence",
+    "identity.evidence": "Bewijs van verandering",
+    "identity.no_evidence": "Wees consistent. Je bewijs verschijnt hier.",
+    "identity.this_week": "Deze week",
+    "identity.view_review": "Bekijk weekoverzicht",
+
+    // ─── weekly review (fase 5) ───
+    "weekly.title": "Weekoverzicht",
+    "weekly.subtitle": "Deze week heeft je vooruit gebracht.",
+    "weekly.no_data": "Nog niet genoeg activiteit deze week.",
+    "weekly.sessions": "Sessies",
+    "weekly.volume": "Volume",
+    "weekly.prs": "Persoonlijke records",
+    "weekly.bodyweight_delta": "Gewichtsverschil",
+    "weekly.close": "Sluiten",
+    "weekly.headline.consistency": "Consistentie vastgehouden.",
+    "weekly.headline.strength": "Kracht omhoog, gewicht stabiel.",
+    "weekly.headline.step": "Een stap vooruit.",
+    "weekly.headline.quiet": "Een rustige week.",
+
+    // ─── identity evidence timeline (fase 5) ───
+    "timeline.long_term_consistency.title": "Opgebouwd door herhaling",
+    "timeline.long_term_consistency.subtitle": "{weeks} weken actief",
+    "timeline.consistency_recovery.title": "Je ritme weer opgepakt",
+    "timeline.consistency_recovery.subtitle": "{sessions} sessies na {days} dagen pauze",
+    "timeline.strength_recomp.title": "Magere kracht stijgt",
+    "timeline.strength_recomp.subtitle": "Kracht omhoog, lichaamsgewicht stabiel",
   },
 
   /* ─────────── DEUTSCH ─────────── */

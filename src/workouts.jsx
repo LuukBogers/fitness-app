@@ -6,6 +6,10 @@ import { EXERCISE_LIBRARY, getExercise, searchExercises, formatRestTime } from '
 import { generateMissingTemplates, countMissingTemplates } from './workout_generator';
 import { WorkoutRunner } from './workout_runner';
 import { ExerciseDetail } from './exercise_detail';
+import {
+  CANONICAL_COMPOUNDS, totalLifetimeVolume, lifetimeVolumeByMuscle,
+  getPREvents, PR_TYPES,
+} from './pr';
 
 // Canonical workout-plan values are English keys (Back/Chest/Legs/Upper/Cardio/Rest/etc.)
 // Localize for display: 'Back' → "Rug" in NL. User-named templates pass through unchanged.
@@ -40,7 +44,7 @@ export function Workouts({ autoStart = false, onConsumedAutoStart = () => {} }) 
   const ti = todayIdx();
   const dates = weekDates();
 
-  const [view, setView] = useState('today');                  // today | templates | library
+  const [view, setView] = useState('today');                  // today | templates | progress | library
   const [selectedDayIdx, setSelectedDayIdx] = useState(ti);   // 0..6 (Mon..Sun)
   const [runnerTpl, setRunnerTpl] = useState(null);
   const [resumeData, setResumeData] = useState(null);
@@ -49,6 +53,7 @@ export function Workouts({ autoStart = false, onConsumedAutoStart = () => {} }) 
   const [showBuilder, setShowBuilder] = useState(false);
   const [editingTpl, setEditingTpl] = useState(null);
   const [showTpl, setShowTpl] = useState(null);
+  const [progressDetailId, setProgressDetailId] = useState(null); // exercise detail from Progress tab
   const [toast, setToast] = useState('');
 
   const flashToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2400); };
@@ -131,9 +136,10 @@ export function Workouts({ autoStart = false, onConsumedAutoStart = () => {} }) 
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 14, overflowX: 'auto' }}>
           <Chip active={view === 'today'} onClick={() => setView('today')} accent="orange">{T('wo.tab.today')}</Chip>
           <Chip active={view === 'templates'} onClick={() => setView('templates')} accent="orange">{T('wo.tab.templates')}</Chip>
+          <Chip active={view === 'progress'} onClick={() => setView('progress')} accent="orange">{T('wo.tab.progress')}</Chip>
           <Chip active={view === 'library'} onClick={() => setView('library')} accent="orange">{T('wo.tab.library')}</Chip>
         </div>
       </div>
@@ -324,6 +330,13 @@ export function Workouts({ autoStart = false, onConsumedAutoStart = () => {} }) 
         </div>
       )}
 
+      {/* ─── PROGRESS ────────────────────────────────────────────────── */}
+      {view === 'progress' && (
+        <div style={{ padding: '0 16px' }}>
+          <ProgressDashboard data={d} T={T} onOpenExercise={setProgressDetailId} />
+        </div>
+      )}
+
       {/* ─── LIBRARY ─────────────────────────────────────────────────── */}
       {view === 'library' && (
         <div style={{ padding: '0 16px' }}>
@@ -396,6 +409,14 @@ export function Workouts({ autoStart = false, onConsumedAutoStart = () => {} }) 
       />
 
       <Toast message={toast} visible={!!toast} />
+
+      {/* Exercise detail (Progress tab tap target) */}
+      {progressDetailId && (
+        <ExerciseDetail
+          exerciseId={progressDetailId}
+          onClose={() => setProgressDetailId(null)}
+        />
+      )}
     </div>
   );
 }
@@ -712,6 +733,227 @@ function TemplateExercisePicker({ visible, onClose, onPick, T }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * PROGRESS DASHBOARD — sub-tab inside Workouts
+ *
+ * Sections (top→bottom): compound lifts, lifetime volume per muscle,
+ * all-exercises list (sortable by lifetime volume). Visual DNA matches the
+ * Home ProgressionHub (matte glass, editorial typography, calm motion).
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+function ProgressDashboard({ data, T, onOpenExercise }) {
+  const exerciseStats = data.exerciseStats || {};
+  const compoundStrength = data.compoundStrength || {};
+  const prEvents = Array.isArray(data.prEvents) ? data.prEvents : [];
+
+  // Lifetime totals
+  const totalVol = totalLifetimeVolume(exerciseStats);
+  const volByMuscle = lifetimeVolumeByMuscle(exerciseStats, getExercise);
+  const maxMuscleVol = Math.max(1, ...Object.values(volByMuscle));
+
+  // All-exercises list — sorted by lifetime volume desc
+  const allExercises = Object.entries(exerciseStats)
+    .filter(([, stats]) => (stats.lifetimeVolume || 0) > 0)
+    .map(([id, stats]) => ({ id, stats, meta: getExercise(id) }))
+    .filter(x => x.meta)
+    .sort((a, b) => (b.stats.lifetimeVolume || 0) - (a.stats.lifetimeVolume || 0));
+
+  const hasAnyData = totalVol > 0 || prEvents.length > 0;
+
+  return (
+    <div style={{ paddingBottom: 60 }}>
+      {/* Compound lifts strip */}
+      <Card style={{ padding: 16, marginBottom: 12, position: 'relative', overflow: 'hidden' }}>
+        <div style={{
+          position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',
+          width: '120%', height: 90,
+          background: 'radial-gradient(ellipse at center top, rgba(77,139,250,0.08), transparent 70%)',
+          pointerEvents: 'none',
+        }} />
+        <Label style={{ marginBottom: 14 }}>{T('progress.compounds')}</Label>
+        <div style={{
+          display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4,
+          margin: '0 -4px', padding: '0 4px 4px',
+          scrollbarWidth: 'none',
+        }}>
+          {Object.entries(CANONICAL_COMPOUNDS).map(([key, cfg]) => (
+            <CompoundCard
+              key={key}
+              name={cfg.name}
+              compound={compoundStrength[key]}
+              T={T}
+            />
+          ))}
+        </div>
+      </Card>
+
+      {/* Lifetime volume per muscle */}
+      <Card style={{ padding: 18, marginBottom: 12 }}>
+        <div style={{
+          display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+          marginBottom: 16,
+        }}>
+          <Label style={{ marginBottom: 0 }}>{T('progress.volume_per_muscle')}</Label>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+            <span style={{
+              fontSize: 18, fontWeight: 800, color: t.text,
+              letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums',
+            }}>{totalVol.toLocaleString('en-US')}</span>
+            <span style={{ fontSize: 11, color: t.soft, fontWeight: 600 }}>kg</span>
+          </div>
+        </div>
+
+        {Object.keys(volByMuscle).length === 0 ? (
+          <div style={{
+            fontSize: 13, color: t.muted, fontStyle: 'italic',
+            padding: '8px 0', lineHeight: 1.5,
+          }}>
+            {T('progress.no_volume')}
+          </div>
+        ) : (
+          ['chest', 'back', 'shoulders', 'arms', 'legs', 'core']
+            .filter(m => volByMuscle[m])
+            .map(m => (
+              <MuscleVolumeBar
+                key={m}
+                label={T(`wr.mg.${m}`)}
+                value={volByMuscle[m]}
+                max={maxMuscleVol}
+              />
+            ))
+        )}
+      </Card>
+
+      {/* All exercises list */}
+      <Card style={{ padding: 18, marginBottom: 12 }}>
+        <Label style={{ marginBottom: 12 }}>{T('progress.all_exercises')}</Label>
+
+        {allExercises.length === 0 ? (
+          <div style={{
+            fontSize: 13, color: t.muted, fontStyle: 'italic',
+            padding: '8px 0', lineHeight: 1.5,
+          }}>
+            {T('progress.no_exercises')}
+          </div>
+        ) : (
+          allExercises.slice(0, 20).map(({ id, stats, meta }) => (
+            <ExerciseStatsRow
+              key={id}
+              meta={meta}
+              stats={stats}
+              T={T}
+              onClick={() => onOpenExercise(id)}
+            />
+          ))
+        )}
+      </Card>
+    </div>
+  );
+}
+
+function CompoundCard({ name, compound, T }) {
+  const has = !!(compound && compound.est1RM > 0);
+  return (
+    <div style={{
+      flexShrink: 0, minWidth: 124, maxWidth: 140,
+      padding: '12px 14px',
+      borderRadius: 14,
+      background: 'rgba(255,255,255,0.025)',
+      border: `1px solid ${t.border}`,
+      boxShadow: 'inset 0 1px 0 0 rgba(255,255,255,0.04)',
+    }}>
+      <div style={{
+        fontSize: 10, fontWeight: 800, color: t.soft,
+        letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6,
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+      }}>
+        {name}
+      </div>
+      <div style={{
+        fontSize: 17, fontWeight: 800, color: has ? t.text : t.muted,
+        letterSpacing: '-0.02em', lineHeight: 1.1, marginBottom: 4,
+        fontVariantNumeric: 'tabular-nums',
+      }}>
+        {has ? `${compound.est1RM.toFixed(1)}` : '—'}
+        {has && <span style={{ fontSize: 11, color: t.soft, marginLeft: 3, fontWeight: 600 }}>kg</span>}
+      </div>
+      <div style={{ fontSize: 11, color: t.muted, fontWeight: 500 }}>
+        {has ? `${compound.strengthRatio.toFixed(2)}× ${T('progress.ratio')}` : T('progress.ratio')}
+      </div>
+    </div>
+  );
+}
+
+function MuscleVolumeBar({ label, value, max }) {
+  const pct = Math.max(2, Math.round((value / max) * 100));
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+        marginBottom: 6,
+      }}>
+        <span style={{ fontSize: 12, color: t.soft, fontWeight: 600 }}>{label}</span>
+        <span style={{
+          fontSize: 12, color: t.text, fontWeight: 700,
+          fontVariantNumeric: 'tabular-nums',
+        }}>
+          {value.toLocaleString('en-US')} <span style={{ color: t.muted, fontSize: 10, fontWeight: 600 }}>kg</span>
+        </span>
+      </div>
+      <div style={{
+        height: 4, background: 'rgba(140,160,200,0.08)', borderRadius: 2, overflow: 'hidden',
+      }}>
+        <div style={{
+          height: '100%', width: `${pct}%`,
+          background: 'linear-gradient(90deg, #6FA0FF, #4D8BFA)',
+          transition: 'width 0.6s ease-out',
+        }} />
+      </div>
+    </div>
+  );
+}
+
+function ExerciseStatsRow({ meta, stats, T, onClick }) {
+  const sessLabel = stats.totalSessions === 1
+    ? T('progress.session_one')
+    : T('progress.session_other');
+  return (
+    <div onClick={onClick} style={{
+      display: 'flex', alignItems: 'center', gap: 12,
+      padding: '12px 0', borderTop: `1px solid ${t.border}`,
+      cursor: 'pointer',
+    }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontSize: 14, fontWeight: 700, color: t.text,
+          letterSpacing: '-0.01em', lineHeight: 1.25,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {meta.name}
+        </div>
+        <div style={{
+          fontSize: 11, color: t.muted, marginTop: 3,
+          fontVariantNumeric: 'tabular-nums',
+        }}>
+          {stats.totalSessions} {sessLabel} · {Math.round(stats.lifetimeVolume).toLocaleString('en-US')} kg
+        </div>
+      </div>
+      <div style={{ textAlign: 'right', minWidth: 70, flexShrink: 0 }}>
+        <div style={{
+          fontSize: 15, fontWeight: 800, color: t.text,
+          letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums',
+        }}>
+          {stats.est1RM > 0 ? stats.est1RM.toFixed(1) : '—'}
+        </div>
+        <div style={{ fontSize: 9.5, color: t.muted, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+          {stats.est1RM > 0 ? 'kg · 1RM' : ''}
+        </div>
+      </div>
+      <Icon name="chevR" size={14} color={t.muted} />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { ExerciseDetail } from './exercise_detail';
 import {
   ensureProgressionShape, detectPR, checkSanity, calculateEpley,
   processWorkoutCompletion, prPostWorkoutHeadline, PR_TYPES,
+  generateTimelineEntries,
 } from './pr';
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -363,10 +364,24 @@ export function WorkoutRunner({ visible, onClose, template, onFinished, resumeFr
       [dateKey]: { workoutName: template?.name || T('wr.quickworkout'), completed: true },
     };
 
+    // ── Generate identity-evidence timeline entries (idempotent) ────────
+    // Run against the post-write snapshot so today's session is visible to
+    // the long-term-consistency / strength-recomp triggers.
+    const postWriteData = {
+      ...profileData,
+      exerciseStats: newExerciseStats,
+      prEvents: newPrEvents,
+      workoutSessions: newSessions,
+      workoutLog: newLog,
+    };
+    const newTimelineEntries = generateTimelineEntries(postWriteData);
+    const newTimeline = [...profileData.timeline, ...newTimelineEntries];
+
     await saveProfileData({
       exerciseStats: newExerciseStats,
       compoundStrength: newCompoundStrength,
       prEvents: newPrEvents,
+      timeline: newTimeline,
       workoutSessions: newSessions,
       workoutLog: newLog,
       inProgressWorkout: null,

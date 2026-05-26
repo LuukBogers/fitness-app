@@ -7,6 +7,7 @@ import {
   TIERS, PR_TYPES,
 } from './pr';
 import { getExercise } from './exercise_library';
+import { IdentityScreen } from './identity_screen';
 
 /* ═══════════════════════════ HOME ═══════════════════════════ */
 export function Home({ onOpenCheckIn, onStartTodayWorkout }) {
@@ -15,6 +16,7 @@ export function Home({ onOpenCheckIn, onStartTodayWorkout }) {
   const { profile, session } = useApp();
   const [showNotifs, setShowNotifs] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showIdentity, setShowIdentity] = useState(false);
   const d = profile?.data || {};
   const userName = profile?.name || session?.user?.user_metadata?.full_name || session?.user?.email?.split('@')[0] || 'You';
   const calories = d.calories || 0;
@@ -247,7 +249,7 @@ export function Home({ onOpenCheckIn, onStartTodayWorkout }) {
       })()}
 
       {/* Block 4: Progression hub — Identity + Recent PRs + Lifetime volume */}
-      <ProgressionHub data={d} T={T} />
+      <ProgressionHub data={d} T={T} onTap={() => setShowIdentity(true)} />
 
       {/* Block 5: Weight Graph — clickable to open history */}
       <Card onClick={() => setShowHistory(true)}>
@@ -295,6 +297,7 @@ export function Home({ onOpenCheckIn, onStartTodayWorkout }) {
 
       <NotificationsModal visible={showNotifs} onClose={() => setShowNotifs(false)} />
       <CheckinHistoryModal visible={showHistory} onClose={() => setShowHistory(false)} />
+      {showIdentity && <IdentityScreen data={d} onClose={() => setShowIdentity(false)} />}
     </div>
   );
 }
@@ -324,7 +327,7 @@ function formatPRValue(prType, value) {
   return `${Number(value).toFixed(1)} kg`;
 }
 
-function ProgressionHub({ data, T }) {
+function ProgressionHub({ data, T, onTap }) {
   const { tier, score } = calculateLiveIdentity(data);
   const tierKeys = TIER_KEY_MAP[tier] || TIER_KEY_MAP[TIERS.FOUNDATION];
   const exerciseStats = data.exerciseStats || {};
@@ -339,7 +342,7 @@ function ProgressionHub({ data, T }) {
   const hasAnyProgress = prEvents.length > 0 || lifetimeVol > 0;
 
   return (
-    <Card style={{ padding: 20, position: 'relative', overflow: 'hidden' }}>
+    <Card onClick={onTap} style={{ padding: 20, position: 'relative', overflow: 'hidden' }}>
       {/* Soft top-light gradient — premium cinematic feel */}
       <div style={{
         position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)',

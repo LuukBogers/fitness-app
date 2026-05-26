@@ -548,6 +548,228 @@ export function est1RMHistory(prEvents, exerciseId) {
     .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 }
 
+/* ─── Identity Evidence Timeline triggers ───────────────────────────────── */
+/* Three of six blueprint triggers implemented for MVP. Three deferred until
+ * supporting features land: DISCIPLINE_ADHERENCE (needs nutrition adherence),
+ * RECOVERY_INTELLIGENCE (needs deload tracking), FULL_CYCLE_COMPLETION (needs
+ * program/cycle tracking). See blueprint §10 open issues.                    */
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * Inspect profile data and return new timeline entries that haven't been
+ * generated yet. Idempotent — calling multiple times produces no duplicates
+ * because each trigger type has a uniqueness key written to metadata.
+ *
+ * @param {Object} profileData  ensureProgressionShape'd profile.data
+ * @returns {Array} new timeline entries (caller persists them)
+ */
+export function generateTimelineEntries(profileData) {
+  const data = profileData || {};
+  const sessions = data.workoutSessions || {};
+  const existing = Array.isArray(data.timeline) ? data.timeline : [];
+  const weights = Array.isArray(data.weights) ? data.weights : [];
+  const exerciseStats = data.exerciseStats || {};
+
+  const now = new Date().toISOString();
+  const newEntries = [];
+
+  const sessionKeys = Object.keys(sessions).sort();
+  if (sessionKeys.length === 0) return newEntries;
+
+  // Helper: has trigger type already fired (optionally for a specific key)
+  const hasFired = (type, key) => existing.some(e =>
+    e.type === type && (!key || (e.metadata && e.metadata.key === key))
+  );
+
+  // ─── Trigger 5: LONG_TERM_CONSISTENCY (12 unique weeks ever) ──────────
+  if (!hasFired(TIMELINE_TYPES.LONG_TERM_CONSISTENCY)) {
+    const weekSet = new Set();
+    for (const k of sessionKeys) {
+      const d = new Date(k);
+      if (!isNaN(d.getTime())) weekSet.add(_isoWeekKey(d));
+    }
+    if (weekSet.size >= 12) {
+      newEntries.push({
+        id: _newId(),
+        type: TIMELINE_TYPES.LONG_TERM_CONSISTENCY,
+        titleKey: 'timeline.long_term_consistency.title',
+        subtitleKey: 'timeline.long_term_consistency.subtitle',
+        subtitleVars: { weeks: weekSet.size },
+        metadata: { weeks: weekSet.size },
+        createdAt: now,
+      });
+    }
+  }
+
+  // ─── Trigger 1: CONSISTENCY_RECOVERY (3 sessions after >7d gap) ──────
+  // Walk through sessions chronologically. After every gap >7 days, count the
+  // next 3 sessions within 7 days. If found → emit one entry per gap, keyed by
+  // the gap's "return-date" so re-runs don't duplicate.
+  if (sessionKeys.length >= 4) {
+    for (let i = 1; i < sessionKeys.length; i++) {
+      const prev = new Date(sessionKeys[i - 1]);
+      const curr = new Date(sessionKeys[i]);
+      if (isNaN(prev.getTime()) || isNaN(curr.getTime())) continue;
+      const gapDays = (curr - prev) / MS_PER_DAY;
+      if (gapDays <= 7) continue;
+      // Count sessions in 7d window after return
+      const windowEnd = curr.getTime() + 7 * MS_PER_DAY;
+      let count = 0;
+      for (let j = i; j < sessionKeys.length; j++) {
+        const dt = new Date(sessionKeys[j]).getTime();
+        if (dt > windowEnd) break;
+        count += 1;
+      }
+      if (count >= 3) {
+        const key = `return-${sessionKeys[i]}`;
+        if (!hasFired(TIMELINE_TYPES.CONSISTENCY_RECOVERY, key)) {
+          newEntries.push({
+            id: _newId(),
+            type: TIMELINE_TYPES.CONSISTENCY_RECOVERY,
+            titleKey: 'timeline.consistency_recovery.title',
+            subtitleKey: 'timeline.consistency_recovery.subtitle',
+            subtitleVars: { sessions: count, days: Math.round(gapDays) },
+            metadata: { key, gapDays: Math.round(gapDays), sessions: count },
+            createdAt: now,
+          });
+        }
+      }
+    }
+  }
+
+  // ─── Trigger 2: STRENGTH_RECOMP (strength ↑ + bodyweight stable) ─────
+  // Conditions over the last 28 days:
+  //   - At least one est1RM PR was set (lifetimeVolume increase isn't enough)
+  //   - Bodyweight range < 2.0 kg (stable)
+  //   - At least 2 bodyweight readings in the window
+  if (!hasFired(TIMELINE_TYPES.STRENGTH_RECOMP, _monthKey())) {
+    const cutoff = Date.now() - 28 * MS_PER_DAY;
+    const recentWeights = weights
+      .map(w => ({ ts: new Date(w.date).getTime(), kg: Number(w.weight) || 0 }))
+      .filter(w => !isNaN(w.ts) && w.ts >= cutoff);
+    if (recentWeights.length >= 2) {
+      const kgs = recentWeights.map(w => w.kg);
+      const range = Math.max(...kgs) - Math.min(...kgs);
+      if (range < 2.0) {
+        // Look for an EST_1RM event in last 28 days
+        const events = Array.isArray(data.prEvents) ? data.prEvents : [];
+        const hadStrengthEvent = events.some(e =>
+          e.type === PR_TYPES.EST_1RM &&
+          new Date(e.createdAt).getTime() >= cutoff
+        );
+        if (hadStrengthEvent) {
+          newEntries.push({
+            id: _newId(),
+            type: TIMELINE_TYPES.STRENGTH_RECOMP,
+            titleKey: 'timeline.strength_recomp.title',
+            subtitleKey: 'timeline.strength_recomp.subtitle',
+            subtitleVars: {},
+            metadata: {
+              key: _monthKey(),
+              bodyweightRange: round1(range),
+              avgBodyweight: round1(kgs.reduce((s, k) => s + k, 0) / kgs.length),
+            },
+            createdAt: now,
+          });
+        }
+      }
+    }
+  }
+
+  return newEntries;
+}
+
+function _monthKey() {
+  const d = new Date();
+  return `${d.getUTCFullYear()}-${(d.getUTCMonth() + 1).toString().padStart(2, '0')}`;
+}
+
+/* ─── Weekly Review generator ───────────────────────────────────────────── */
+
+/**
+ * Compute a weekly review snapshot for the week containing `dateRef` (default
+ * = current Monday). Returns null if no sessions or weights logged that week.
+ *
+ * Shape:
+ *   { weekStart, sessionCount, totalVolume, prCount, topPR, bodyweightDelta,
+ *     identitySentenceKey, headline }
+ */
+export function generateWeeklyReview(profileData, dateRef = new Date()) {
+  const data = profileData || {};
+  const sessions = data.workoutSessions || {};
+  const prEvents = Array.isArray(data.prEvents) ? data.prEvents : [];
+  const weights = Array.isArray(data.weights) ? data.weights : [];
+
+  const monday = _mondayOf(dateRef);
+  const sunday = new Date(monday.getTime() + 7 * MS_PER_DAY - 1);
+  const inWeek = (isoStr) => {
+    const t = new Date(isoStr).getTime();
+    return !isNaN(t) && t >= monday.getTime() && t <= sunday.getTime();
+  };
+
+  const weekSessions = Object.entries(sessions).filter(([k]) => inWeek(k));
+  const weekPRs = prEvents.filter(e => inWeek(e.createdAt));
+
+  let totalVolume = 0;
+  for (const [, sess] of weekSessions) {
+    for (const ex of (sess.exercises || [])) {
+      for (const s of (ex.sets || [])) {
+        if (s.completedAt) totalVolume += (Number(s.weight) || 0) * (Number(s.reps) || 0);
+      }
+    }
+  }
+
+  // Bodyweight delta over the week
+  let bodyweightDelta = null;
+  const weekWeights = weights
+    .map(w => ({ ts: new Date(w.date).getTime(), kg: Number(w.weight) || 0 }))
+    .filter(w => !isNaN(w.ts) && w.ts >= monday.getTime() && w.ts <= sunday.getTime());
+  if (weekWeights.length >= 2) {
+    bodyweightDelta = round1(weekWeights[weekWeights.length - 1].kg - weekWeights[0].kg);
+  }
+
+  // Pick top PR
+  const topPR = weekPRs.find(p => p.type === PR_TYPES.EST_1RM)
+             || weekPRs.find(p => p.type === PR_TYPES.HEAVIEST_WEIGHT)
+             || weekPRs.find(p => p.type === PR_TYPES.BEST_VOLUME)
+             || null;
+
+  if (weekSessions.length === 0 && weekPRs.length === 0 && !bodyweightDelta) {
+    return null;
+  }
+
+  // Headline picks based on data shape (no PR-spam — calm copy)
+  let headline = 'A quiet week.';
+  if (weekPRs.length > 0 && bodyweightDelta !== null && bodyweightDelta <= 0) {
+    headline = 'Strength up while bodyweight held.';
+  } else if (weekPRs.length > 0) {
+    headline = `${weekPRs.length} personal best${weekPRs.length === 1 ? '' : 's'} this week.`;
+  } else if (weekSessions.length >= 3) {
+    headline = 'Consistency held.';
+  } else if (weekSessions.length > 0) {
+    headline = 'A step forward.';
+  }
+
+  return {
+    weekStart: monday.toISOString().slice(0, 10),
+    sessionCount: weekSessions.length,
+    totalVolume: Math.round(totalVolume),
+    prCount: weekPRs.length,
+    topPR,
+    bodyweightDelta,
+    headline,
+  };
+}
+
+function _mondayOf(date) {
+  const d = new Date(date);
+  const dayUtc = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() - (dayUtc - 1));
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
+}
+
 /* ─── In-flow runtime helpers ───────────────────────────────────────────── */
 /* These are stateless helpers — actual runtime state (inFlowPRShown,
  * currentWorkoutVolume) lives in the workout_runner component's local state. */
