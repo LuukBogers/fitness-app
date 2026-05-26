@@ -494,7 +494,6 @@ function PreviewExerciseCard({ exercise, entry, letter, T }) {
             <Pill>{T('wr.pill.sets')}: {entry.setCount}</Pill>
             <Pill>{T('wr.pill.reps')}: {entry.repRange}</Pill>
             <Pill>{T('wr.pill.rest')}: {restLabel}</Pill>
-            {entry.tempo && <Pill>{T('wr.pill.tempo')}: {entry.tempo}</Pill>}
           </div>
         </div>
       </div>

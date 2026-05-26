@@ -517,7 +517,6 @@ function ExerciseCard({ exEntry, exIdx, letter, workoutSessions, onUpdateSet, on
             <Pill>{T('wr.pill.sets')}: {totalSets}</Pill>
             <Pill>{T('wr.pill.reps')}: {exEntry.repRange}</Pill>
             <Pill>{T('wr.pill.rest')}: {restLabel}</Pill>
-            {exEntry.tempo && <Pill>{T('wr.pill.tempo')}: {exEntry.tempo}</Pill>}
           </div>
         </div>
       </div>

@@ -22,13 +22,20 @@ export function ExerciseDetail({ exerciseId, onClose }) {
 
   if (!ex) return null;
 
-  const movementLabel = ex.movementType
-    ? ex.movementType.charAt(0).toUpperCase() + ex.movementType.slice(1)
-    : '—';
-  const equipmentLabel = ex.equipment
-    ? ex.equipment.charAt(0).toUpperCase() + ex.equipment.slice(1)
-    : '—';
-  const secondary = (ex.secondaryMuscles || []).map(m => T(`wr.mg.${m}`) || m).join(', ') || '—';
+  const cap = s => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '—');
+  // Safe muscle-name lookup: use i18n if key exists, else capitalize raw value.
+  // This handles secondary muscles like 'triceps', 'biceps', 'glutes' that
+  // don't have a wr.mg.* key.
+  const muscleName = m => {
+    if (!m) return '—';
+    const key = `wr.mg.${m}`;
+    const translated = T(key);
+    return translated === key ? cap(m) : translated;
+  };
+
+  const movementLabel = cap(ex.movementType);
+  const equipmentLabel = cap(ex.equipment);
+  const secondary = (ex.secondaryMuscles || []).map(muscleName).join(', ') || '—';
 
   return (
     <div style={{
@@ -69,14 +76,12 @@ export function ExerciseDetail({ exerciseId, onClose }) {
           background: t.card, border: `1px solid ${t.border}`,
           borderRadius: 14, padding: 14, marginBottom: 14,
         }}>
-          <MetaRow label={T('wr.mg.' + ex.primaryMuscle) || ex.primaryMuscle}
-                   value={equipmentLabel} />
+          <MetaRow label={T('exdetail.primary')} value={muscleName(ex.primaryMuscle)} />
           <MetaRow label={T('exdetail.secondary')} value={secondary} />
           <MetaRow label={T('exdetail.movement')} value={movementLabel} />
           <MetaRow label={T('exdetail.equipment')} value={equipmentLabel} />
-          <MetaRow label={T('exdetail.defaults')}
-                   value={`${ex.defaultRepRange || '—'} · ${formatRestTime(ex.defaultRestSec || 0)} · ${ex.defaultTempo || '—'}`}
-                   last />
+          <MetaRow label={T('exdetail.reps')} value={ex.defaultRepRange || '—'} />
+          <MetaRow label={T('exdetail.rest')} value={formatRestTime(ex.defaultRestSec || 0)} last />
         </div>
 
         {/* Execution */}
