@@ -3,6 +3,7 @@ import { t, useApp, useT, todayKey, newId } from './lib';
 import { Icon, Card, Btn, Modal, Pill, LetterBadge, VideoThumb, ActionSheet } from './shared';
 import { Toast } from './modals';
 import { EXERCISE_LIBRARY, getExercise, formatRestTime, findLastSetFor } from './exercise_library';
+import { ExerciseDetail } from './exercise_detail';
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * WORKOUT RUNNER — premium gym-flow screen
@@ -59,6 +60,7 @@ export function WorkoutRunner({ visible, onClose, template, onFinished, resumeFr
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const [showAddExercise, setShowAddExercise] = useState(false);
   const [actionsTarget, setActionsTarget] = useState(null);
+  const [detailExId, setDetailExId] = useState(null);
   const [toast, setToast] = useState('');
 
   // Initialize / reset on open
@@ -348,6 +350,7 @@ export function WorkoutRunner({ visible, onClose, template, onFinished, resumeFr
                 onAddSet={() => addSet(exIdx)}
                 onRemoveSet={(setIdx) => removeSet(exIdx, setIdx)}
                 onOpenActions={() => setActionsTarget(exIdx)}
+                onOpenDetail={() => setDetailExId(exEntry.exerciseId)}
                 T={T}
               />
             ))}
@@ -414,6 +417,9 @@ export function WorkoutRunner({ visible, onClose, template, onFinished, resumeFr
       />
 
       <Toast message={toast} visible={!!toast} />
+
+      {/* Exercise detail modal */}
+      {detailExId && <ExerciseDetail exerciseId={detailExId} onClose={() => setDetailExId(null)} />}
     </div>
   );
 }
@@ -471,7 +477,7 @@ function SmallChip({ onClick, children }) {
 }
 
 /* ─────────────────────── ExerciseCard ─────────────────────── */
-function ExerciseCard({ exEntry, exIdx, letter, workoutSessions, onUpdateSet, onToggleComplete, onToggleBw, onAddSet, onRemoveSet, onOpenActions, T }) {
+function ExerciseCard({ exEntry, exIdx, letter, workoutSessions, onUpdateSet, onToggleComplete, onToggleBw, onAddSet, onRemoveSet, onOpenActions, onOpenDetail, T }) {
   const exMeta = getExercise(exEntry.exerciseId);
   const lastSet = useMemo(() => findLastSetFor(exEntry.exerciseId, workoutSessions), [exEntry.exerciseId, workoutSessions]);
 
@@ -492,10 +498,12 @@ function ExerciseCard({ exEntry, exIdx, letter, workoutSessions, onUpdateSet, on
     <Card style={{ padding: 14, marginBottom: 14 }}>
       {/* Header row */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
-        <VideoThumb exercise={exMeta} size="md" />
+        <div onClick={onOpenDetail} style={{ cursor: 'pointer' }}>
+          <VideoThumb exercise={exMeta} size="md" />
+        </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-            <div style={{ flex: 1, fontSize: 16, fontWeight: 800, color: t.text, lineHeight: 1.25, letterSpacing: '-0.01em' }}>
+            <div onClick={onOpenDetail} style={{ flex: 1, fontSize: 16, fontWeight: 800, color: t.text, lineHeight: 1.25, letterSpacing: '-0.01em', cursor: 'pointer' }}>
               {exMeta.name}
             </div>
             <div onClick={onOpenActions} style={{

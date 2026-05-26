@@ -5,6 +5,7 @@ import { Toast } from './modals';
 import { EXERCISE_LIBRARY, getExercise, searchExercises, formatRestTime } from './exercise_library';
 import { generateMissingTemplates, countMissingTemplates } from './workout_generator';
 import { WorkoutRunner } from './workout_runner';
+import { ExerciseDetail } from './exercise_detail';
 
 // Canonical workout-plan values are English keys (Back/Chest/Legs/Upper/Cardio/Rest/etc.)
 // Localize for display: 'Back' → "Rug" in NL. User-named templates pass through unchanged.
@@ -505,6 +506,7 @@ function PreviewExerciseCard({ exercise, entry, letter, T }) {
 function ExerciseLibraryScreen({ T }) {
   const [q, setQ] = useState('');
   const [muscle, setMuscle] = useState('all');
+  const [detailId, setDetailId] = useState(null);
   const list = useMemo(() => searchExercises(q, { muscle }), [q, muscle]);
 
   return (
@@ -524,7 +526,7 @@ function ExerciseLibraryScreen({ T }) {
         {T('wo.lib.count', { count: list.length })}
       </div>
       {list.map(e => (
-        <Card key={e.id} style={{ padding: 10, marginBottom: 6 }}>
+        <Card key={e.id} onClick={() => setDetailId(e.id)} style={{ padding: 10, marginBottom: 6, cursor: 'pointer' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <VideoThumb exercise={e} size="sm" />
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -533,6 +535,7 @@ function ExerciseLibraryScreen({ T }) {
                 {T(`wr.mg.${e.primaryMuscle}`)} · {e.equipment} · {e.defaultRepRange} · {formatRestTime(e.defaultRestSec)}
               </div>
             </div>
+            <div style={{ color: t.soft, fontSize: 18, paddingRight: 4 }}>›</div>
           </div>
         </Card>
       ))}
@@ -541,6 +544,7 @@ function ExerciseLibraryScreen({ T }) {
           {T('wr.lib.empty')}
         </div>
       )}
+      {detailId && <ExerciseDetail exerciseId={detailId} onClose={() => setDetailId(null)} />}
     </>
   );
 }
